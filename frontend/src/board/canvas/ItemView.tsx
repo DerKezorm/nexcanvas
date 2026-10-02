@@ -226,7 +226,8 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
     case 'ink':
       return (
         <svg className="absolute inset-0 overflow-visible" width={item.w} height={item.h} viewBox={`0 0 ${item.ow} ${item.oh}`} preserveAspectRatio="none" aria-hidden="true" style={{ pointerEvents: 'none' }}>
-          <path d={inkPath(item)} fill={paint(item.color)} opacity={item.marker ? 0.42 : 1} />
+          {/* On a PDF page (white paper in either mode) the colour of the mode would vanish; it writes dark there. */}
+          <path d={inkPath(item)} fill={item.on && item.color === 'auto' ? '#1c1917' : paint(item.color)} opacity={item.marker ? 0.42 : 1} />
           <path d={inkPath(item)} fill="transparent" stroke="transparent" strokeWidth={12} vectorEffect="non-scaling-stroke" style={{ pointerEvents: 'all' }} />
         </svg>
       )

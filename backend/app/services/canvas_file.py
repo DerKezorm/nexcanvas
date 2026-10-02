@@ -418,6 +418,10 @@ def import_into(
         if extra is None or not isinstance(raw.get("points"), list):
             result.skipped += 1
             continue
+        # Drawn on a page of a PDF that came along: it stays on that page; else it is a drawing like any other.
+        on = extra.pop("on", None)
+        if isinstance(on, dict) and ids.get(str(on.get("item", ""))):
+            extra["on"] = {"item": ids[str(on["item"])], "page": max(1, int(_number(on.get("page"), 1)))}
         items.append({**extra, "x": _number(raw.get("x")), "y": _number(raw.get("y")),
                       "w": max(1.0, _number(raw.get("w"), 1)), "h": max(1.0, _number(raw.get("h"), 1)),
                       "id": boards.new_id()})

@@ -59,6 +59,8 @@ export interface InkItem extends Box {
   color: string
   size: number
   marker?: boolean
+  /** Drawn on a page of a PDF: shown while that page is, and moved with the PDF. */
+  on?: { item: string; page: number }
 }
 
 export interface ImageItem extends Box {

@@ -46,6 +46,21 @@ function framesInOrder(items: Item[]): FrameItem[] {
   return frames.sort((a, b) => (Math.abs(a.y - b.y) > Math.min(a.h, b.h) / 2 ? a.y - b.y : a.x - b.x))
 }
 
+/** Drawings made on a PDF page that is not the one showing now: they wait until the page comes back. */
+function waitingInk(items: Item[]): Set<string> {
+  const pages = new Map(items.filter((i) => i.kind === 'file').map((i) => [i.id, i.kind === 'file' ? (i.page ?? 1) : 1]))
+  const hidden = new Set<string>()
+  for (const item of items) {
+    if (item.kind === 'ink' && item.on && pages.has(item.on.item) && pages.get(item.on.item) !== item.on.page) hidden.add(item.id)
+  }
+  return hidden
+}
+
+/** The drawings that belong to the given PDFs, on every page. */
+function notesOn(ids: Set<string>, items: Item[]): string[] {
+  return items.filter((i) => i.kind === 'ink' && i.on && ids.has(i.on.item)).map((i) => i.id)
+}
+
 /** Gives copied items new group ids, so a copy of a group is a group of its own and not part of the first. */
 function freshGroups<T extends Item>(copies: T[]): T[] {
   const map = new Map<string, string>()
@@ -166,6 +181,7 @@ function Editor({ board }: { board: Board }) {
   const freshText = useRef<string | null>(null)
 
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
+  const waiting = useMemo(() => waitingInk(items), [items])
   const selectedSet = useMemo(() => new Set(selected), [selected])
   const selItems = items.filter((i) => selectedSet.has(i.id))
   const selLines = lines.filter((l) => selectedSet.has(l.id))
@@ -294,6 +310,7 @@ function Editor({ board }: { board: Board }) {
   const removeIds = useCallback(
     (ids: string[]) => {
       const gone = new Set(ids)
+      for (const id of notesOn(gone, doc.ref.current.items)) gone.add(id)
       doc.commit((d) => ({
         items: d.items.filter((i) => !gone.has(i.id)),
         lines: d.lines.filter((l) => !gone.has(l.id) && !(l.a.item && gone.has(l.a.item)) && !(l.b.item && gone.has(l.b.item))),
@@ -460,7 +477,9 @@ function Editor({ board }: { board: Board }) {
 
     const handle = target.closest<HTMLElement>('[data-handle]')?.dataset
     if (handle?.handle === 'resize') {
-      const ids = selItems.filter((i) => !i.locked).map((i) => i.id)
+      const own = selItems.filter((i) => !i.locked).map((i) => i.id)
+      // A PDF's notes grow and shrink with it.
+      const ids = [...own, ...notesOn(new Set(own), doc.ref.current.items).filter((id) => !own.includes(id))]
       const box = bounds(selItems.filter((i) => !i.locked))
       if (box && ids.length) {
         const keep = e.shiftKey || selItems.some((i) => i.kind === 'image' || i.kind === 'ink') || ids.length > 1
@@ -503,6 +522,7 @@ function Editor({ board }: { board: Board }) {
         // A frame takes along what lies in it, and the free ends of lines in it.
         const frames = all.filter((i) => chosen.has(i.id) && i.kind === 'frame' && !i.locked)
         for (const frame of frames) for (const inside of inFrame(frame, all)) chosen.add(inside.id)
+        for (const id of notesOn(chosen, all)) chosen.add(id)
         const movable = all.filter((i) => chosen.has(i.id) && !i.locked)
         const freeLines = doc.ref.current.lines
           .filter((l) => chosen.has(l.id) || frames.some((f) => (!l.a.item && contains(f, l.a)) || (!l.b.item && contains(f, l.b))))
@@ -739,7 +759,7 @@ function Editor({ board }: { board: Board }) {
         setMarquee(r)
         // A frame only when the rectangle holds all of it: a rectangle drawn inside a frame picks what is in there.
         const inside = withGroups(
-          doc.ref.current.items.filter((i) => (i.kind === 'frame' ? contains(r, i) && contains(r, { x: i.x + i.w, y: i.y + i.h }) : intersects(outer(i), r))).map((i) => i.id),
+          doc.ref.current.items.filter((i) => !waiting.has(i.id)).filter((i) => (i.kind === 'frame' ? contains(r, i) && contains(r, { x: i.x + i.w, y: i.y + i.h }) : intersects(outer(i), r))).map((i) => i.id),
           doc.ref.current.items,
         )
         const linesIn = doc.ref.current.lines
@@ -853,6 +873,10 @@ function Editor({ board }: { board: Board }) {
         const w = Math.max(...xs) - x + pad
         const h = Math.max(...ys) - y + pad
         const ink: InkItem = { id: uid(), kind: 'ink', x, y, w, h, ow: w, oh: h, points: g.points.map((q) => [q[0] - x, q[1] - y, q[2]]), color: tools.pen, size: sizePx, marker }
+        // Drawn on a PDF: it belongs to the page showing, and turns away with it.
+        const middleOf = { x: x + w / 2, y: y + h / 2 }
+        const pdf = [...doc.ref.current.items].reverse().find((i) => i.kind === 'file' && i.ext === 'pdf' && contains(i, middleOf))
+        if (pdf?.kind === 'file') ink.on = { item: pdf.id, page: pdf.page ?? 1 }
         doc.commit((d) => ({ ...d, items: [...d.items, ink] }))
         return
       }
@@ -1010,7 +1034,7 @@ function Editor({ board }: { board: Board }) {
       }
       if (mod && k === 'a') {
         e.preventDefault()
-        setSelected([...doc.ref.current.items.map((i) => i.id), ...doc.ref.current.lines.map((l) => l.id)])
+        setSelected([...doc.ref.current.items.filter((i) => !waiting.has(i.id)).map((i) => i.id), ...doc.ref.current.lines.map((l) => l.id)])
         return
       }
       if (mod && k === 'd') {
@@ -1133,7 +1157,7 @@ function Editor({ board }: { board: Board }) {
       window.removeEventListener('keyup', up)
       window.removeEventListener('paste', paste)
     }
-  }, [selected, byId, doc, duplicate, removeIds, setTool, zoomAt, size, fit, readOnly, share, keys, asking, middle, addFiles, addLink, add, tools.note, group, ungroup, presenting, exporting, versions])
+  }, [selected, byId, doc, duplicate, removeIds, setTool, zoomAt, size, fit, readOnly, share, keys, asking, middle, addFiles, addLink, add, tools.note, group, ungroup, presenting, exporting, versions, waiting])
 
   // ---------- context actions ----------
 
@@ -1358,7 +1382,7 @@ function Editor({ board }: { board: Board }) {
         <ItemActions.Provider value={itemActions}>
         <div ref={world} className="absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, ['--zoom' as string]: view.zoom }}>
           {/* Frames lie under everything else, whatever was made first. */}
-          {[...items.filter((i) => i.kind === 'frame'), ...items.filter((i) => i.kind !== 'frame')].map((item) => (
+          {[...items.filter((i) => i.kind === 'frame'), ...items.filter((i) => i.kind !== 'frame' && !waiting.has(i.id))].map((item) => (
             <ItemView key={item.id} item={item} editing={editing === item.id} onText={onText} onDone={onDone} onMeasure={onMeasure} />
           ))}
           <Lines lines={lines} items={items} selected={selectedSet} />

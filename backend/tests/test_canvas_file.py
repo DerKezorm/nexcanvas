@@ -44,7 +44,8 @@ def everything(media_id: str) -> dict:
             {"id": "text0001", "kind": "text", "x": 0, "y": 300, "w": 280, "h": 30, "size": "xl", "color": "auto",
              "text": "Überschrift", "hand": True},
             {"id": "ink00001", "kind": "ink", "x": 500, "y": 300, "w": 50, "h": 40, "ow": 50, "oh": 40,
-             "points": [[1, 1, 0.5], [40, 30, 0.5]], "color": "#f87171", "size": 3},
+             "points": [[1, 1, 0.5], [40, 30, 0.5]], "color": "#f87171", "size": 3,
+             "on": {"item": "shape001", "page": 2}},
             {"id": "image001", "kind": "image", "x": 600, "y": 0, "w": 200, "h": 150, "media": media_id},
             {"id": "link0001", "kind": "link", "x": 300, "y": 300, "w": 230, "h": 190, "url": "https://www.example.com/a",
              "title": "A", "site": "www.example.com", "hue": 120},
@@ -117,6 +118,8 @@ def test_what_went_out_comes_back_whole_into_another_space(client: TestClient, o
     assert kinds["shape"]["shape"] == "star" and kinds["shape"]["text"] == "Stern"
     assert kinds["text"]["size"] == "xl" and kinds["text"]["hand"] is True
     assert kinds["ink"]["points"] == [[1, 1, 0.5], [40, 30, 0.5]]
+    # A drawing on a page stays with what it was drawn on, under its new id.
+    assert kinds["ink"]["on"] == {"item": kinds["shape"]["id"], "page": 2}
     assert kinds["frame"]["title"] == "Ideen"
     # The group came along under a name of its own.
     assert kinds["note"]["group"] == kinds["shape"]["group"] != "grp1"
