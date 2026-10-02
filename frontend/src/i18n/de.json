@@ -759,5 +759,16 @@
     "imported_other": "{{count}} Dinge hereingeholt.",
     "missing_one": "Eine Datei fehlte und ist jetzt eine Notiz mit ihrem Namen.",
     "missing_other": "{{count}} Dateien fehlten und sind jetzt Notizen mit ihrem Namen."
+  },
+  "arrange": {
+    "title": "Ausrichten und verteilen",
+    "left": "Links ausrichten",
+    "centerX": "Mittig ausrichten (waagerecht)",
+    "right": "Rechts ausrichten",
+    "spreadX": "Waagerecht gleichmäßig verteilen",
+    "top": "Oben ausrichten",
+    "centerY": "Mittig ausrichten (senkrecht)",
+    "bottom": "Unten ausrichten",
+    "spreadY": "Senkrecht gleichmäßig verteilen"
   }
 }

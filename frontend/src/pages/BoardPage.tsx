@@ -18,6 +18,7 @@ import { Peers, PeerPointers, personColor } from '../board/canvas/Peers'
 import { bounds, center, contains, intersects, lineGeometry, normalize, outer, toBoard, toScreen, turn, type Point, type Rect } from '../board/geometry'
 import { outline } from '../board/ink'
 import { drawOrder, waitingInk } from '../board/order'
+import { arrange } from '../board/arrange'
 import { NOTE_COLORS, paint } from '../board/palette'
 import { toBoard as boardFromInfo, useBoards } from '../board/store'
 import type { Board, Doc, End, FrameItem, InkItem, Item, LineItem, View } from '../board/types'
@@ -1190,6 +1191,17 @@ function Editor({ board }: { board: Board }) {
     group: () => group(selected),
     ungroup: () => ungroup(selected),
     exportSelection: () => setExporting('selection'),
+    arrange: (how) => {
+      const moves = arrange(doc.ref.current.items, selectedSet, how)
+      if (!moves.size) return
+      doc.commit((d) => ({
+        ...d,
+        items: d.items.map((i) => {
+          const move = moves.get(i.id)
+          return move ? { ...i, x: i.x + move.dx, y: i.y + move.dy } : i
+        }),
+      }))
+    },
   }
 
   // ---------- frames: the list, and presenting them one after the other ----------

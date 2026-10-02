@@ -1,6 +1,7 @@
 /** The arithmetic behind turning, the order things are drawn in, and the PDF writer. */
 
 import { bounds, outer, turn } from './geometry'
+import { arrange } from './arrange'
 import { drawOrder, waitingInk } from './order'
 import { pdfOfPictures } from './pdf'
 import type { Item } from './types'
@@ -74,5 +75,40 @@ describe('PDF of pictures', () => {
     const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xd9])
     const text = await pdfOfPictures([{ jpeg, width: 1, height: 1, w: 30000, h: 15000 }]).text()
     expect(text).toContain('/MediaBox [0 0 14400 7200]')
+  })
+})
+
+describe('lining up and spreading', () => {
+  const box = (id: string, x: number, y: number, w = 100, h = 50, extra: Partial<Item> = {}): Item => note(id, { x, y, w, h, ...extra })
+
+  it('lines up on the left edge of all', () => {
+    const moves = arrange([box('a', 10, 0), box('b', 50, 100), box('c', 30, 200)], new Set(['a', 'b', 'c']), 'left')
+    expect(moves.get('a')).toBeUndefined()
+    expect(moves.get('b')).toEqual({ dx: -40, dy: 0 })
+    expect(moves.get('c')).toEqual({ dx: -20, dy: 0 })
+  })
+
+  it('moves a group as one block', () => {
+    const items = [box('a', 0, 0), box('b', 200, 0, 100, 50, { group: 'g' }), box('c', 400, 100, 100, 50, { group: 'g' })]
+    const moves = arrange(items, new Set(['a', 'b', 'c']), 'top')
+    // The group's top is at 0 already; its members keep their places to each other.
+    expect(moves.size).toBe(0)
+    const bottom = arrange(items, new Set(['a', 'b', 'c']), 'bottom')
+    expect(bottom.get('a')).toEqual({ dx: 0, dy: 100 })
+    expect(bottom.get('b')).toBeUndefined()
+  })
+
+  it('spreads with equal gaps, the outer ones staying', () => {
+    const moves = arrange([box('a', 0, 0), box('b', 120, 0), box('c', 400, 0)], new Set(['a', 'b', 'c']), 'spreadX')
+    expect(moves.get('a')).toBeUndefined()
+    expect(moves.get('c')).toBeUndefined()
+    // Room 500 - 300 = 200, two gaps of 100: b goes to 200.
+    expect(moves.get('b')).toEqual({ dx: 80, dy: 0 })
+  })
+
+  it('leaves frames and locked items where they are', () => {
+    const frame: Item = { id: 'f', kind: 'frame', x: -500, y: 0, w: 10, h: 10, title: '', color: 'auto' }
+    const moves = arrange([frame, box('a', 0, 0), box('b', 50, 0, 100, 50, { locked: true }), box('c', 90, 0)], new Set(['f', 'a', 'b', 'c']), 'left')
+    expect([...moves.keys()]).toEqual(['c'])
   })
 })

@@ -1,8 +1,19 @@
-import { ArrowDownToLine, ArrowLeftRight, ArrowRight, ArrowUpToLine, Copy, Group, ImageDown, Lock, LockOpen, Minus, PaintBucket, Spline, Trash2, Ungroup, Waypoints } from 'lucide-react'
+import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignEndHorizontal,
+  AlignEndVertical,
+  AlignHorizontalDistributeCenter,
+  AlignStartHorizontal,
+  AlignStartVertical,
+  AlignVerticalDistributeCenter,
+  ArrowDownToLine, ArrowLeftRight, ArrowRight, ArrowUpToLine, Copy, Group, ImageDown, Lock, LockOpen, Minus, PaintBucket, Spline, Trash2, Ungroup, Waypoints,
+} from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { FILLS, NOTE_COLORS, PALETTE, paint } from '../palette'
+import type { Arrange } from '../arrange'
 import type { Item, LineItem, NoteColor, TextSize } from '../types'
 import { SHAPES } from './Toolbar'
 
@@ -18,7 +29,19 @@ export interface ContextActions {
   ungroup: () => void
   /** Opens the export with what is selected. */
   exportSelection: () => void
+  arrange: (how: Arrange) => void
 }
+
+const ARRANGE: { how: Arrange; Icon: typeof AlignStartVertical }[] = [
+  { how: 'left', Icon: AlignStartVertical },
+  { how: 'centerX', Icon: AlignCenterVertical },
+  { how: 'right', Icon: AlignEndVertical },
+  { how: 'spreadX', Icon: AlignHorizontalDistributeCenter },
+  { how: 'top', Icon: AlignStartHorizontal },
+  { how: 'centerY', Icon: AlignCenterHorizontal },
+  { how: 'bottom', Icon: AlignEndHorizontal },
+  { how: 'spreadY', Icon: AlignVerticalDistributeCenter },
+]
 
 function Btn({ label, onClick, pressed, children }: { label: string; onClick: () => void; pressed?: boolean; children: ReactNode }) {
   return (
@@ -60,7 +83,7 @@ export function ContextBar({ items, lines, at, actions, docked = false }: {
   docked?: boolean
 }) {
   const { t } = useTranslation()
-  const [panel, setPanel] = useState<'fill' | 'stroke' | 'shape' | null>(null)
+  const [panel, setPanel] = useState<'fill' | 'stroke' | 'shape' | 'arrange' | null>(null)
   const kinds = new Set<string>([...items.map((i) => i.kind), ...lines.map(() => 'line')])
   const only = kinds.size === 1 ? [...kinds][0] : null
   const first = items[0]
@@ -167,6 +190,11 @@ export function ContextBar({ items, lines, at, actions, docked = false }: {
         {(only || items.length > 0) && <span className="mx-0.5 h-6 w-px bg-ink-700" />}
         {items.length > 0 && (
           <>
+            {items.filter((i) => i.kind !== 'frame').length > 1 && (
+              <Btn label={t('arrange.title')} onClick={() => setPanel(panel === 'arrange' ? null : 'arrange')} pressed={panel === 'arrange'}>
+                <AlignStartVertical className="h-4 w-4" />
+              </Btn>
+            )}
             <Btn label={t('context.front')} onClick={actions.front}>
               <ArrowUpToLine className="h-4 w-4" />
             </Btn>
@@ -211,6 +239,15 @@ export function ContextBar({ items, lines, at, actions, docked = false }: {
           )}
           {panel === 'stroke' && (
             <Swatches colors={['none', ...PALETTE]} value={first?.kind === 'shape' ? first.stroke : undefined} onPick={(c) => actions.change((x) => (x.kind === 'shape' ? { ...x, stroke: c } : x))} label={colorLabel} />
+          )}
+          {panel === 'arrange' && (
+            <div className="grid grid-cols-4 gap-1">
+              {ARRANGE.map(({ how, Icon }) => (
+                <button key={how} type="button" className="nc-tool h-8 w-8" title={t(`arrange.${how}`)} aria-label={t(`arrange.${how}`)} onClick={() => actions.arrange(how)}>
+                  <Icon className="h-4 w-4" />
+                </button>
+              ))}
+            </div>
           )}
           {panel === 'shape' && (
             <div className="grid grid-cols-5 gap-1">

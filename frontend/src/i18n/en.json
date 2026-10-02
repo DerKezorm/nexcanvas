@@ -759,5 +759,16 @@
     "imported_other": "{{count}} things brought in.",
     "missing_one": "One file was not in it and is a note with its name now.",
     "missing_other": "{{count}} files were not in it and are notes with their names now."
+  },
+  "arrange": {
+    "title": "Line up and spread",
+    "left": "Line up on the left",
+    "centerX": "Line up on the middle (across)",
+    "right": "Line up on the right",
+    "spreadX": "Spread evenly across",
+    "top": "Line up at the top",
+    "centerY": "Line up on the middle (up and down)",
+    "bottom": "Line up at the bottom",
+    "spreadY": "Spread evenly up and down"
   }
 }
