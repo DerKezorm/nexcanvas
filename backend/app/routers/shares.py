@@ -77,15 +77,16 @@ def _managed_board(db: DbSession, account: Any, board_id: str) -> Board:
         raise error(exc.code, exc.text, exc.status) from exc
 
 
-@router.get("/boards/{board_id}/share", summary="The public page of a board, if it has one")
-def read_share(board_id: BoardId, request: Request, account: Account, db: DbSession) -> dict[str, Any]:
+@router.get("/boards/{board_id}/share", summary="The public page of a board; null while it has none")
+def read_share(board_id: BoardId, request: Request, account: Account, db: DbSession) -> dict[str, Any] | None:
     try:
         board = rights.board_for(db, account, board_id, rights.READ)
     except rights.RightsError as exc:
         raise error(exc.code, exc.text, exc.status) from exc
     share = db.scalar(select(Share).where(Share.board_id == board.id))
+    # No public page is the usual state of a board, not an error.
     if share is None:
-        raise error("not_found", "Not found.", 404)
+        return None
     return _view(db, request, share)
 
 

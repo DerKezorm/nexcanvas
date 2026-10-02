@@ -148,9 +148,9 @@
     },
     "mood": {
       "name": "Moodboard",
-      "hint": "Rahmen für Fotos und Ideen",
+      "hint": "Felder für Fotos und Ideen",
       "title": "Moodboard",
-      "note": "Fotos in die Rahmen ziehen"
+      "note": "Fotos auf die Felder ziehen: jedes füllt eins"
     },
     "retro": {
       "name": "Retro",

@@ -182,6 +182,9 @@ def _with_photo(client: TestClient, space: int) -> tuple[dict, str, str]:
 def test_a_public_page_is_closed_until_the_operator_opens_it(client: TestClient, operator: Account,
                                                              space: int) -> None:
     made, _, _ = _with_photo(client, space)
+    # No public page is the usual state: answered as nothing, not as an error the browser would complain about.
+    none = client.get(f"/api/boards/{made['id']}/share")
+    assert none.status_code == 200 and none.json() is None
     answer = client.put(f"/api/boards/{made['id']}/share", json={"days": 7})
     assert answer.status_code == 403 and answer.json()["detail"]["code"] == "shares_off"
 

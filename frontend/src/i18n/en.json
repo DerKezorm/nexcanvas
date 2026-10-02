@@ -148,9 +148,9 @@
     },
     "mood": {
       "name": "Mood board",
-      "hint": "Frames for photos and ideas",
+      "hint": "Slots for photos and ideas",
       "title": "Mood board",
-      "note": "Drop photos into the frames"
+      "note": "Drop photos onto the slots: each fills one"
     },
     "retro": {
       "name": "Retro",

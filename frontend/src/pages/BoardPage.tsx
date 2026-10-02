@@ -52,6 +52,17 @@ function notesOn(ids: Set<string>, items: Item[]): string[] {
   return items.filter((i) => i.kind === 'ink' && i.on && ids.has(i.on.item)).map((i) => i.id)
 }
 
+/** Outlines without a photo in them (the slots of a mood board), the one under `at` first and the others by how
+ * near they are; none at all when `at` is on no empty outline, so a photo dropped elsewhere keeps its own size. */
+function emptySlots(items: Item[], at: Point): Item[] {
+  const photos = items.filter((i) => i.kind === 'image').map(center)
+  const empty = items.filter((i) => i.kind === 'shape' && i.fill === 'none' && !i.locked && i.w > 40 && i.h > 40 && !photos.some((p) => contains(i, p)))
+  const first = [...empty].reverse().find((i) => contains(i, at))
+  if (!first) return []
+  const far = (i: Item) => Math.hypot(center(i).x - center(first).x, center(i).y - center(first).y)
+  return [first, ...empty.filter((i) => i !== first).sort((a, b) => far(a) - far(b))]
+}
+
 /** Gives copied items new group ids, so a copy of a group is a group of its own and not part of the first. */
 function freshGroups<T extends Item>(copies: T[]): T[] {
   const map = new Map<string, string>()
@@ -352,8 +363,14 @@ function Editor({ board }: { board: Board }) {
   /** Photos and files go to the server first; the board gets an item that names them by id. */
   const addFiles = useCallback(
     (files: File[], at: Point) => {
+      // Photos dropped on an empty outline (a mood board's slots) fill it, and the next ones the nearest empty ones.
+      const slots = emptySlots(doc.ref.current.items, at)
+      let slotFor = 0
       files.forEach(async (file, n) => {
         const spot = { x: at.x + n * 30, y: at.y + n * 30 }
+        const likelyPicture = file.type.startsWith('image/')
+        const slot = likelyPicture ? slots[slotFor] : undefined
+        if (slot) slotFor++
         setUploads((count) => count + 1)
         try {
           const stored = await mediaApi.upload(board.space, file, file.name || 'file')
@@ -362,7 +379,9 @@ function Editor({ board }: { board: Board }) {
             const scale = Math.min(1, 420 / Math.max(stored.width, stored.height))
             const w = Math.max(60, stored.width * scale)
             const h = Math.max(60, stored.height * scale)
-            add({ id: uid(), kind: 'image', x: spot.x - w / 2, y: spot.y - h / 2, w, h, media: stored.id, preview: stored.width > 1600 || stored.height > 1600 })
+            const preview = stored.width > 1600 || stored.height > 1600
+            if (slot) add({ id: uid(), kind: 'image', x: slot.x + 6, y: slot.y + 6, w: slot.w - 12, h: slot.h - 12, media: stored.id, preview, ...(slot.rot ? { rot: slot.rot } : {}) })
+            else add({ id: uid(), kind: 'image', x: spot.x - w / 2, y: spot.y - h / 2, w, h, media: stored.id, preview })
           } else {
             const ext = stored.kind === 'file' ? (stored.name.split('.').pop() ?? 'file').toLowerCase().slice(0, 5) : stored.kind
             const kb = stored.size / 1024
@@ -380,7 +399,7 @@ function Editor({ board }: { board: Board }) {
         }
       })
     },
-    [add, board.space, t],
+    [add, board.space, t, doc.ref],
   )
 
   /** A JSON Canvas from nexlore, Obsidian or another nexcanvas, onto the middle of what is in view. */
