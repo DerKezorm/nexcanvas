@@ -105,8 +105,9 @@ def put_share(board_id: BoardId, payload: ShareIn, request: Request, account: Ac
     elif payload.password:
         share.password_hash = hash_password(payload.password)
     db.commit()
-    logger.info("Public page set board=%s ends=%s guarded=%s by=%s", board.id, payload.days or "-",
-                bool(share.password_hash), account.name)
+    guarded = bool(share.password_hash)
+    logger.info("Public page set board=%s ends=%s guarded=%s by=%s", board.id, payload.days or "-", guarded,
+                account.name)
     return _view(db, request, share)
 
 

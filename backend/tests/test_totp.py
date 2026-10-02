@@ -15,7 +15,7 @@ from app.db import SessionLocal
 from app.main import app
 from app.models import SIGN_IN_OIDC, Account
 from app.security import MAX_FAILURES, SESSION_COOKIE, brake, start_session
-from app.services import settings_service, totp
+from app.services import totp
 
 from .conftest import PASSWORD, make_account, sign_in
 
