@@ -2,17 +2,18 @@
  * A board on its public page: anybody with the link looks, nobody changes anything. No account, no live connection;
  * the picture is what the server has, photos come through the page's own address.
  */
-import { Lock, Maximize, Minus, Plus } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Lock, Maximize, Minus, Plus, Presentation } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
 
 import { api, ApiError } from '../api/client'
 import { ItemView } from '../board/canvas/ItemView'
-import { drawOrder } from '../board/order'
+import { drawOrder, framesInOrder } from '../board/order'
+import { Stage, useStageKeys, wholeScreen } from '../board/canvas/Stage'
 import { Lines } from '../board/canvas/Lines'
 import { MediaBase } from '../board/canvas/media'
-import { bounds } from '../board/geometry'
+import { bounds, type Rect } from '../board/geometry'
 import type { Doc, Item, LineItem, View } from '../board/types'
 import { Logo } from '../components/Logo'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
@@ -32,6 +33,9 @@ export function PublicPage() {
   const [view, setView] = useState<View>({ x: 0, y: 0, zoom: 1 })
   const root = useRef<HTMLDivElement>(null)
   const drag = useRef<{ x: number; y: number; view: View } | null>(null)
+  const fingers = useRef(new Map<number, { x: number; y: number }>())
+  const pinch = useRef<{ dist: number; mid: { x: number; y: number }; view: View } | null>(null)
+  const [presenting, setPresenting] = useState<number | null>(null)
 
   useEffect(() => {
     api<Page>(`/api/public/${encodeURIComponent(token)}`).then(setPage, () => setMissing(true))
@@ -39,14 +43,25 @@ export function PublicPage() {
 
   const doc: Doc = page?.picture ?? { items: [], lines: [] }
 
-  const fit = useCallback(() => {
+  const frames = useMemo(() => framesInOrder(doc.items), [doc.items])
+  const fitTo = useCallback((box: Rect | null, pad: number, most: number) => {
     const el = root.current
-    const box = bounds(doc.items)
     if (!el || !box) return
-    const zoom = Math.min(1.4, (el.clientWidth - 120) / Math.max(box.w, 1), (el.clientHeight - 120) / Math.max(box.h, 1))
+    const room = el.clientWidth < 640 ? Math.min(pad, 20) : pad
+    const zoom = Math.min(most, (el.clientWidth - room * 2) / Math.max(box.w, 1), (el.clientHeight - room * 2) / Math.max(box.h, 1))
     setView({ zoom, x: el.clientWidth / 2 - (box.x + box.w / 2) * zoom, y: el.clientHeight / 2 - (box.y + box.h / 2) * zoom })
-  }, [doc.items])
+  }, [])
+  const fit = useCallback(() => fitTo(bounds(doc.items), 60, 1.4), [fitTo, doc.items])
   useEffect(fit, [fit])
+
+  // Presenting, as on the board: one frame after the other, the rest dark.
+  const go = useCallback((next: number | null) => setPresenting(next), [])
+  useStageKeys(presenting, frames.length, go)
+  useEffect(() => {
+    if (presenting === null) return fit()
+    const frame = frames[presenting]
+    if (frame) fitTo(frame, 16, 4)
+  }, [presenting, frames, fitTo, fit])
 
   useEffect(() => {
     const el = root.current
@@ -110,10 +125,23 @@ export function PublicPage() {
   return (
     <MediaBase.Provider value={`/api/public/${encodeURIComponent(page.token ?? token)}/media/`}>
       <div className="flex h-dvh flex-col">
-        <header className="flex shrink-0 items-center gap-3 border-b border-ink-700/80 px-4 py-2.5">
+        <header className={'flex shrink-0 items-center gap-3 border-b border-ink-700/80 px-4 py-2.5 ' + (presenting !== null ? 'hidden' : '')}>
           <Logo className="h-7 w-7" />
           <h1 className="min-w-0 flex-1 truncate font-semibold text-mist-100">{page.title}</h1>
           <span className="hidden text-xs text-mist-600 sm:inline">{t('public.readOnly')}</span>
+          {frames.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setPresenting(0)
+                wholeScreen()
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-accent-500/60 px-3 py-1.5 text-sm font-semibold text-accent-400 hover:bg-accent-500/10"
+            >
+              <Presentation className="h-4 w-4" />
+              <span className="hidden sm:inline">{t('frames.present')}</span>
+            </button>
+          )}
           <ThemeSwitcher />
         </header>
         <div
@@ -121,22 +149,52 @@ export function PublicPage() {
           className="nc-board relative min-h-0 flex-1 touch-none overflow-hidden"
           style={{ backgroundSize: `${24 * view.zoom}px ${24 * view.zoom}px`, backgroundPosition: `${view.x}px ${view.y}px`, cursor: 'grab' }}
           onPointerDown={(e) => {
-            drag.current = { x: e.clientX, y: e.clientY, view }
+            if ((e.target as HTMLElement).closest('[data-ui]')) return
             ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+            fingers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+            drag.current = { x: e.clientX, y: e.clientY, view }
+            if (fingers.current.size === 2) {
+              // Two fingers: zoom around their middle, as on the board.
+              const [a, b] = [...fingers.current.values()]
+              const r = e.currentTarget.getBoundingClientRect()
+              pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: { x: (a.x + b.x) / 2 - r.left, y: (a.y + b.y) / 2 - r.top }, view }
+              drag.current = null
+            }
           }}
           onPointerMove={(e) => {
+            if (fingers.current.has(e.pointerId)) fingers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+            const p = pinch.current
+            if (p && fingers.current.size === 2) {
+              const [a, b] = [...fingers.current.values()]
+              const r = e.currentTarget.getBoundingClientRect()
+              const zoom = Math.min(4, Math.max(0.1, p.view.zoom * (Math.hypot(a.x - b.x, a.y - b.y) / p.dist)))
+              const mid = { x: (a.x + b.x) / 2 - r.left, y: (a.y + b.y) / 2 - r.top }
+              const anchor = { x: (p.mid.x - p.view.x) / p.view.zoom, y: (p.mid.y - p.view.y) / p.view.zoom }
+              setView({ zoom, x: mid.x - anchor.x * zoom, y: mid.y - anchor.y * zoom })
+              return
+            }
             const d = drag.current
             if (d) setView({ ...d.view, x: d.view.x + e.clientX - d.x, y: d.view.y + e.clientY - d.y })
           }}
-          onPointerUp={() => (drag.current = null)}
+          onPointerUp={(e) => {
+            fingers.current.delete(e.pointerId)
+            if (fingers.current.size < 2) pinch.current = null
+            drag.current = null
+          }}
+          onPointerCancel={(e) => {
+            fingers.current.delete(e.pointerId)
+            pinch.current = null
+            drag.current = null
+          }}
         >
-          <div className="pointer-events-none absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
+          <div className="pointer-events-none absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, ['--zoom' as string]: view.zoom }}>
             {drawOrder(doc.items).map((item) => (
               <ItemView key={item.id} item={item} editing={false} onText={nothing} onDone={nothing} onMeasure={nothing} />
             ))}
             <Lines lines={doc.lines} items={doc.items} selected={new Set()} />
           </div>
-          <div className="nc-float absolute bottom-4 left-4 flex items-center gap-0.5 p-1">
+          {presenting !== null && <Stage frames={frames} at={presenting} view={view} go={go} />}
+          <div data-ui className={'nc-float absolute bottom-4 left-4 flex items-center gap-0.5 p-1 ' + (presenting !== null ? 'hidden' : '')}>
             <button type="button" className="nc-tool h-8 w-8" onClick={() => setView((v) => ({ ...v, zoom: v.zoom / 1.25 }))} aria-label={t('canvas.zoomOut')}>
               <Minus className="h-4 w-4" />
             </button>

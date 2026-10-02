@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronLeft, ChevronRight, Copy, FileDown, FileUp, History, ImageDown, Keyboard, Maximize, Minus, MoreHorizontal, Plus, Presentation, Redo2, RotateCw, Share2, Star, Trash2, Undo2, X } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Copy, FileDown, FileUp, History, ImageDown, Keyboard, Maximize, Minus, MoreHorizontal, Plus, Presentation, Redo2, RotateCw, Share2, Star, Trash2, Undo2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -17,11 +17,12 @@ import { VersionsDialog } from '../board/canvas/VersionsDialog'
 import { Peers, PeerPointers, personColor } from '../board/canvas/Peers'
 import { bounds, center, contains, intersects, lineGeometry, normalize, outer, toBoard, toScreen, turn, type Point, type Rect } from '../board/geometry'
 import { outline } from '../board/ink'
-import { drawOrder, waitingInk } from '../board/order'
+import { drawOrder, framesInOrder, waitingInk } from '../board/order'
+import { Stage, useStageKeys, wholeScreen } from '../board/canvas/Stage'
 import { arrange } from '../board/arrange'
 import { NOTE_COLORS, paint } from '../board/palette'
 import { toBoard as boardFromInfo, useBoards } from '../board/store'
-import type { Board, Doc, End, FrameItem, InkItem, Item, LineItem, View } from '../board/types'
+import type { Board, Doc, End, InkItem, Item, LineItem, View } from '../board/types'
 import { ApiError, boardsApi, mediaApi } from '../api/client'
 import { errorText } from '../lib/errors'
 import { useAuth } from '../state/auth'
@@ -40,12 +41,6 @@ function withGroups(ids: string[], items: Item[]): string[] {
 /** What lies in a frame: everything whose middle is inside it. Moving the frame moves these along. */
 function inFrame(frame: Item, items: Item[]): Item[] {
   return items.filter((i) => i.id !== frame.id && !(i.kind === 'frame' && i.w * i.h >= frame.w * frame.h) && contains(frame, center(i)))
-}
-
-/** Frames in reading order: rows from top to bottom, in a row from left to right. Presenting goes this way. */
-function framesInOrder(items: Item[]): FrameItem[] {
-  const frames = items.filter((i): i is FrameItem => i.kind === 'frame')
-  return frames.sort((a, b) => (Math.abs(a.y - b.y) > Math.min(a.h, b.h) / 2 ? a.y - b.y : a.x - b.x))
 }
 
 /** The drawings that belong to the given PDFs, on every page. */
@@ -1221,39 +1216,15 @@ function Editor({ board }: { board: Board }) {
     showFrame(frame, 16)
   }, [presenting, frames, showFrame, size])
 
-  useEffect(() => {
-    if (presenting === null) return
-    const key = (e: KeyboardEvent) => {
-      if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key)) {
-        e.preventDefault()
-        setPresenting((n) => (n === null ? n : Math.min(frames.length - 1, n + 1)))
-      } else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key)) {
-        e.preventDefault()
-        setPresenting((n) => (n === null ? n : Math.max(0, n - 1)))
-      } else if (e.key === 'Escape') {
-        setPresenting(null)
-      }
-    }
-    window.addEventListener('keydown', key)
-    return () => window.removeEventListener('keydown', key)
-  }, [presenting, frames.length])
+  const go = useCallback((next: number | null) => setPresenting(next), [])
+  useStageKeys(presenting, frames.length, go)
 
   // Presenting fills the screen where the browser allows it; leaving full screen ends presenting.
   const present = (from: number) => {
     setScenes(false)
     setPresenting(from)
-    void document.documentElement.requestFullscreen?.().catch(() => undefined)
+    wholeScreen()
   }
-  useEffect(() => {
-    const left = () => {
-      if (!document.fullscreenElement) setPresenting(null)
-    }
-    document.addEventListener('fullscreenchange', left)
-    return () => document.removeEventListener('fullscreenchange', left)
-  }, [])
-  useEffect(() => {
-    if (presenting === null && document.fullscreenElement) void document.exitFullscreen?.().catch(() => undefined)
-  }, [presenting])
 
   // ---------- drawing the overlay ----------
 
@@ -1561,32 +1532,7 @@ function Editor({ board }: { board: Board }) {
             </button>
           </div>
         )}
-        {presenting !== null && frames[presenting] && (() => {
-          const frame = frames[presenting]
-          const box = { x: frame.x * view.zoom + view.x, y: frame.y * view.zoom + view.y, w: frame.w * view.zoom, h: frame.h * view.zoom }
-          return (
-            <>
-              {/* Everything outside the frame goes dark, so the scene stands alone. */}
-              <div className="pointer-events-none absolute rounded-[14px]" style={{ left: box.x, top: box.y, width: box.w, height: box.h, boxShadow: '0 0 0 100vmax var(--color-ink-950)' }} />
-              <div data-ui className="nc-float absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 p-1 opacity-60 transition-opacity hover:opacity-100">
-                <button type="button" className="nc-tool h-9 w-9" disabled={presenting === 0} onClick={() => setPresenting(presenting - 1)} aria-label={t('frames.previous')} title={t('frames.previous')}>
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <span className="min-w-28 px-2 text-center text-xs text-mist-300 tabular-nums">
-                  <span className="block truncate font-semibold text-mist-100">{frame.title || t('frames.untitled')}</span>
-                  {presenting + 1} / {frames.length}
-                </span>
-                <button type="button" className="nc-tool h-9 w-9" disabled={presenting === frames.length - 1} onClick={() => setPresenting(presenting + 1)} aria-label={t('frames.next')} title={t('frames.next')}>
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-                <span className="mx-1 h-6 w-px bg-ink-700" />
-                <button type="button" className="nc-tool h-9 w-9" onClick={() => setPresenting(null)} aria-label={t('frames.stop')} title={`${t('frames.stop')} (Esc)`}>
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            </>
-          )
-        })()}
+        {presenting !== null && <Stage frames={frames} at={presenting} view={view} go={go} />}
 
         {items.length === 0 && !readOnly && (
           <div className="pointer-events-none absolute inset-0 grid place-items-center">
