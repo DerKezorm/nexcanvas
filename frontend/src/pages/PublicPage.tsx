@@ -9,6 +9,7 @@ import { useParams } from 'react-router-dom'
 
 import { api, ApiError } from '../api/client'
 import { ItemView } from '../board/canvas/ItemView'
+import { drawOrder } from '../board/order'
 import { Lines } from '../board/canvas/Lines'
 import { MediaBase } from '../board/canvas/media'
 import { bounds } from '../board/geometry'
@@ -130,7 +131,7 @@ export function PublicPage() {
           onPointerUp={() => (drag.current = null)}
         >
           <div className="pointer-events-none absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
-            {doc.items.map((item) => (
+            {drawOrder(doc.items).map((item) => (
               <ItemView key={item.id} item={item} editing={false} onText={nothing} onDone={nothing} onMeasure={nothing} />
             ))}
             <Lines lines={doc.lines} items={doc.items} selected={new Set()} />

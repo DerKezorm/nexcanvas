@@ -17,6 +17,7 @@ import { VersionsDialog } from '../board/canvas/VersionsDialog'
 import { Peers, PeerPointers, personColor } from '../board/canvas/Peers'
 import { bounds, center, contains, intersects, lineGeometry, normalize, outer, toBoard, toScreen, turn, type Point, type Rect } from '../board/geometry'
 import { outline } from '../board/ink'
+import { drawOrder, waitingInk } from '../board/order'
 import { NOTE_COLORS, paint } from '../board/palette'
 import { toBoard as boardFromInfo, useBoards } from '../board/store'
 import type { Board, Doc, End, FrameItem, InkItem, Item, LineItem, View } from '../board/types'
@@ -44,16 +45,6 @@ function inFrame(frame: Item, items: Item[]): Item[] {
 function framesInOrder(items: Item[]): FrameItem[] {
   const frames = items.filter((i): i is FrameItem => i.kind === 'frame')
   return frames.sort((a, b) => (Math.abs(a.y - b.y) > Math.min(a.h, b.h) / 2 ? a.y - b.y : a.x - b.x))
-}
-
-/** Drawings made on a PDF page that is not the one showing now: they wait until the page comes back. */
-function waitingInk(items: Item[]): Set<string> {
-  const pages = new Map(items.filter((i) => i.kind === 'file').map((i) => [i.id, i.kind === 'file' ? (i.page ?? 1) : 1]))
-  const hidden = new Set<string>()
-  for (const item of items) {
-    if (item.kind === 'ink' && item.on && pages.has(item.on.item) && pages.get(item.on.item) !== item.on.page) hidden.add(item.id)
-  }
-  return hidden
 }
 
 /** The drawings that belong to the given PDFs, on every page. */
@@ -1382,7 +1373,7 @@ function Editor({ board }: { board: Board }) {
         <ItemActions.Provider value={itemActions}>
         <div ref={world} className="absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, ['--zoom' as string]: view.zoom }}>
           {/* Frames lie under everything else, whatever was made first. */}
-          {[...items.filter((i) => i.kind === 'frame'), ...items.filter((i) => i.kind !== 'frame' && !waiting.has(i.id))].map((item) => (
+          {drawOrder(items, waiting).map((item) => (
             <ItemView key={item.id} item={item} editing={editing === item.id} onText={onText} onDone={onDone} onMeasure={onMeasure} />
           ))}
           <Lines lines={lines} items={items} selected={selectedSet} />

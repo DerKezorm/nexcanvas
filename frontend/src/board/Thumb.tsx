@@ -2,6 +2,7 @@ import { bounds, lineGeometry, shapePath } from './geometry'
 import { NOTE_COLORS, paint } from './palette'
 import type { Board, Item } from './types'
 import { inkPath } from './ink'
+import { drawOrder } from './order'
 import { mediaUrl } from '../api/client'
 
 /** A small picture of a board for the overview: the same items, simplified, fitted into the card. */
@@ -19,9 +20,15 @@ export function Thumb({ board }: { board: Board }) {
   const items = new Map(board.items.map((i) => [i.id, i]))
   return (
     <svg viewBox={view} preserveAspectRatio="xMidYMid meet" className="nc-board h-full w-full" style={{ backgroundSize: '14px 14px' }} aria-hidden="true">
-      {board.items.map((item) => (
-        <ThumbItem key={item.id} item={item} />
-      ))}
+      {drawOrder(board.items).map((item) =>
+        item.rot ? (
+          <g key={item.id} transform={`rotate(${item.rot} ${item.x + item.w / 2} ${item.y + item.h / 2})`}>
+            <ThumbItem item={item} />
+          </g>
+        ) : (
+          <ThumbItem key={item.id} item={item} />
+        ),
+      )}
       {board.lines.map((line) => (
         <path key={line.id} d={lineGeometry(line, items).d} fill="none" stroke={paint(line.color)} strokeWidth={line.width * 1.5} strokeDasharray={line.dashed ? '8 6' : undefined} />
       ))}
