@@ -215,18 +215,21 @@ function Editor({ board }: { board: Board }) {
   }, [])
 
   const fit = useCallback(
-    (rect: Rect | null = bounds(doc.ref.current.items), animate = true, pad = 90) => {
+    (rect: Rect | null = bounds(doc.ref.current.items), animate = true, wanted = 90) => {
       const el = root.current
       if (!el) return
       const w = el.clientWidth
       const h = el.clientHeight
+      const pad = w < 640 ? Math.min(wanted, 20) : wanted
       if (!rect) {
         setView({ x: w / 2, y: h / 2, zoom: 1 })
         return
       }
-      // Room for the tool bar at the top, except when presenting (a small margin, nothing over the frame).
-      const bar = pad >= 90 ? 40 : 0
-      const zoom = clampZoom(Math.min((w - pad * 2) / Math.max(rect.w, 1), (h - pad * 2 - bar) / Math.max(rect.h, 1), pad >= 90 ? 1.4 : MAX_ZOOM))
+      // Room for the tool bar at the top, except when presenting (a small margin, nothing over the frame). A phone has
+      // its tools at the bottom and little room to give away: a narrow margin there.
+      const onStage = wanted < 90
+      const bar = !onStage && w >= 640 ? 40 : 0
+      const zoom = clampZoom(Math.min((w - pad * 2) / Math.max(rect.w, 1), (h - pad * 2 - bar) / Math.max(rect.h, 1), onStage ? MAX_ZOOM : 1.4))
       const next = { zoom, x: w / 2 - (rect.x + rect.w / 2) * zoom, y: h / 2 + bar / 2 - (rect.y + rect.h / 2) * zoom }
       if (!animate) return setView(next)
       const from = viewRef.current
