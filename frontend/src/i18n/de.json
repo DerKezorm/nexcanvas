@@ -648,7 +648,9 @@
     "wrong_password": "Das Passwort stimmt nicht.",
     "not_found": "Nicht gefunden, oder für dich nicht offen.",
     "forbidden": "Dein Recht in diesem Bereich erlaubt das nicht.",
-    "setup_code_wrong": "Der Einrichtungscode stimmt nicht. Er steht im Log des Servers."
+    "setup_code_wrong": "Der Einrichtungscode stimmt nicht. Er steht im Log des Servers.",
+    "invalid_canvas": "Das ist keine JSON-Canvas-Datei (.canvas) und kein Archiv mit einer (.zip).",
+    "empty_canvas": "Auf dieser Leinwand ist nichts zum Hereinholen."
   },
   "auth": {
     "name": "Name",
@@ -748,5 +750,13 @@
     "go": "Exportieren",
     "busy": "Wird gezeichnet …",
     "failed": "Der Export hat nicht geklappt. Einen kleineren Teil des Boards versuchen."
+  },
+  "canvasFile": {
+    "export": "Als JSON Canvas speichern",
+    "import": "JSON Canvas hereinholen",
+    "imported_one": "Ein Ding hereingeholt.",
+    "imported_other": "{{count}} Dinge hereingeholt.",
+    "missing_one": "Eine Datei fehlte und ist jetzt eine Notiz mit ihrem Namen.",
+    "missing_other": "{{count}} Dateien fehlten und sind jetzt Notizen mit ihrem Namen."
   }
 }

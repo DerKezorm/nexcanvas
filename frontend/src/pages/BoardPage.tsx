@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronLeft, ChevronRight, Copy, History, ImageDown, Keyboard, Maximize, Minus, MoreHorizontal, Plus, Presentation, Redo2, RotateCw, Share2, Star, Trash2, Undo2, X } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Copy, FileDown, FileUp, History, ImageDown, Keyboard, Maximize, Minus, MoreHorizontal, Plus, Presentation, Redo2, RotateCw, Share2, Star, Trash2, Undo2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -83,18 +83,20 @@ export function BoardPage() {
   const known = boards.board(id)
   const { t } = useTranslation()
   // Opened by a link before the overview loaded (or a board from a space just joined): asked for on its own.
-  const [fetched, setFetched] = useState<Board | 'missing' | null>(null)
+  // Kept with the id it belongs to: after going to another board, the one fetched before must never stand in for it.
+  const [answer, setAnswer] = useState<{ id: string; board: Board | 'missing' } | null>(null)
   useEffect(() => {
     if (known) return
     let cancelled = false
     boardsApi.read(id).then(
-      (info) => !cancelled && setFetched(boardFromInfo(info)),
-      () => !cancelled && setFetched('missing'),
+      (info) => !cancelled && setAnswer({ id, board: boardFromInfo(info) }),
+      () => !cancelled && setAnswer({ id, board: 'missing' }),
     )
     return () => {
       cancelled = true
     }
   }, [id, known])
+  const fetched = answer?.id === id ? answer.board : null
   const board = known ?? (fetched && fetched !== 'missing' ? fetched : undefined)
   if (!board && fetched !== 'missing') return <main className="nc-board flex-1" />
   if (!board || board.deleted) {
@@ -152,6 +154,7 @@ function Editor({ board }: { board: Board }) {
   const pinch = useRef<{ dist: number; mid: Point; view: View } | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const cameraInput = useRef<HTMLInputElement>(null)
+  const canvasInput = useRef<HTMLInputElement>(null)
   const lastTold = useRef(0)
   const clipboard = useRef<Doc | null>(null)
   const freshText = useRef<string | null>(null)
@@ -365,6 +368,22 @@ function Editor({ board }: { board: Board }) {
     },
     [add, board.space, t],
   )
+
+  /** A JSON Canvas from nexlore, Obsidian or another nexcanvas, onto the middle of what is in view. */
+  const importCanvas = async (file: File) => {
+    setUploads((count) => count + 1)
+    try {
+      const result = await boardsApi.importCanvas(board.id, file, middle())
+      let text = t('canvasFile.imported', { count: result.items })
+      if (result.missing.length) text += ' ' + t('canvasFile.missing', { count: result.missing.length })
+      setNotice(text)
+    } catch (error) {
+      const code = error instanceof ApiError ? error.code : 'internal_error'
+      setNotice(errorText(code, error instanceof ApiError ? error.values : {}))
+    } finally {
+      setUploads((count) => count - 1)
+    }
+  }
 
   const addLink = useCallback(
     (url: string, at: Point) => {
@@ -1216,6 +1235,15 @@ function Editor({ board }: { board: Board }) {
                   <ImageDown className="h-4 w-4 text-mist-500" />
                   {t('export.title')}
                 </button>
+                <a role="menuitem" className="nc-menu-item" href={boardsApi.exportUrl(board.id)} download onClick={() => close()}>
+                  <FileDown className="h-4 w-4 text-mist-500" />
+                  {t('canvasFile.export')}
+                </a>
+                <button type="button" role="menuitem" className="nc-menu-item" disabled={readOnly} onClick={() => { close(); canvasInput.current?.click() }}>
+                  <FileUp className="h-4 w-4 text-mist-500" />
+                  {t('canvasFile.import')}
+                </button>
+                <div className="my-1 h-px bg-ink-700" />
                 <button type="button" role="menuitem" className="nc-menu-item" disabled={frames.length === 0} title={frames.length === 0 ? t('frames.none') : undefined} onClick={() => { close(); present(0) }}>
                   <Presentation className="h-4 w-4 text-mist-500" />
                   {t('frames.present')}
@@ -1503,6 +1531,17 @@ function Editor({ board }: { board: Board }) {
         onChange={(e) => {
           addFiles([...(e.target.files ?? [])], middle())
           e.target.value = ''
+        }}
+      />
+      <input
+        ref={canvasInput}
+        type="file"
+        accept=".canvas,.zip,application/json,application/zip"
+        hidden
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          e.target.value = ''
+          if (file) void importCanvas(file)
         }}
       />
       <input

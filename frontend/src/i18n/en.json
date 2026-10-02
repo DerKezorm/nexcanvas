@@ -648,7 +648,9 @@
     "wrong_password": "The password is wrong.",
     "not_found": "Not found, or not open to you.",
     "forbidden": "Your right in this space does not allow this.",
-    "setup_code_wrong": "The setup code is wrong. It stands in the server log."
+    "setup_code_wrong": "The setup code is wrong. It stands in the server log.",
+    "invalid_canvas": "This is not a JSON Canvas file (.canvas) or an archive with one (.zip).",
+    "empty_canvas": "There is nothing on this canvas to bring in."
   },
   "auth": {
     "name": "Name",
@@ -748,5 +750,13 @@
     "go": "Export",
     "busy": "Drawing …",
     "failed": "The export did not work. Try a smaller part of the board."
+  },
+  "canvasFile": {
+    "export": "Save as JSON Canvas",
+    "import": "Bring in a JSON Canvas",
+    "imported_one": "One thing brought in.",
+    "imported_other": "{{count}} things brought in.",
+    "missing_one": "One file was not in it and is a note with its name now.",
+    "missing_other": "{{count}} files were not in it and are notes with their names now."
   }
 }

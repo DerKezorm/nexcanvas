@@ -239,6 +239,10 @@ export const boardsApi = {
   visit: (id: string) => api<void>(`/api/boards/${id}/visit`, { method: 'POST' }),
   versions: (id: string) => api<{ id: number; created_at: string; authors: string; items: number }[]>(`/api/boards/${id}/versions`),
   restoreVersion: (id: string, version: number) => api<void>(`/api/boards/${id}/versions/${version}/restore`, { method: 'POST' }),
+  /** Where the board downloads as JSON Canvas (a .canvas file, or a .zip when photos and files go along). */
+  exportUrl: (id: string) => `/api/boards/${encodeURIComponent(id)}/export`,
+  importCanvas: (id: string, file: Blob, at: { x: number; y: number }) =>
+    upload<{ items: number; lines: number; files: number; missing: string[]; skipped: number }>(`/api/boards/${encodeURIComponent(id)}/import`, { x: Math.round(at.x), y: Math.round(at.y) }, file),
   search: (q: string) => api<BoardInfo[]>('/api/search', { query: { q } }),
 }
 

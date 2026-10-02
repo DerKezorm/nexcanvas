@@ -10,12 +10,14 @@ import asyncio
 import logging
 from datetime import datetime
 from typing import Annotated, Any
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
-from fastapi import APIRouter, Query, WebSocket
+from fastapi import APIRouter, Query, Request, Response, WebSocket
 from fastapi import Path as PathParam
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from starlette.requests import ClientDisconnect
 
 from ..db import SessionLocal
 from ..deps import Account, DbSession
@@ -23,7 +25,7 @@ from ..errors import error
 from ..models import MANAGE, READ, WRITE, Board, BoardVersion, Favorite, Share, Visit, utcnow
 from ..models import Account as AccountRow
 from ..security import SESSION_COOKIE, session_account
-from ..services import boards, live, rights, settings_service, totp
+from ..services import boards, canvas_file, live, media_store, rights, settings_service, totp
 
 logger = logging.getLogger("nexcanvas.boards")
 
@@ -248,6 +250,61 @@ async def restore_version(board_id: BoardId, version_id: Annotated[int, PathPara
         update = boards.restore_version(db, board, version)
     await live.push(board_id, update, account.name)
     logger.info("Version brought back board=%s version=%s by=%s", board_id, version_id, account.name)
+
+
+@router.get("/boards/{board_id}/export", response_model=None, summary="The board as JSON Canvas (.zip with its files)")
+def export_canvas(board_id: BoardId, account: Account, db: DbSession) -> Response:
+    board = _board(db, account, board_id, READ)
+    picture = live.picture(board_id) or boards.snapshot_of(boards.load(db, board))
+    data, name, media_type = canvas_file.export(db, board, picture)
+    logger.info("Board exported as canvas id=%s items=%s by=%s", board_id, len(picture.get("items", [])), account.name)
+    return Response(data, media_type=media_type, headers={
+        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+    })
+
+
+@router.post("/boards/{board_id}/import", summary="Cards and arrows of a JSON Canvas (.canvas or .zip) onto the board")
+async def import_canvas(
+    board_id: BoardId,
+    request: Request,
+    account: Account,
+    x: Annotated[float, Query(ge=-1e7, le=1e7)] = 0,
+    y: Annotated[float, Query(ge=-1e7, le=1e7)] = 0,
+) -> dict[str, Any]:
+    with SessionLocal() as db:
+        _board(db, account, board_id, WRITE)
+        # An archive holds several photos; it may be a few times as large as one upload.
+        limit = media_store.max_bytes(db) * 4
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > limit:
+        raise error("too_large", "The file is larger than allowed.", 413, max_mb=limit // (1024 * 1024))
+    body = bytearray()
+    try:
+        async for chunk in request.stream():
+            body += chunk
+            if len(body) > limit:
+                raise error("too_large", "The file is larger than allowed.", 413, max_mb=limit // (1024 * 1024))
+    except ClientDisconnect as exc:
+        raise error("upload_aborted", "The upload stopped before the end.") from exc
+    if not body:
+        raise error("empty", "The file is empty.")
+
+    def bring_in() -> tuple[bytes, canvas_file.Imported]:
+        with SessionLocal() as db:
+            board = _board(db, account, board_id, WRITE)
+            return canvas_file.import_into(db, account, board, bytes(body), (x, y))
+
+    try:
+        update, result = await run_in_threadpool(bring_in)
+    except canvas_file.CanvasError as exc:
+        raise error(exc.code, exc.text, exc.status) from exc
+    await live.push(board_id, update, account.name)
+    logger.info("Canvas imported board=%s items=%s lines=%s files=%s missing=%s by=%s", board_id, result.items,
+                result.lines, result.files, len(result.missing), account.name)
+    return {"items": result.items, "lines": result.lines, "files": result.files, "missing": result.missing[:50],
+            "skipped": result.skipped}
 
 
 @router.get("/search", summary="Boards whose name or words contain all the words asked for")
