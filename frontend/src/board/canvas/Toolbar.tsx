@@ -64,7 +64,7 @@ function Flyout({ open, onClose, children }: { open: boolean; onClose: () => voi
   }, [open, onClose])
   if (!open) return null
   return (
-    <div ref={ref} className="nc-float absolute top-full left-1/2 mt-2 -translate-x-1/2 p-2">
+    <div ref={ref} className="nc-float absolute bottom-full left-1/2 z-10 mb-2 max-w-[calc(100vw-24px)] -translate-x-1/2 p-2 sm:top-full sm:bottom-auto sm:mt-2 sm:mb-0">
       {children}
     </div>
   )
@@ -111,11 +111,12 @@ export function Toolbar({
   )
 
   return (
-    <div className="nc-float pointer-events-auto flex items-center gap-0.5 p-1" role="toolbar" aria-label={t('canvas.tools')}>
+    <div className="nc-float pointer-events-auto relative flex items-center gap-0.5 p-1" role="toolbar" aria-label={t('canvas.tools')}>
       {tool('select', t('tools.select'), MousePointer2, 'V')}
-      {tool('hand', t('tools.hand'), Hand, 'H')}
-      <span className="mx-1 h-6 w-px bg-ink-700" />
-      <div className="relative">
+      {/* On a phone one finger moves the board; the hand would only take room. */}
+      <span className="hidden sm:contents">{tool('hand', t('tools.hand'), Hand, 'H')}</span>
+      <span className="mx-1 hidden h-6 w-px bg-ink-700 sm:block" />
+      <div className="sm:relative">
         <button
           type="button"
           className="nc-tool"
@@ -138,7 +139,7 @@ export function Toolbar({
           </div>
         </Flyout>
       </div>
-      <div className="relative">
+      <div className="sm:relative">
         <button
           type="button"
           className="nc-tool"
@@ -167,8 +168,8 @@ export function Toolbar({
       {tool('text', t('tools.text'), Type, 'T')}
       {tool('line', t('tools.line'), Spline, 'L')}
       {tool('frame', t('tools.frame'), FrameIcon, 'F')}
-      <span className="mx-1 h-6 w-px bg-ink-700" />
-      <div className="relative">
+      <span className="mx-1 hidden h-6 w-px bg-ink-700 sm:block" />
+      <div className="sm:relative">
         <button
           type="button"
           className="nc-tool"
@@ -208,8 +209,8 @@ export function Toolbar({
         </Flyout>
       </div>
       {tool('eraser', t('tools.eraser'), Eraser, 'E')}
-      <span className="mx-1 h-6 w-px bg-ink-700" />
-      <div className="relative">
+      <span className="mx-1 hidden h-6 w-px bg-ink-700 sm:block" />
+      <div className="sm:relative">
         <button type="button" className="nc-tool" aria-label={t('tools.media')} title={t('tools.media')} aria-expanded={open === 'media'} onClick={() => setOpen(open === 'media' ? null : 'media')}>
           <ImagePlus className="h-[18px] w-[18px]" strokeWidth={1.8} />
         </button>

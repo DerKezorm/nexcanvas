@@ -55,6 +55,7 @@ function freshGroups<T extends Item>(copies: T[]): T[] {
     return { ...c, group: map.get(c.group) }
   })
 }
+const LONG_PRESS_MS = 500
 const MIN_ZOOM = 0.1
 const MAX_ZOOM = 4
 const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z))
@@ -152,6 +153,10 @@ function Editor({ board }: { board: Board }) {
   const gesture = useRef<Gesture | null>(null)
   const pointers = useRef(new Map<number, Point>())
   const pinch = useRef<{ dist: number; mid: Point; view: View } | null>(null)
+  const press = useRef<{ timer: number; at: Point }>({ timer: 0, at: { x: 0, y: 0 } })
+  /** A long press opened the menu: the finger's lifting ends nothing else. */
+  const pressed = useRef(false)
+  const lastTap = useRef({ time: 0, x: 0, y: 0, handled: 0 })
   const fileInput = useRef<HTMLInputElement>(null)
   const cameraInput = useRef<HTMLInputElement>(null)
   const canvasInput = useRef<HTMLInputElement>(null)
@@ -413,6 +418,21 @@ function Editor({ board }: { board: Board }) {
     const s = local(e)
     pointers.current.set(e.pointerId, s)
     root.current?.setPointerCapture(e.pointerId)
+    clearTimeout(press.current.timer)
+    if (e.pointerType === 'touch' && pointers.current.size === 1) {
+      const at = { clientX: e.clientX, clientY: e.clientY }
+      press.current = {
+        at: s,
+        timer: window.setTimeout(() => {
+          // Held still: whatever the finger began (a move, a pan) gives way to the menu.
+          gesture.current = null
+          setDraft(null)
+          setMarquee(null)
+          pressed.current = true
+          menuAt(at)
+        }, LONG_PRESS_MS),
+      }
+    }
 
     // Two fingers: zoom and pan, whatever was going on.
     if (pointers.current.size === 2) {
@@ -490,7 +510,7 @@ function Editor({ board }: { board: Board }) {
         gesture.current = { kind: 'move', start: p, ids: movable.map((i) => i.id), lines: freeLines, origin: doc.ref.current, moved: false, box }
       } else {
         if (!e.shiftKey) setSelected([])
-        gesture.current = { kind: 'marquee', start: p, add: e.shiftKey ? selected : [] }
+        gesture.current = e.pointerType === 'touch' ? { kind: 'pan', start: s, view: viewRef.current } : { kind: 'marquee', start: p, add: e.shiftKey ? selected : [] }
       }
       return
     }
@@ -529,6 +549,7 @@ function Editor({ board }: { board: Board }) {
 
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const s = local(e)
+    if (press.current.timer && Math.hypot(s.x - press.current.at.x, s.y - press.current.at.y) > 8) clearTimeout(press.current.timer)
     // The others see this pointer, a few times a second at most.
     // eslint-disable-next-line react-hooks/purity -- an event handler, not part of drawing
     const now = performance.now()
@@ -759,7 +780,28 @@ function Editor({ board }: { board: Board }) {
 
   const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
     pointers.current.delete(e.pointerId)
+    clearTimeout(press.current.timer)
+    press.current.timer = 0
+    if (pressed.current) {
+      pressed.current = false
+      return
+    }
     const g = gesture.current
+    // Two taps of a finger close together: what a double click does with a mouse.
+    if (e.pointerType === 'touch' && e.type === 'pointerup' && (g?.kind === 'pan' || (g?.kind === 'move' && !g.moved))) {
+      const s = local(e)
+      const before = lastTap.current
+      const now = e.timeStamp
+      const still = g.kind === 'move' || Math.hypot(s.x - g.start.x, s.y - g.start.y) < 10
+      if (still && now - before.time < 350 && Math.hypot(s.x - before.x, s.y - before.y) < 30) {
+        gesture.current = null
+        lastTap.current = { time: 0, x: 0, y: 0, handled: 0 }
+        openAt(e)
+        lastTap.current.handled = now
+        return
+      }
+      if (still) lastTap.current = { ...before, time: now, x: s.x, y: s.y }
+    }
     if (g?.kind === 'pinch') {
       if (pointers.current.size === 0) {
         gesture.current = null
@@ -860,7 +902,23 @@ function Editor({ board }: { board: Board }) {
     return root.current as HTMLElement
   }
 
+  const menuAt = (e: { clientX: number; clientY: number }) => {
+    const hit = under(e)
+    if (hit.closest('[data-ui]')) return
+    const s = local(e)
+    const on = hit.closest<HTMLElement>('[data-item]')?.dataset.item ?? null
+    if (on && !selectedSet.has(on)) setSelected(withGroups([on], doc.ref.current.items))
+    setMenu({ x: s.x, y: s.y, at: toBoard(s, viewRef.current), on })
+  }
+
+  // A finger's double tap was handled on its own already; the browser may send a double click after it.
   const onDoubleClick = (e: React.MouseEvent) => {
+    if (e.timeStamp - lastTap.current.handled > 600) openAt(e)
+  }
+
+  /** What a double click does where it happens: write into a note, shape, text or frame name, open a link, or start
+   * a text on the empty board. */
+  const openAt = (e: { clientX: number; clientY: number }) => {
     if (readOnly) return
     const target = under(e)
     if (target.closest('[data-ui]')) return
@@ -1174,6 +1232,7 @@ function Editor({ board }: { board: Board }) {
   const allLocked = selItems.length > 0 && selItems.every((i) => i.locked)
   const cursor = spaceHeld || tools.tool === 'hand' ? 'grab' : tools.tool === 'select' ? 'default' : tools.tool === 'eraser' ? 'cell' : 'crosshair'
   const zoomPct = Math.round(view.zoom * 100)
+  const phone = size.w < 640
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -1279,12 +1338,7 @@ function Editor({ board }: { board: Board }) {
         onDoubleClick={onDoubleClick}
         onContextMenu={(e) => {
           e.preventDefault()
-          const hit = under(e)
-          if (hit.closest('[data-ui]')) return
-          const s = local(e)
-          const on = hit.closest<HTMLElement>('[data-item]')?.dataset.item ?? null
-          if (on && !selectedSet.has(on)) setSelected([on])
-          setMenu({ x: s.x, y: s.y, at: toBoard(s, viewRef.current), on })
+          menuAt(e)
         }}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
@@ -1349,7 +1403,7 @@ function Editor({ board }: { board: Board }) {
                     key={h}
                     data-handle="resize"
                     data-dir={h}
-                    className="pointer-events-auto absolute h-2.5 w-2.5 rounded-[3px] border-[1.5px] border-accent-500 bg-ink-950"
+                    className="pointer-events-auto absolute h-2.5 w-2.5 rounded-[3px] border-[1.5px] border-accent-500 bg-ink-950 pointer-coarse:before:absolute pointer-coarse:before:-inset-2.5 pointer-coarse:before:content-['']"
                     style={{
                       left: h.includes('w') ? -6 : h.includes('e') ? 'calc(100% - 4px)' : 'calc(50% - 5px)',
                       top: h.includes('n') ? -6 : h.includes('s') ? 'calc(100% - 4px)' : 'calc(50% - 5px)',
@@ -1361,7 +1415,7 @@ function Editor({ board }: { board: Board }) {
               <span
                 data-handle="rotate"
                 title={t('canvas.rotate')}
-                className="pointer-events-auto absolute grid h-6 w-6 cursor-grab place-items-center rounded-full border border-accent-500/70 bg-ink-950 text-accent-400 opacity-80 hover:opacity-100"
+                className="pointer-events-auto absolute grid h-6 w-6 cursor-grab place-items-center rounded-full border border-accent-500/70 bg-ink-950 text-accent-400 opacity-80 hover:opacity-100 pointer-coarse:before:absolute pointer-coarse:before:-inset-2.5 pointer-coarse:before:content-['']"
                 style={{ left: 'calc(100% + 10px)', top: 'calc(100% + 10px)' }}
               >
                 <RotateCw className="pointer-events-none h-3.5 w-3.5" strokeWidth={2.2} />
@@ -1394,17 +1448,17 @@ function Editor({ board }: { board: Board }) {
         {lineGeo && singleLine && !readOnly &&
           (['a', 'b'] as const).map((which) => {
             const pt = toScreen(lineGeo[which], view)
-            return <span key={which} data-handle="end" data-line={singleLine.id} data-which={which} className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 cursor-move rounded-full border-2 border-accent-500 bg-ink-950" style={{ left: pt.x, top: pt.y }} />
+            return <span key={which} data-handle="end" data-line={singleLine.id} data-which={which} className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 cursor-move rounded-full border-2 border-accent-500 bg-ink-950 pointer-coarse:before:absolute pointer-coarse:before:-inset-2.5 pointer-coarse:before:content-['']" style={{ left: pt.x, top: pt.y }} />
           })}
 
         {barAt && (selItems.length > 0 || selLines.length > 0) && (
           <div data-ui>
-            <ContextBar items={selItems} lines={selLines} at={barAt} actions={actions} />
+            <ContextBar items={selItems} lines={selLines} at={barAt} actions={actions} docked={phone} />
           </div>
         )}
 
         {/* Floating controls. data-ui keeps the board from treating clicks on them as board clicks. */}
-        <div data-ui className="pointer-events-none absolute top-3 left-1/2 z-20 -translate-x-1/2">
+        <div data-ui className="pointer-events-none absolute bottom-[max(12px,env(safe-area-inset-bottom))] left-1/2 z-20 -translate-x-1/2 sm:top-3 sm:bottom-auto">
           {!readOnly && presenting === null && (
             <Toolbar
               state={tools}
@@ -1418,7 +1472,7 @@ function Editor({ board }: { board: Board }) {
             />
           )}
         </div>
-        <div data-ui className={'nc-float absolute bottom-4 left-4 z-20 flex items-center gap-0.5 p-1 ' + (presenting !== null ? 'hidden' : '')}>
+        <div data-ui className={'nc-float absolute top-3 left-3 z-20 flex items-center gap-0.5 p-1 sm:top-auto sm:bottom-4 sm:left-4 ' + (presenting !== null ? 'hidden' : '')}>
           <button type="button" className="nc-tool h-8 w-8" onClick={doc.undo} disabled={!doc.canUndo || readOnly} aria-label={t('canvas.undo')} title={`${t('canvas.undo')} (Ctrl Z)`}>
             <Undo2 className="h-4 w-4" />
           </button>
@@ -1426,13 +1480,13 @@ function Editor({ board }: { board: Board }) {
             <Redo2 className="h-4 w-4" />
           </button>
           <span className="mx-1 h-5 w-px bg-ink-700" />
-          <button type="button" className="nc-tool h-8 w-8" onClick={() => zoomAt({ x: size.w / 2, y: size.h / 2 }, 1 / 1.25)} aria-label={t('canvas.zoomOut')} title={`${t('canvas.zoomOut')} (−)`}>
+          <button type="button" className="nc-tool hidden h-8 w-8 sm:flex" onClick={() => zoomAt({ x: size.w / 2, y: size.h / 2 }, 1 / 1.25)} aria-label={t('canvas.zoomOut')} title={`${t('canvas.zoomOut')} (−)`}>
             <Minus className="h-4 w-4" />
           </button>
-          <button type="button" className="h-8 min-w-14 rounded-lg px-1 text-xs font-semibold text-mist-300 tabular-nums hover:bg-ink-800" onClick={() => zoomAt({ x: size.w / 2, y: size.h / 2 }, 1 / view.zoom)} title={t('canvas.zoom100')}>
+          <button type="button" className="hidden h-8 min-w-14 rounded-lg px-1 text-xs font-semibold text-mist-300 tabular-nums hover:bg-ink-800 sm:block" onClick={() => zoomAt({ x: size.w / 2, y: size.h / 2 }, 1 / view.zoom)} title={t('canvas.zoom100')}>
             {zoomPct} %
           </button>
-          <button type="button" className="nc-tool h-8 w-8" onClick={() => zoomAt({ x: size.w / 2, y: size.h / 2 }, 1.25)} aria-label={t('canvas.zoomIn')} title={`${t('canvas.zoomIn')} (+)`}>
+          <button type="button" className="nc-tool hidden h-8 w-8 sm:flex" onClick={() => zoomAt({ x: size.w / 2, y: size.h / 2 }, 1.25)} aria-label={t('canvas.zoomIn')} title={`${t('canvas.zoomIn')} (+)`}>
             <Plus className="h-4 w-4" />
           </button>
           <button type="button" className="nc-tool h-8 w-8" onClick={() => fit()} aria-label={t('canvas.fit')} title={`${t('canvas.fit')} (Shift 1)`}>
@@ -1440,7 +1494,7 @@ function Editor({ board }: { board: Board }) {
           </button>
         </div>
         {presenting === null && (
-          <div data-ui className="absolute right-4 bottom-4 z-20 flex items-end gap-2">
+          <div data-ui className="absolute top-3 right-3 z-20 flex items-start gap-2 sm:top-auto sm:right-4 sm:bottom-4 sm:items-end">
             {scenes && (
               <ScenesPanel
                 frames={frames}

@@ -123,8 +123,8 @@ function Frame({ item, editing, onDone }: { item: FrameItem; editing: boolean; o
       </svg>
       <div
         data-frame-title
-        className="absolute left-0 flex max-w-full items-center font-semibold whitespace-nowrap"
-        style={{ bottom: '100%', paddingBottom: 'calc(6px / var(--zoom, 1))', fontSize: 'calc(13px / var(--zoom, 1))', color, pointerEvents: 'auto' }}
+        className="absolute flex max-w-full items-center font-semibold whitespace-nowrap"
+        style={{ bottom: '100%', left: 'calc(10px / var(--zoom, 1))', paddingBottom: 'calc(6px / var(--zoom, 1))', fontSize: 'calc(13px / var(--zoom, 1))', color, pointerEvents: 'auto' }}
       >
         {editing ? (
           <input

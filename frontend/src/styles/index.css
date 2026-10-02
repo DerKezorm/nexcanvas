@@ -122,7 +122,7 @@
   }
 
   .nc-tool {
-    @apply relative flex h-9 w-9 items-center justify-center rounded-xl text-mist-400 transition-colors hover:bg-ink-800 hover:text-mist-100;
+    @apply relative flex h-[34px] w-[34px] items-center justify-center rounded-xl text-mist-400 transition-colors hover:bg-ink-800 hover:text-mist-100 sm:h-9 sm:w-9;
   }
 
   .nc-tool[aria-pressed='true'] {

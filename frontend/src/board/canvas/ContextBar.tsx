@@ -51,7 +51,14 @@ function Swatches({ colors, value, onPick, label }: { colors: readonly string[];
  * The bar above a selection, as in Freeform: what the selection is decides what it offers. Colour always
  * comes first, the rest follows the kind; arrange, lock and delete are always there.
  */
-export function ContextBar({ items, lines, at, actions }: { items: Item[]; lines: LineItem[]; at: { x: number; y: number }; actions: ContextActions }) {
+export function ContextBar({ items, lines, at, actions, docked = false }: {
+  items: Item[]
+  lines: LineItem[]
+  at: { x: number; y: number }
+  actions: ContextActions
+  /** On a phone: the bar sits at the bottom above the tools, scrolls sideways, and its panels open upwards. */
+  docked?: boolean
+}) {
   const { t } = useTranslation()
   const [panel, setPanel] = useState<'fill' | 'stroke' | 'shape' | null>(null)
   const kinds = new Set<string>([...items.map((i) => i.kind), ...lines.map(() => 'line')])
@@ -70,8 +77,12 @@ export function ContextBar({ items, lines, at, actions }: { items: Item[]; lines
     })
 
   return (
-    <div className="pointer-events-auto absolute z-30 -translate-x-1/2 -translate-y-full" style={{ left: at.x, top: at.y }} onPointerDown={(e) => e.stopPropagation()}>
-      <div className="nc-float flex items-center gap-0.5 p-1">
+    <div
+      className={'pointer-events-auto absolute z-30 -translate-x-1/2 ' + (docked ? 'max-w-[calc(100vw-16px)]' : '-translate-y-full')}
+      style={docked ? { left: '50%', bottom: 'calc(max(12px, env(safe-area-inset-bottom)) + 52px)' } : { left: at.x, top: at.y }}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      <div className={'nc-float flex items-center gap-0.5 p-1 ' + (docked ? 'nc-scroll overflow-x-auto' : '')}>
         {only === 'note' && (
           <div className="flex gap-1 px-1">
             {(Object.keys(NOTE_COLORS) as NoteColor[]).map((c) => (
@@ -189,7 +200,7 @@ export function ContextBar({ items, lines, at, actions }: { items: Item[]; lines
         </Btn>
       </div>
       {panel && (
-        <div className="nc-float absolute top-full left-1/2 mt-2 w-max max-w-72 -translate-x-1/2 p-2.5">
+        <div className={'nc-float absolute left-1/2 w-max max-w-72 -translate-x-1/2 p-2.5 ' + (docked ? 'bottom-full mb-2' : 'top-full mt-2')}>
           {panel === 'fill' && (
             <Swatches
               colors={only === 'shape' ? FILLS : PALETTE}
