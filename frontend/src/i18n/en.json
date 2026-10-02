@@ -1,0 +1,343 @@
+{
+  "app": {
+    "home": "nexcanvas home",
+    "mainMenu": "Main menu"
+  },
+  "nav": {
+    "boards": "Boards",
+    "templates": "Templates",
+    "files": "Files"
+  },
+  "theme": {
+    "dark": "Dark",
+    "light": "Light",
+    "group": "Appearance"
+  },
+  "search": {
+    "button": "Search boards",
+    "placeholder": "Board name or words on a board …",
+    "nothing": "Nothing found."
+  },
+  "common": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "copy": "Copy",
+    "copied": "Copied",
+    "more": "More",
+    "save": "Save"
+  },
+  "mock": {
+    "full": "The browser has no room left for this change. In the mock everything lives in the browser; large photos fill it quickly.",
+    "reset": "Reset demo boards",
+    "notYet": "Not in the mock yet",
+    "settings": "Mock: these settings show what will be here. Nothing is saved yet."
+  },
+  "account": {
+    "menu": "Account menu",
+    "operator": "Operator",
+    "mine": "My account",
+    "language": "Language",
+    "signOut": "Sign out",
+    "profile": "Profile",
+    "security": "Security",
+    "connections": "Connections",
+    "picture": "Change picture",
+    "displayName": "Display name",
+    "email": "Email",
+    "password": "Password",
+    "changePassword": "Change password",
+    "twoFactorHint": "A code from an authenticator app at every sign-in, with recovery codes.",
+    "twoFactorSetup": "Set up second factor",
+    "apiTokens": "API tokens",
+    "apiHint": "For dashboards and automations, with level, spaces and expiry. The operator switches them on.",
+    "newToken": "New token"
+  },
+  "board": {
+    "new": "New board",
+    "newShortcut": "New board (Alt N)",
+    "newIn": "New board in {{space}}",
+    "name": "Name",
+    "untitled": "Untitled board",
+    "space": "Space",
+    "startWith": "Start with",
+    "create": "Create board",
+    "missing": "This board does not exist or is in the bin.",
+    "back": "Back to the boards",
+    "place": "Place of the board",
+    "rename": "Rename",
+    "duplicate": "Duplicate",
+    "copyOf": "{{title}} (copy)",
+    "trash": "Move to bin",
+    "favorite": "Add to favourites",
+    "unfavorite": "Remove from favourites",
+    "saved": "Saved",
+    "saving": "Saving …",
+    "readOnly": "You can only look at this board",
+    "hereNow": "Also here right now",
+    "versions": "Versions"
+  },
+  "boards": {
+    "all": "All boards",
+    "sort": "Sort",
+    "sortUpdated": "Last changed",
+    "sortTitle": "Name",
+    "sortCreated": "Newest",
+    "count_one": "One board",
+    "count_other": "{{count}} boards"
+  },
+  "members": {
+    "button_one": "One member",
+    "button_other": "{{count}} members",
+    "title": "Members of {{space}}",
+    "you": "you",
+    "role": "Role",
+    "read": "Read",
+    "write": "Write",
+    "manage": "Manage",
+    "invite": "Invite by name",
+    "invitePlaceholder": "Account name",
+    "send": "Invite",
+    "sent": "If {{name}} exists, the invitation is waiting under News.",
+    "link": "Create invitation link for someone without an account"
+  },
+  "sidebar": {
+    "label": "Boards and spaces",
+    "recent": "Recent",
+    "favorites": "Favourites",
+    "noFavorites": "Star a board to keep it here.",
+    "spaces": "Spaces",
+    "newSpace": "New space",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "nothingHere": "No boards here yet"
+  },
+  "templates": {
+    "intro": "Each puts a little structure on a new board. Everything stays changeable.",
+    "blank": {
+      "name": "Blank",
+      "hint": "An empty board"
+    },
+    "mood": {
+      "name": "Mood board",
+      "hint": "Frames for photos and ideas",
+      "title": "Mood board",
+      "note": "Drop photos into the frames"
+    },
+    "retro": {
+      "name": "Retro",
+      "hint": "Good, bad, next time",
+      "title": "Retro",
+      "good": "Went well",
+      "bad": "Went badly",
+      "next": "Next time"
+    },
+    "kanban": {
+      "name": "Kanban",
+      "hint": "Three columns for tasks",
+      "title": "Tasks",
+      "todo": "To do",
+      "doing": "Doing",
+      "done": "Done",
+      "first": "First task"
+    },
+    "mindmap": {
+      "name": "Mind map",
+      "hint": "A topic with branches",
+      "topic": "Topic",
+      "idea": "Idea {{n}}"
+    },
+    "week": {
+      "name": "Week plan",
+      "hint": "A column for each day",
+      "title": "This week",
+      "days": "Mon,Tue,Wed,Thu,Fri,Sat,Sun"
+    }
+  },
+  "files": {
+    "intro_one": "One photo or file on your boards.",
+    "intro_other": "{{count}} photos and files on your boards.",
+    "photo": "Photo",
+    "trash": "Bin",
+    "trashHint": "Boards stay here for 30 days, then they go for good.",
+    "trashEmpty": "The bin is empty.",
+    "deleted": "deleted {{when}}",
+    "restore": "Restore",
+    "purge": "Delete for good",
+    "purgeTitle": "Delete for good?",
+    "purgeText": "“{{title}}” and everything on it will be gone. This cannot be undone."
+  },
+  "canvas": {
+    "tools": "Tools",
+    "undo": "Undo",
+    "redo": "Redo",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "zoom100": "Actual size",
+    "fit": "Show everything",
+    "connect": "Drag to connect, click to add a connected note",
+    "notePlaceholder": "Note",
+    "textPlaceholder": "Text",
+    "pages_one": "one page",
+    "pages_other": "{{count}} pages",
+    "emptyTitle": "An empty board",
+    "emptyHint": "Pick a tool at the top, double-click for text, or drop photos and files here."
+  },
+  "tools": {
+    "select": "Select",
+    "hand": "Move the board",
+    "note": "Note",
+    "shape": "Shape",
+    "text": "Text",
+    "line": "Line",
+    "pen": "Pen",
+    "marker": "Highlighter",
+    "eraser": "Eraser",
+    "media": "Photo, file or link",
+    "size": "Size {{size}}"
+  },
+  "shapes": {
+    "rect": "Rectangle",
+    "round": "Rounded rectangle",
+    "ellipse": "Circle",
+    "triangle": "Triangle",
+    "diamond": "Diamond",
+    "hexagon": "Hexagon",
+    "star": "Star",
+    "arrow": "Arrow",
+    "speech": "Speech bubble"
+  },
+  "colors": {
+    "yellow": "Yellow",
+    "orange": "Orange",
+    "pink": "Pink",
+    "violet": "Violet",
+    "blue": "Blue",
+    "green": "Green",
+    "gray": "Grey",
+    "auto": "Text colour (white when dark, black when light)",
+    "none": "None"
+  },
+  "media": {
+    "upload": "Upload photo or file",
+    "link": "Add link",
+    "linkHint": "The card shows the address. Fetching the page title is a switch for the operator, as in nexlore.",
+    "add": "Add",
+    "sample": "Sample photo (mock)",
+    "dropHint": "Or drag photos and files onto the board, or paste them with Ctrl V."
+  },
+  "context": {
+    "fill": "Fill",
+    "color": "Colour",
+    "stroke": "Outline",
+    "shape": "Change shape",
+    "size": {
+      "s": "Small",
+      "m": "Medium",
+      "l": "Large",
+      "xl": "Heading"
+    },
+    "hand": "Handwriting",
+    "arrowNone": "No arrow",
+    "arrowEnd": "Arrow at the end",
+    "arrowBoth": "Arrows at both ends",
+    "curve": "Curved",
+    "dashed": "Dashed",
+    "width": "Width {{width}}",
+    "front": "Bring to front",
+    "back": "Send to back",
+    "duplicate": "Duplicate",
+    "lock": "Lock",
+    "unlock": "Unlock",
+    "delete": "Delete"
+  },
+  "menu": {
+    "noteHere": "Note here",
+    "textHere": "Text here",
+    "selectAll": "Select all"
+  },
+  "keys": {
+    "title": "Keyboard shortcuts",
+    "tools": "Tools",
+    "edit": "Edit",
+    "view": "View",
+    "copyPaste": "Copy and paste",
+    "write": "Write in the selection",
+    "nudge": "Nudge (Shift: 10)",
+    "noSnap": "Hold while dragging: no snapping",
+    "pan": "Hold and drag: move the board",
+    "zoom": "Zoom",
+    "zoomStep": "Zoom in steps",
+    "del": "Del",
+    "ctrlWheel": "Ctrl + wheel",
+    "space": "Space"
+  },
+  "share": {
+    "button": "Share",
+    "title": "Share “{{title}}”",
+    "who": "Who can open it",
+    "whoHint": "Everyone in the space {{space}}, with their role there.",
+    "manage": "Manage members",
+    "public": "Public read-only page",
+    "publicHint": "Anyone with the link can look, nobody can change anything. Only if the operator allows public pages.",
+    "publicOn": "Public page is on",
+    "expiry": "Expires",
+    "days_one": "after one day",
+    "days_other": "after {{count}} days",
+    "never": "never",
+    "password": "Password",
+    "passwordNone": "none",
+    "onlyManagers": "Only people who manage the space can switch the public page."
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "spaces": "Spaces",
+    "server": "Server",
+    "startPage": "Start page",
+    "lastBoard": "The board I had open last",
+    "snap": "Snap to other items while dragging",
+    "grid": "Dots on the board",
+    "toolBack": "Back to Select after placing something",
+    "spacesHint": "Spaces hold boards and decide who sees them, as in nexlore."
+  },
+  "server": {
+    "accounts": "Accounts",
+    "accountsHint": "Accounts come by invitation only.",
+    "member": "Member",
+    "invite": "Invite someone",
+    "signin": "Sign-in",
+    "oidc": "Sign in with OIDC",
+    "oidcHint": "For example authentik, set up as in nexlore and nextrmnl.",
+    "oidcIssuer": "Issuer address",
+    "oidcOnly": "Sign-in with password off",
+    "twoFactor": "Second factor",
+    "twoFactorRequired": "Required for every account with a password",
+    "public": "Public pages",
+    "publicHint": "Off by default. When on, people who manage a space may publish a board as a read-only page.",
+    "publicAllowed": "Allow public pages",
+    "backups": "Backup",
+    "backupsHint": "Boards, photos, files and the database in one archive. Restoring shows a dry run first.",
+    "schedule": "Automatically",
+    "off": "off",
+    "daily": "every night",
+    "weekly": "every week",
+    "keep": "Keep",
+    "backupNow": "Back up now",
+    "restore": "Restore from file",
+    "download": "Download",
+    "languages": "Languages",
+    "languagesHint": "German and English are built in. Add more as a JSON file; missing texts fall back to English.",
+    "builtIn": "built in",
+    "template": "Download template",
+    "upload": "Upload language",
+    "log": "Log",
+    "logHint": "Four levels as in every nex app. The two deep ones switch themselves off after an hour. Never board contents, passwords or keys.",
+    "level": "Level",
+    "levels": {
+      "quiet": "Quiet",
+      "normal": "Normal",
+      "detailed": "Detailed (1 hour)",
+      "trace": "Everything (1 hour)"
+    }
+  }
+}

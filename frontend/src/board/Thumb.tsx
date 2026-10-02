@@ -1,0 +1,59 @@
+import { bounds, lineGeometry, shapePath } from './geometry'
+import { NOTE_COLORS, paint } from './palette'
+import type { Board, Item } from './types'
+import { inkPath } from './ink'
+
+/** A small picture of a board for the overview: the same items, simplified, fitted into the card. */
+export function Thumb({ board }: { board: Board }) {
+  const box = bounds(board.items)
+  if (!box) {
+    return (
+      <div className="nc-board grid h-full w-full place-items-center" style={{ backgroundSize: '14px 14px' }}>
+        <span className="text-xs text-mist-600">·</span>
+      </div>
+    )
+  }
+  const pad = Math.max(box.w, box.h) * 0.06 + 20
+  const view = `${box.x - pad} ${box.y - pad} ${box.w + pad * 2} ${box.h + pad * 2}`
+  const items = new Map(board.items.map((i) => [i.id, i]))
+  return (
+    <svg viewBox={view} preserveAspectRatio="xMidYMid meet" className="nc-board h-full w-full" style={{ backgroundSize: '14px 14px' }} aria-hidden="true">
+      {board.items.map((item) => (
+        <ThumbItem key={item.id} item={item} />
+      ))}
+      {board.lines.map((line) => (
+        <path key={line.id} d={lineGeometry(line, items).d} fill="none" stroke={paint(line.color)} strokeWidth={line.width * 1.5} strokeDasharray={line.dashed ? '8 6' : undefined} />
+      ))}
+    </svg>
+  )
+}
+
+function ThumbItem({ item }: { item: Item }) {
+  switch (item.kind) {
+    case 'note':
+      return <rect x={item.x} y={item.y} width={item.w} height={item.h} rx={6} fill={NOTE_COLORS[item.color]} />
+    case 'shape':
+      return (
+        <path
+          transform={`translate(${item.x} ${item.y})`}
+          d={shapePath(item.shape, item.w, item.h)}
+          fill={paint(item.fill)}
+          stroke={item.stroke === 'none' ? 'none' : paint(item.stroke)}
+          strokeWidth={3}
+        />
+      )
+    case 'text':
+      return <rect x={item.x} y={item.y + item.h * 0.3} width={Math.min(item.w, item.text.length * (item.size === 'xl' ? 22 : 12))} height={item.h * 0.4} rx={4} fill="var(--color-mist-500)" opacity={0.6} />
+    case 'image':
+      return <image href={item.src} x={item.x} y={item.y} width={item.w} height={item.h} preserveAspectRatio="xMidYMid slice" />
+    case 'file':
+    case 'link':
+      return <rect x={item.x} y={item.y} width={item.w} height={item.h} rx={10} fill="var(--color-ink-800)" stroke="var(--color-ink-600)" strokeWidth={2} />
+    case 'ink':
+      return (
+        <g transform={`translate(${item.x} ${item.y}) scale(${item.w / item.ow} ${item.h / item.oh})`}>
+          <path d={inkPath(item)} fill={paint(item.color)} opacity={item.marker ? 0.45 : 1} />
+        </g>
+      )
+  }
+}

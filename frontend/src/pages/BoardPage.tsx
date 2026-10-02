@@ -1,0 +1,1203 @@
+import { ArrowLeft, ChevronRight, Copy, History, Keyboard, Maximize, Minus, MoreHorizontal, Plus, Redo2, Share2, Star, Trash2, Undo2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+
+import { ContextBar, type ContextActions } from '../board/canvas/ContextBar'
+import { ItemView } from '../board/canvas/ItemView'
+import { Lines } from '../board/canvas/Lines'
+import { ShareDialog } from '../board/canvas/ShareDialog'
+import { ShortcutsDialog } from '../board/canvas/ShortcutsDialog'
+import { Toolbar, type Tool, type ToolState } from '../board/canvas/Toolbar'
+import { useDoc } from '../board/canvas/useDoc'
+import { ME } from '../board/demo'
+import { bounds, center, contains, intersects, lineGeometry, normalize, toBoard, toScreen, type Point, type Rect } from '../board/geometry'
+import { outline } from '../board/ink'
+import { NOTE_COLORS, paint } from '../board/palette'
+import { photo, type PhotoKind } from '../board/photos'
+import { useBoards } from '../board/store'
+import type { Board, Doc, End, InkItem, Item, LineItem, View } from '../board/types'
+import { Avatar } from '../components/Avatar'
+import { Dialog } from '../components/Dialog'
+import { Popover } from '../components/Popover'
+
+const uid = () => Math.random().toString(36).slice(2, 10)
+const MIN_ZOOM = 0.1
+const MAX_ZOOM = 4
+const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z))
+
+type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
+type Side = 'top' | 'right' | 'bottom' | 'left'
+
+type Gesture =
+  | { kind: 'pan'; start: Point; view: View }
+  | { kind: 'move'; start: Point; ids: string[]; lines: string[]; origin: Doc; moved: boolean; box: Rect }
+  | { kind: 'resize'; handle: Handle; start: Point; origin: Doc; box: Rect; ids: string[]; keep: boolean; moved: boolean }
+  | { kind: 'marquee'; start: Point; add: string[] }
+  | { kind: 'create'; tool: 'note' | 'shape' | 'text'; start: Point }
+  | { kind: 'draw'; points: number[][] }
+  | { kind: 'erase'; hit: boolean }
+  | { kind: 'line'; a: End; from?: string; side?: Side; startScreen: Point }
+  | { kind: 'end'; line: string; which: 'a' | 'b'; moved: boolean }
+  | { kind: 'pinch' }
+
+export function BoardPage() {
+  const { id = '' } = useParams()
+  const boards = useBoards()
+  const board = boards.board(id)
+  const { t } = useTranslation()
+  if (!board || board.deleted) {
+    return (
+      <main className="grid flex-1 place-items-center p-8 text-center">
+        <div>
+          <p className="text-mist-400">{t('board.missing')}</p>
+          <Link to="/" className="mt-3 inline-block text-accent-400 hover:underline">
+            {t('board.back')}
+          </Link>
+        </div>
+      </main>
+    )
+  }
+  return <Editor key={board.id} board={board} />
+}
+
+function Editor({ board }: { board: Board }) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const boards = useBoards()
+  const space = boards.space(board.space)
+  const readOnly = space?.role === 'read'
+  const doc = useDoc({ items: board.items, lines: board.lines })
+  const { items, lines } = doc.doc
+  const root = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState({ w: 1200, h: 800 })
+  const [view, setView] = useState<View>({ x: 0, y: 0, zoom: 1 })
+  const viewRef = useRef(view)
+  viewRef.current = view
+  const [tools, setTools] = useState<ToolState>({ tool: 'select', shape: 'round', note: 'yellow', pen: 'auto', penSize: 3 })
+  const [selected, setSelected] = useState<string[]>([])
+  const [editing, setEditing] = useState<string | null>(null)
+  const [marquee, setMarquee] = useState<Rect | null>(null)
+  const [draft, setDraft] = useState<{ ink?: number[][]; rect?: Rect; line?: { a: Point; b: Point; target?: string } } | null>(null)
+  const [guides, setGuides] = useState<{ x: number[]; y: number[] }>({ x: [], y: [] })
+  const [share, setShare] = useState(false)
+  const [keys, setKeys] = useState(false)
+  const [asking, setAsking] = useState<'link' | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number; at: Point; on: string | null } | null>(null)
+  const [title, setTitle] = useState<string | null>(null)
+  const [spaceHeld, setSpaceHeld] = useState(false)
+  const [saved, setSaved] = useState(true)
+  const gesture = useRef<Gesture | null>(null)
+  const pointers = useRef(new Map<number, Point>())
+  const pinch = useRef<{ dist: number; mid: Point; view: View } | null>(null)
+  const fileInput = useRef<HTMLInputElement>(null)
+  const clipboard = useRef<Doc | null>(null)
+  const freshText = useRef<string | null>(null)
+
+  const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
+  const selectedSet = useMemo(() => new Set(selected), [selected])
+  const selItems = items.filter((i) => selectedSet.has(i.id))
+  const selLines = lines.filter((l) => selectedSet.has(l.id))
+
+  // Opening counts as a visit; the overview sorts "recent" by it.
+  useEffect(() => {
+    boards.patch(board.id, { opened: Date.now() })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board.id])
+
+  // Save shortly after the last change, as nexlore saves notes.
+  useEffect(() => {
+    if (doc.version === 0) return
+    setSaved(false)
+    const timer = setTimeout(() => {
+      boards.saveDoc(board.id, doc.doc)
+      setSaved(true)
+    }, 500)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc.version])
+
+  // The size of the board area, for fitting and for placing things in the middle.
+  useEffect(() => {
+    const el = root.current
+    if (!el) return
+    const observer = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }))
+    observer.observe(el)
+    setSize({ w: el.clientWidth, h: el.clientHeight })
+    return () => observer.disconnect()
+  }, [])
+
+  const fit = useCallback(
+    (rect: Rect | null = bounds(doc.ref.current.items), animate = true) => {
+      const el = root.current
+      if (!el) return
+      const w = el.clientWidth
+      const h = el.clientHeight
+      if (!rect) {
+        setView({ x: w / 2, y: h / 2, zoom: 1 })
+        return
+      }
+      const pad = 90
+      const zoom = clampZoom(Math.min((w - pad * 2) / Math.max(rect.w, 1), (h - pad * 2 - 40) / Math.max(rect.h, 1), 1.4))
+      const next = { zoom, x: w / 2 - (rect.x + rect.w / 2) * zoom, y: h / 2 + 20 - (rect.y + rect.h / 2) * zoom }
+      if (!animate) return setView(next)
+      const from = viewRef.current
+      const start = performance.now()
+      const step = (now: number) => {
+        const k = Math.min(1, (now - start) / 260)
+        const e = 1 - Math.pow(1 - k, 3)
+        setView({ x: from.x + (next.x - from.x) * e, y: from.y + (next.y - from.y) * e, zoom: from.zoom + (next.zoom - from.zoom) * e })
+        if (k < 1) requestAnimationFrame(step)
+      }
+      requestAnimationFrame(step)
+    },
+    [doc.ref],
+  )
+
+  useEffect(() => {
+    fit(undefined, false)
+  }, [fit])
+
+  const local = useCallback((e: { clientX: number; clientY: number }): Point => {
+    const r = root.current!.getBoundingClientRect()
+    return { x: e.clientX - r.left, y: e.clientY - r.top }
+  }, [])
+
+  const zoomAt = useCallback((screen: Point, factor: number) => {
+    setView((v) => {
+      const zoom = clampZoom(v.zoom * factor)
+      const k = zoom / v.zoom
+      return { zoom, x: screen.x - (screen.x - v.x) * k, y: screen.y - (screen.y - v.y) * k }
+    })
+  }, [])
+
+  // Wheel: pan, with Ctrl (and trackpad pinch) zoom around the pointer. Not passive, so the page does not scroll.
+  useEffect(() => {
+    const el = root.current
+    if (!el) return
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault()
+      // A mouse wheel notch is about 100, a trackpad pinch sends small steps; both should feel alike.
+      if (e.ctrlKey || e.metaKey) zoomAt(local(e), Math.exp(-Math.max(-60, Math.min(60, e.deltaY)) * (Math.abs(e.deltaY) < 40 ? 0.01 : 0.0035)))
+      else setView((v) => ({ ...v, x: v.x - (e.shiftKey ? e.deltaY : e.deltaX), y: v.y - (e.shiftKey ? 0 : e.deltaY) }))
+    }
+    el.addEventListener('wheel', wheel, { passive: false })
+    return () => el.removeEventListener('wheel', wheel)
+  }, [local, zoomAt])
+
+  const itemAt = useCallback(
+    (p: Point, skip?: string): string | undefined => {
+      const list = doc.ref.current.items
+      for (let i = list.length - 1; i >= 0; i--) {
+        const it = list[i]
+        if (it.id === skip || it.kind === 'ink') continue
+        if (contains(it, p)) return it.id
+      }
+      return undefined
+    },
+    [doc.ref],
+  )
+
+  const setTool = useCallback((tool: Tool) => {
+    setTools((s) => ({ ...s, tool }))
+    setEditing(null)
+  }, [])
+
+  const middle = useCallback((): Point => toBoard({ x: size.w / 2, y: size.h / 2 }, viewRef.current), [size])
+
+  const add = useCallback(
+    (item: Item, edit = false) => {
+      doc.commit((d) => ({ ...d, items: [...d.items, item] }))
+      setSelected([item.id])
+      if (edit) {
+        setEditing(item.id)
+        freshText.current = item.id
+      }
+    },
+    [doc],
+  )
+
+  const removeIds = useCallback(
+    (ids: string[]) => {
+      const gone = new Set(ids)
+      doc.commit((d) => ({
+        items: d.items.filter((i) => !gone.has(i.id)),
+        lines: d.lines.filter((l) => !gone.has(l.id) && !(l.a.item && gone.has(l.a.item)) && !(l.b.item && gone.has(l.b.item))),
+      }))
+      setSelected([])
+    },
+    [doc],
+  )
+
+  const duplicate = useCallback(
+    (ids: string[], offset = 24) => {
+      const d = doc.ref.current
+      const map = new Map<string, string>()
+      const copies = d.items.filter((i) => ids.includes(i.id)).map((i) => {
+        const id = uid()
+        map.set(i.id, id)
+        return { ...i, id, x: i.x + offset, y: i.y + offset, locked: false }
+      })
+      const lineCopies = d.lines
+        .filter((l) => (l.a.item ? map.has(l.a.item) : false) && (l.b.item ? map.has(l.b.item) : false))
+        .map((l) => ({ ...l, id: uid(), a: { ...l.a, item: map.get(l.a.item!) }, b: { ...l.b, item: map.get(l.b.item!) } }))
+      doc.commit((x) => ({ items: [...x.items, ...copies], lines: [...x.lines, ...lineCopies] }))
+      setSelected([...copies.map((c) => c.id), ...lineCopies.map((l) => l.id)])
+    },
+    [doc],
+  )
+
+  const addImage = useCallback(
+    (src: string, at: Point, caption?: string) => {
+      const img = new Image()
+      img.onload = () => {
+        const scale = Math.min(1, 420 / Math.max(img.naturalWidth, img.naturalHeight))
+        const w = Math.max(60, img.naturalWidth * scale)
+        const h = Math.max(60, img.naturalHeight * scale)
+        add({ id: uid(), kind: 'image', x: at.x - w / 2, y: at.y - h / 2, w, h, src, caption })
+      }
+      img.src = src
+    },
+    [add],
+  )
+
+  const addFiles = useCallback(
+    (files: File[], at: Point) => {
+      files.forEach((file, n) => {
+        const spot = { x: at.x + n * 30, y: at.y + n * 30 }
+        if (file.type.startsWith('image/')) {
+          const reader = new FileReader()
+          reader.onload = () => addImage(String(reader.result), spot)
+          reader.readAsDataURL(file)
+        } else {
+          const ext = (file.name.split('.').pop() ?? 'file').toLowerCase().slice(0, 5)
+          const kb = file.size / 1024
+          const sizeLabel = kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(kb))} KB`
+          add({ id: uid(), kind: 'file', x: spot.x - 95, y: spot.y - 115, w: 190, h: 230, name: file.name, ext, sizeLabel })
+        }
+      })
+    },
+    [add, addImage],
+  )
+
+  const addLink = useCallback(
+    (url: string, at: Point) => {
+      let site = url
+      let path = ''
+      try {
+        const u = new URL(/^https?:/i.test(url) ? url : 'https://' + url)
+        site = u.hostname
+        path = decodeURIComponent(u.pathname).replace(/[-_/]+/g, ' ').trim()
+        url = u.toString()
+      } catch {
+        // Then the words stay as they were typed.
+      }
+      let hue = 0
+      for (const ch of site) hue = (hue * 31 + ch.charCodeAt(0)) % 360
+      add({ id: uid(), kind: 'link', x: at.x - 115, y: at.y - 95, w: 230, h: 190, url, site, title: path ? path.charAt(0).toUpperCase() + path.slice(1) : site, hue })
+    },
+    [add],
+  )
+
+  // ---------- pointer ----------
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (menu) setMenu(null)
+    const target = e.target as HTMLElement
+    if (target.closest('[data-ui]')) return
+    const s = local(e)
+    pointers.current.set(e.pointerId, s)
+    root.current?.setPointerCapture(e.pointerId)
+
+    // Two fingers: zoom and pan, whatever was going on.
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()]
+      pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, view: viewRef.current }
+      gesture.current = { kind: 'pinch' }
+      setDraft(null)
+      setMarquee(null)
+      return
+    }
+    if (e.button === 2) return
+    const p = toBoard(s, viewRef.current)
+    const tool = tools.tool
+
+    if (e.button === 1 || tool === 'hand' || spaceHeld) {
+      gesture.current = { kind: 'pan', start: s, view: viewRef.current }
+      return
+    }
+    if (editing) setEditing(null)
+    if (readOnly) {
+      gesture.current = { kind: 'pan', start: s, view: viewRef.current }
+      return
+    }
+
+    const handle = target.closest<HTMLElement>('[data-handle]')?.dataset
+    if (handle?.handle === 'resize') {
+      const ids = selItems.filter((i) => !i.locked).map((i) => i.id)
+      const box = bounds(selItems.filter((i) => !i.locked))
+      if (box && ids.length) {
+        const keep = e.shiftKey || selItems.some((i) => i.kind === 'image' || i.kind === 'ink') || ids.length > 1
+        gesture.current = { kind: 'resize', handle: handle.dir as Handle, start: p, origin: doc.ref.current, box, ids, keep: keep && (handle.dir?.length ?? 0) === 2, moved: false }
+      }
+      return
+    }
+    if (handle?.handle === 'connect') {
+      gesture.current = { kind: 'line', a: { item: handle.for, x: p.x, y: p.y }, from: handle.for, side: handle.side as Side, startScreen: s }
+      return
+    }
+    if (handle?.handle === 'end') {
+      doc.checkpoint()
+      gesture.current = { kind: 'end', line: handle.line!, which: handle.which as 'a' | 'b', moved: false }
+      return
+    }
+
+    const itemId = target.closest<HTMLElement>('[data-item]')?.dataset.item
+    const lineId = target.closest<SVGElement>('[data-line]')?.dataset.line
+
+    if (tool === 'select') {
+      const hit = itemId ?? lineId
+      if (hit) {
+        let next = selected
+        if (e.shiftKey) next = selectedSet.has(hit) ? selected.filter((x) => x !== hit) : [...selected, hit]
+        else if (!selectedSet.has(hit)) next = [hit]
+        setSelected(next)
+        const chosen = new Set(next)
+        const movable = doc.ref.current.items.filter((i) => chosen.has(i.id) && !i.locked)
+        const freeLines = doc.ref.current.lines.filter((l) => chosen.has(l.id)).map((l) => l.id)
+        const box = bounds(movable) ?? { x: p.x, y: p.y, w: 0, h: 0 }
+        gesture.current = { kind: 'move', start: p, ids: movable.map((i) => i.id), lines: freeLines, origin: doc.ref.current, moved: false, box }
+      } else {
+        if (!e.shiftKey) setSelected([])
+        gesture.current = { kind: 'marquee', start: p, add: e.shiftKey ? selected : [] }
+      }
+      return
+    }
+    if (tool === 'note' || tool === 'shape' || tool === 'text') {
+      gesture.current = { kind: 'create', tool, start: p }
+      return
+    }
+    if (tool === 'pen' || tool === 'marker') {
+      const pts = [[p.x, p.y, e.pressure || 0.5]]
+      gesture.current = { kind: 'draw', points: pts }
+      setDraft({ ink: pts })
+      return
+    }
+    if (tool === 'eraser') {
+      gesture.current = { kind: 'erase', hit: false }
+      erase(target)
+      return
+    }
+    if (tool === 'line') {
+      const on = itemAt(p)
+      gesture.current = { kind: 'line', a: { item: on, x: p.x, y: p.y }, from: on, startScreen: s }
+    }
+  }
+
+  const erase = (target: Element | null) => {
+    const g = gesture.current
+    if (!g || g.kind !== 'erase') return
+    const id = (target as HTMLElement | null)?.closest<HTMLElement>('[data-item]')?.dataset.item
+    const item = id ? doc.ref.current.items.find((i) => i.id === id) : undefined
+    if (item?.kind === 'ink') {
+      if (!g.hit) doc.checkpoint()
+      g.hit = true
+      doc.live((d) => ({ ...d, items: d.items.filter((i) => i.id !== id) }))
+    }
+  }
+
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const s = local(e)
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, s)
+    const g = gesture.current
+    if (!g) return
+    const v = viewRef.current
+    const p = toBoard(s, v)
+
+    switch (g.kind) {
+      case 'pinch': {
+        if (pointers.current.size < 2 || !pinch.current) return
+        const [a, b] = [...pointers.current.values()]
+        const dist = Math.hypot(a.x - b.x, a.y - b.y)
+        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+        const start = pinch.current
+        const zoom = clampZoom(start.view.zoom * (dist / start.dist))
+        const anchor = toBoard(start.mid, start.view)
+        setView({ zoom, x: mid.x - anchor.x * zoom, y: mid.y - anchor.y * zoom })
+        return
+      }
+      case 'pan':
+        setView({ ...g.view, x: g.view.x + s.x - g.start.x, y: g.view.y + s.y - g.start.y })
+        return
+      case 'move': {
+        let dx = p.x - g.start.x
+        let dy = p.y - g.start.y
+        if (!g.moved && Math.hypot(dx * v.zoom, dy * v.zoom) < 3) return
+        if (!g.moved) {
+          doc.checkpoint()
+          g.moved = true
+        }
+        // Snap the edges and middles of what moves to those of the other items, unless Alt is held.
+        const gx: number[] = []
+        const gy: number[] = []
+        if (!e.altKey && g.ids.length) {
+          const tol = 6 / v.zoom
+          const moving = { x: g.box.x + dx, y: g.box.y + dy, w: g.box.w, h: g.box.h }
+          const others = g.origin.items.filter((i) => !g.ids.includes(i.id) && i.kind !== 'ink')
+          let bestX: number | null = null
+          let bestY: number | null = null
+          for (const o of others) {
+            for (const ox of [o.x, o.x + o.w / 2, o.x + o.w]) {
+              for (const mx of [moving.x, moving.x + moving.w / 2, moving.x + moving.w]) {
+                const d = ox - mx
+                if (Math.abs(d) < tol && (bestX === null || Math.abs(d) < Math.abs(bestX))) {
+                  bestX = d
+                  gx.length = 0
+                  gx.push(ox)
+                }
+              }
+            }
+            for (const oy of [o.y, o.y + o.h / 2, o.y + o.h]) {
+              for (const my of [moving.y, moving.y + moving.h / 2, moving.y + moving.h]) {
+                const d = oy - my
+                if (Math.abs(d) < tol && (bestY === null || Math.abs(d) < Math.abs(bestY))) {
+                  bestY = d
+                  gy.length = 0
+                  gy.push(oy)
+                }
+              }
+            }
+          }
+          if (bestX !== null) dx += bestX
+          if (bestY !== null) dy += bestY
+        }
+        setGuides({ x: gx, y: gy })
+        const ids = new Set(g.ids)
+        const lineIds = new Set(g.lines)
+        doc.live(() => ({
+          items: g.origin.items.map((i) => (ids.has(i.id) ? { ...i, x: i.x + dx, y: i.y + dy } : i)),
+          lines: g.origin.lines.map((l) =>
+            lineIds.has(l.id)
+              ? { ...l, a: l.a.item ? l.a : { x: l.a.x + dx, y: l.a.y + dy }, b: l.b.item ? l.b : { x: l.b.x + dx, y: l.b.y + dy } }
+              : l,
+          ),
+        }))
+        return
+      }
+      case 'resize': {
+        const { box, handle } = g
+        let x1 = box.x
+        let y1 = box.y
+        let x2 = box.x + box.w
+        let y2 = box.y + box.h
+        if (handle.includes('w')) x1 = Math.min(p.x, x2 - 16)
+        if (handle.includes('e')) x2 = Math.max(p.x, x1 + 16)
+        if (handle.includes('n')) y1 = Math.min(p.y, y2 - 16)
+        if (handle.includes('s')) y2 = Math.max(p.y, y1 + 16)
+        if (g.keep || e.shiftKey) {
+          const k = Math.max((x2 - x1) / box.w, (y2 - y1) / box.h)
+          const w = box.w * k
+          const h = box.h * k
+          if (handle.includes('w')) x1 = x2 - w
+          else x2 = x1 + w
+          if (handle.includes('n')) y1 = y2 - h
+          else y2 = y1 + h
+        }
+        if (!g.moved) {
+          doc.checkpoint()
+          g.moved = true
+        }
+        const sx = (x2 - x1) / box.w
+        const sy = (y2 - y1) / box.h
+        const ids = new Set(g.ids)
+        doc.live((d) => ({
+          ...d,
+          items: g.origin.items.map((i) =>
+            ids.has(i.id) ? { ...i, x: x1 + (i.x - box.x) * sx, y: y1 + (i.y - box.y) * sy, w: Math.max(12, i.w * sx), h: Math.max(12, i.h * sy) } : i,
+          ),
+        }))
+        return
+      }
+      case 'marquee': {
+        const r = normalize(g.start, p)
+        setMarquee(r)
+        const inside = doc.ref.current.items.filter((i) => intersects(i, r)).map((i) => i.id)
+        const linesIn = doc.ref.current.lines
+          .filter((l) => {
+            const geo = lineGeometry(l, byId)
+            return contains(r, geo.a) && contains(r, geo.b)
+          })
+          .map((l) => l.id)
+        setSelected([...new Set([...g.add, ...inside, ...linesIn])])
+        return
+      }
+      case 'create':
+        if (g.tool === 'shape') setDraft({ rect: normalize(g.start, p) })
+        return
+      case 'draw': {
+        const last = g.points[g.points.length - 1]
+        if (Math.hypot(p.x - last[0], p.y - last[1]) * v.zoom < 1.5) return
+        g.points.push([p.x, p.y, e.pressure || 0.5])
+        setDraft({ ink: [...g.points] })
+        return
+      }
+      case 'erase':
+        erase(document.elementFromPoint(e.clientX, e.clientY))
+        return
+      case 'line': {
+        const target = itemAt(p, g.from)
+        const a = g.a.item ? center(byId.get(g.a.item)!) : g.a
+        setDraft({ line: { a, b: target ? center(byId.get(target)!) : p, target } })
+        return
+      }
+      case 'end': {
+        g.moved = true
+        const target = itemAt(p)
+        doc.live((d) => ({ ...d, lines: d.lines.map((l) => (l.id === g.line ? { ...l, [g.which]: { item: target, x: p.x, y: p.y } } : l)) }))
+        return
+      }
+    }
+  }
+
+  const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    pointers.current.delete(e.pointerId)
+    const g = gesture.current
+    if (g?.kind === 'pinch') {
+      if (pointers.current.size === 0) {
+        gesture.current = null
+        pinch.current = null
+      }
+      return
+    }
+    gesture.current = null
+    setGuides({ x: [], y: [] })
+    if (!g) return
+    const s = local(e)
+    const p = toBoard(s, viewRef.current)
+
+    switch (g.kind) {
+      case 'marquee':
+        setMarquee(null)
+        return
+      case 'create': {
+        const drag = normalize(g.start, p)
+        const dragged = drag.w * viewRef.current.zoom > 8 && drag.h * viewRef.current.zoom > 8
+        if (g.tool === 'note') {
+          add({ id: uid(), kind: 'note', x: p.x - 90, y: p.y - 90, w: 180, h: 180, color: tools.note, text: '' }, true)
+        } else if (g.tool === 'text') {
+          add({ id: uid(), kind: 'text', x: p.x, y: p.y - 14, w: dragged ? drag.w : 280, h: 30, text: '', size: 'm', color: 'auto' }, true)
+        } else {
+          const r = dragged ? drag : { x: p.x - 80, y: p.y - 60, w: 160, h: 120 }
+          add({ id: uid(), kind: 'shape', ...r, shape: tools.shape, fill: '#60a5fa', stroke: 'none', text: '' })
+        }
+        setDraft(null)
+        // Back to Select, but keep the new note or text open for writing.
+        setTools((t) => ({ ...t, tool: 'select' }))
+        return
+      }
+      case 'draw': {
+        setDraft(null)
+        if (g.points.length < 2) g.points.push([g.points[0][0] + 0.5, g.points[0][1] + 0.5, 0.5])
+        const marker = tools.tool === 'marker'
+        const sizePx = marker ? tools.penSize * 4 : tools.penSize
+        const pad = sizePx * 1.5
+        const xs = g.points.map((q) => q[0])
+        const ys = g.points.map((q) => q[1])
+        const x = Math.min(...xs) - pad
+        const y = Math.min(...ys) - pad
+        const w = Math.max(...xs) - x + pad
+        const h = Math.max(...ys) - y + pad
+        const ink: InkItem = { id: uid(), kind: 'ink', x, y, w, h, ow: w, oh: h, points: g.points.map((q) => [q[0] - x, q[1] - y, q[2]]), color: tools.pen, size: sizePx, marker }
+        doc.commit((d) => ({ ...d, items: [...d.items, ink] }))
+        return
+      }
+      case 'line': {
+        setDraft(null)
+        const moved = Math.hypot(s.x - g.startScreen.x, s.y - g.startScreen.y)
+        // A click on a side handle adds a connected copy there, as in a mind map.
+        if (moved < 4 && g.from && g.side) {
+          const src = byId.get(g.from)
+          if (!src) return
+          const gap = 90
+          const off = { top: { x: 0, y: -(src.h + gap) }, bottom: { x: 0, y: src.h + gap }, left: { x: -(src.w + gap), y: 0 }, right: { x: src.w + gap, y: 0 } }[g.side]
+          const copy: Item =
+            src.kind === 'note' ? { ...src, id: uid(), x: src.x + off.x, y: src.y + off.y, text: '', locked: false }
+            : src.kind === 'shape' ? { ...src, id: uid(), x: src.x + off.x, y: src.y + off.y, text: '', locked: false }
+            : { id: uid(), kind: 'note', x: src.x + off.x, y: src.y + off.y, w: 180, h: 180, color: tools.note, text: '' }
+          const line: LineItem = { id: uid(), kind: 'line', a: { item: src.id, x: 0, y: 0 }, b: { item: copy.id, x: 0, y: 0 }, color: 'auto', width: 2, arrow: 'end', curve: true }
+          doc.commit((d) => ({ items: [...d.items, copy], lines: [...d.lines, line] }))
+          setSelected([copy.id])
+          if (copy.kind === 'note' || copy.kind === 'shape') {
+            setEditing(copy.id)
+            freshText.current = null
+          }
+          return
+        }
+        if (moved < 8) return
+        const target = itemAt(p, g.from)
+        const line: LineItem = { id: uid(), kind: 'line', a: g.a, b: { item: target, x: p.x, y: p.y }, color: 'auto', width: 2, arrow: 'end', curve: !!(g.a.item && target) }
+        doc.commit((d) => ({ ...d, lines: [...d.lines, line] }))
+        setSelected([line.id])
+        if (tools.tool === 'line') setTools((t) => ({ ...t, tool: 'select' }))
+        return
+      }
+      case 'end':
+        if (!g.moved) doc.forget()
+        return
+    }
+  }
+
+  const onDoubleClick = (e: React.MouseEvent) => {
+    if (readOnly) return
+    const target = e.target as HTMLElement
+    if (target.closest('[data-ui]')) return
+    const id = target.closest<HTMLElement>('[data-item]')?.dataset.item
+    const item = id ? byId.get(id) : undefined
+    if (item && (item.kind === 'note' || item.kind === 'shape' || item.kind === 'text') && !item.locked) {
+      setSelected([item.id])
+      setEditing(item.id)
+      freshText.current = null
+      return
+    }
+    if (item?.kind === 'link') {
+      window.open(item.url, '_blank', 'noopener')
+      return
+    }
+    if (!item && tools.tool === 'select') {
+      const p = toBoard(local(e), viewRef.current)
+      add({ id: uid(), kind: 'text', x: p.x, y: p.y - 14, w: 280, h: 30, text: '', size: 'm', color: 'auto' }, true)
+    }
+  }
+
+  const onText = useCallback((id: string, text: string) => doc.live((d) => ({ ...d, items: d.items.map((i) => (i.id === id && 'text' in i ? { ...i, text } : i)) })), [doc])
+  const onMeasure = useCallback((id: string, h: number) => doc.quiet((d) => ({ ...d, items: d.items.map((i) => (i.id === id ? { ...i, h } : i)) })), [doc])
+
+  // Writing starts a step in the history; leaving an empty new text removes it again.
+  const startText = useRef<string | null>(null)
+  useEffect(() => {
+    if (editing && startText.current !== editing) {
+      if (freshText.current !== editing) doc.checkpoint()
+      startText.current = editing
+    }
+    if (!editing) startText.current = null
+  }, [editing, doc])
+
+  const onDone = useCallback(() => {
+    setEditing((id) => {
+      if (id) {
+        const item = doc.ref.current.items.find((i) => i.id === id)
+        if (item?.kind === 'text' && !item.text.trim()) {
+          doc.live((d) => ({ ...d, items: d.items.filter((i) => i.id !== id) }))
+          setSelected([])
+        }
+      }
+      return null
+    })
+  }, [doc])
+
+  // ---------- keys, paste, drop ----------
+
+  useEffect(() => {
+    const typing = (el: EventTarget | null) => el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
+    const down = (e: KeyboardEvent) => {
+      if (typing(e.target) || share || keys || asking) return
+      const mod = e.ctrlKey || e.metaKey
+      const k = e.key.toLowerCase()
+      if (e.key === ' ' && !e.repeat) {
+        setSpaceHeld(true)
+        e.preventDefault()
+        return
+      }
+      if (mod && k === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) doc.redo()
+        else doc.undo()
+        return
+      }
+      if (mod && k === 'y') {
+        e.preventDefault()
+        doc.redo()
+        return
+      }
+      if (mod && k === 'a') {
+        e.preventDefault()
+        setSelected([...doc.ref.current.items.map((i) => i.id), ...doc.ref.current.lines.map((l) => l.id)])
+        return
+      }
+      if (mod && k === 'd') {
+        e.preventDefault()
+        if (selected.length && !readOnly) duplicate(selected)
+        return
+      }
+      if (mod && k === 'c') {
+        const ids = new Set(selected)
+        const d = doc.ref.current
+        clipboard.current = { items: d.items.filter((i) => ids.has(i.id)), lines: d.lines.filter((l) => ids.has(l.id) || (l.a.item && ids.has(l.a.item) && l.b.item && ids.has(l.b.item))) }
+        void navigator.clipboard?.writeText('nexcanvas:' + JSON.stringify(clipboard.current)).catch(() => undefined)
+        return
+      }
+      if (mod && (e.key === '0' || k === '0')) {
+        e.preventDefault()
+        setView((v) => ({ zoom: 1, x: size.w / 2 - ((size.w / 2 - v.x) / v.zoom) * 1, y: size.h / 2 - ((size.h / 2 - v.y) / v.zoom) * 1 }))
+        return
+      }
+      if (mod) return
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selected.length && !readOnly) {
+        e.preventDefault()
+        removeIds(selected)
+        return
+      }
+      if (e.key === 'Escape') {
+        setSelected([])
+        setTool('select')
+        return
+      }
+      if (e.key === 'Enter' && selected.length === 1) {
+        const item = byId.get(selected[0])
+        if (item && (item.kind === 'note' || item.kind === 'shape' || item.kind === 'text') && !readOnly) {
+          e.preventDefault()
+          setEditing(item.id)
+          freshText.current = null
+        }
+        return
+      }
+      if (e.key.startsWith('Arrow') && selected.length && !readOnly) {
+        e.preventDefault()
+        const step = e.shiftKey ? 10 : 1
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
+        const ids = new Set(selected)
+        doc.commit((d) => ({ ...d, items: d.items.map((i) => (ids.has(i.id) && !i.locked ? { ...i, x: i.x + dx, y: i.y + dy } : i)) }))
+        return
+      }
+      if (e.key === '+' || e.key === '=') return zoomAt({ x: size.w / 2, y: size.h / 2 }, 1.2)
+      if (e.key === '-') return zoomAt({ x: size.w / 2, y: size.h / 2 }, 1 / 1.2)
+      if (e.key === '!' || (e.shiftKey && e.code === 'Digit1')) return fit()
+      if (e.key === '?') return setKeys(true)
+      const tool: Record<string, Tool> = { v: 'select', h: 'hand', n: 'note', s: 'shape', t: 'text', p: 'pen', m: 'marker', e: 'eraser', l: 'line' }
+      if (tool[k] && !e.shiftKey && !e.altKey) {
+        if (readOnly && tool[k] !== 'select' && tool[k] !== 'hand') return
+        setTool(tool[k])
+      }
+      if (k === 'i' && !readOnly) fileInput.current?.click()
+    }
+    const up = (e: KeyboardEvent) => {
+      if (e.key === ' ') setSpaceHeld(false)
+    }
+    const paste = (e: ClipboardEvent) => {
+      if (typing(e.target) || readOnly || share || asking) return
+      const data = e.clipboardData
+      if (!data) return
+      const files = [...data.files]
+      if (files.length) {
+        e.preventDefault()
+        addFiles(files, middle())
+        return
+      }
+      const text = data.getData('text/plain')
+      if (!text) return
+      e.preventDefault()
+      if (text.startsWith('nexcanvas:')) {
+        try {
+          const copied = JSON.parse(text.slice(10)) as Doc
+          const box = bounds(copied.items)
+          const m = middle()
+          const dx = box ? m.x - (box.x + box.w / 2) : 0
+          const dy = box ? m.y - (box.y + box.h / 2) : 0
+          const map = new Map<string, string>()
+          const fresh = copied.items.map((i) => {
+            const id = uid()
+            map.set(i.id, id)
+            return { ...i, id, x: i.x + dx, y: i.y + dy }
+          })
+          const freshLines = copied.lines.map((l) => ({
+            ...l,
+            id: uid(),
+            a: l.a.item ? { ...l.a, item: map.get(l.a.item) } : { x: l.a.x + dx, y: l.a.y + dy },
+            b: l.b.item ? { ...l.b, item: map.get(l.b.item) } : { x: l.b.x + dx, y: l.b.y + dy },
+          }))
+          doc.commit((d) => ({ items: [...d.items, ...fresh], lines: [...d.lines, ...freshLines] }))
+          setSelected([...fresh.map((i) => i.id), ...freshLines.map((l) => l.id)])
+        } catch {
+          // Not ours after all.
+        }
+        return
+      }
+      const m = middle()
+      if (/^https?:\/\/\S+$/i.test(text.trim())) addLink(text.trim(), m)
+      else add({ id: uid(), kind: 'note', x: m.x - 90, y: m.y - 90, w: 180, h: 180, color: tools.note, text: text.slice(0, 2000) })
+    }
+    window.addEventListener('keydown', down)
+    window.addEventListener('keyup', up)
+    window.addEventListener('paste', paste)
+    return () => {
+      window.removeEventListener('keydown', down)
+      window.removeEventListener('keyup', up)
+      window.removeEventListener('paste', paste)
+    }
+  }, [selected, byId, doc, duplicate, removeIds, setTool, zoomAt, size, fit, readOnly, share, keys, asking, middle, addFiles, addLink, add, tools.note])
+
+  // ---------- context actions ----------
+
+  const actions: ContextActions = {
+    change: (fn) => {
+      const ids = new Set(selected)
+      doc.commit((d) => ({
+        items: d.items.map((i) => (ids.has(i.id) ? (fn(i) as Item) : i)),
+        lines: d.lines.map((l) => (ids.has(l.id) ? (fn(l) as LineItem) : l)),
+      }))
+    },
+    duplicate: () => duplicate(selected),
+    remove: () => removeIds(selected),
+    front: () => doc.commit((d) => ({ ...d, items: [...d.items.filter((i) => !selectedSet.has(i.id)), ...d.items.filter((i) => selectedSet.has(i.id))] })),
+    back: () => doc.commit((d) => ({ ...d, items: [...d.items.filter((i) => selectedSet.has(i.id)), ...d.items.filter((i) => !selectedSet.has(i.id))] })),
+    lock: (locked) => doc.commit((d) => ({ ...d, items: d.items.map((i) => (selectedSet.has(i.id) ? { ...i, locked } : i)) })),
+  }
+
+  // ---------- drawing the overlay ----------
+
+  const selBox = bounds(selItems)
+  const screenBox = selBox ? { ...toScreen(selBox, view), w: selBox.w * view.zoom, h: selBox.h * view.zoom } : null
+  const singleLine = selLines.length === 1 && selItems.length === 0 ? selLines[0] : null
+  const lineGeo = singleLine ? lineGeometry(singleLine, byId) : null
+  const barAt = (() => {
+    if (editing || gesture.current?.kind === 'move' || readOnly) return null
+    if (screenBox) return { x: screenBox.x + screenBox.w / 2, y: Math.max(64, screenBox.y - 14) }
+    if (lineGeo) {
+      const a = toScreen(lineGeo.a, view)
+      const b = toScreen(lineGeo.b, view)
+      return { x: (a.x + b.x) / 2, y: Math.max(64, Math.min(a.y, b.y) - 18) }
+    }
+    return null
+  })()
+  const single = selItems.length === 1 && !selItems[0].locked ? selItems[0] : null
+  const allLocked = selItems.length > 0 && selItems.every((i) => i.locked)
+  const cursor = spaceHeld || tools.tool === 'hand' ? 'grab' : tools.tool === 'select' ? 'default' : tools.tool === 'eraser' ? 'cell' : 'crosshair'
+  const zoomPct = Math.round(view.zoom * 100)
+
+  return (
+    <div className="flex min-w-0 flex-1 flex-col">
+      {/* The head row of the board, built like nexlore's note head: way back, place, star, who is here, share, more. */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-ink-700/80 bg-ink-950 px-3 py-2 sm:px-5">
+        <Link to={space ? `/?space=${space.id}` : '/'} className="rounded-full p-1.5 text-mist-500 hover:bg-ink-850 hover:text-mist-100" aria-label={t('board.back')} title={t('board.back')}>
+          <ArrowLeft className="h-4 w-4" />
+        </Link>
+        <nav className="flex min-w-0 items-center gap-1.5 text-sm" aria-label={t('board.place')}>
+          <Link to={`/?space=${board.space}`} className="hidden shrink-0 items-center gap-1.5 text-mist-500 hover:text-mist-100 sm:flex">
+            <span className="h-2 w-2 rounded-full" style={{ background: space?.color }} />
+            {space?.name}
+          </Link>
+          <ChevronRight className="hidden h-3.5 w-3.5 shrink-0 text-mist-600 sm:block" />
+          {title === null ? (
+            <button type="button" onClick={() => !readOnly && setTitle(board.title)} className="truncate rounded px-1 font-semibold text-mist-100 hover:bg-ink-850" title={readOnly ? undefined : t('board.rename')}>
+              {board.title}
+            </button>
+          ) : (
+            <input
+              autoFocus
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onFocus={(e) => e.target.select()}
+              onBlur={() => {
+                if (title.trim()) boards.patch(board.id, { title: title.trim() })
+                setTitle(null)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                if (e.key === 'Escape') setTitle(null)
+              }}
+              className="nc-field w-56 py-1"
+            />
+          )}
+        </nav>
+        <button type="button" onClick={() => boards.patch(board.id, { favorite: !board.favorite })} aria-pressed={board.favorite} aria-label={board.favorite ? t('board.unfavorite') : t('board.favorite')} title={board.favorite ? t('board.unfavorite') : t('board.favorite')} className="rounded-full p-1.5 text-mist-500 hover:bg-ink-850 hover:text-mist-100">
+          <Star className={'h-4 w-4 ' + (board.favorite ? 'fill-accent-500 text-accent-500' : '')} />
+        </button>
+        <span className="hidden text-xs text-mist-600 sm:inline" role="status">
+          {readOnly ? t('board.readOnly') : saved ? t('board.saved') : t('board.saving')}
+        </span>
+        <div className="ml-auto flex items-center gap-2">
+          {space && space.members.length > 1 && (
+            <span className="hidden items-center sm:flex" title={t('board.hereNow')}>
+              <span className="flex -space-x-1.5">
+                {space.members
+                  .filter((m) => m.person !== ME)
+                  .slice(0, 1)
+                  .map((m) => (
+                    <Avatar key={m.person} person={m.person} className="h-7 w-7 text-xs" ring />
+                  ))}
+              </span>
+            </span>
+          )}
+          <button type="button" onClick={() => setShare(true)} className="inline-flex items-center gap-2 rounded-full border border-accent-500/60 px-3 py-1.5 text-sm font-semibold text-accent-400 hover:bg-accent-500/10">
+            <Share2 className="h-4 w-4" />
+            <span className="hidden sm:inline">{t('share.button')}</span>
+          </button>
+          <Popover label={t('common.more')} className="rounded-full p-1.5 text-mist-500 hover:bg-ink-850 hover:text-mist-100" button={<MoreHorizontal className="h-4 w-4" />}>
+            {(close) => (
+              <>
+                <button type="button" role="menuitem" className="nc-menu-item" onClick={() => { close(); navigate(`/b/${boards.duplicate(board.id, t('board.copyOf', { title: board.title }))}`) }}>
+                  <Copy className="h-4 w-4 text-mist-500" />
+                  {t('board.duplicate')}
+                </button>
+                <button type="button" role="menuitem" className="nc-menu-item" disabled title={t('mock.notYet')}>
+                  <History className="h-4 w-4 text-mist-500" />
+                  {t('board.versions')}
+                </button>
+                <button type="button" role="menuitem" className="nc-menu-item" onClick={() => { close(); setKeys(true) }}>
+                  <Keyboard className="h-4 w-4 text-mist-500" />
+                  {t('keys.title')}
+                </button>
+                <div className="my-1 h-px bg-ink-700" />
+                <button type="button" role="menuitem" className="nc-menu-item text-bad-500" disabled={readOnly} onClick={() => { close(); boards.trash(board.id); navigate('/') }}>
+                  <Trash2 className="h-4 w-4" />
+                  {t('board.trash')}
+                </button>
+              </>
+            )}
+          </Popover>
+        </div>
+      </div>
+
+      <div
+        ref={root}
+        className="nc-board relative min-h-0 flex-1 touch-none overflow-hidden outline-none"
+        style={{ backgroundSize: `${24 * view.zoom}px ${24 * view.zoom}px`, backgroundPosition: `${view.x}px ${view.y}px`, cursor }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onDoubleClick={onDoubleClick}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          if ((e.target as HTMLElement).closest('[data-ui]')) return
+          const s = local(e)
+          const on = (e.target as HTMLElement).closest<HTMLElement>('[data-item]')?.dataset.item ?? null
+          if (on && !selectedSet.has(on)) setSelected([on])
+          setMenu({ x: s.x, y: s.y, at: toBoard(s, viewRef.current), on })
+        }}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault()
+          if (readOnly) return
+          const files = [...e.dataTransfer.files]
+          const p = toBoard(local(e), viewRef.current)
+          if (files.length) addFiles(files, p)
+          else {
+            const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain')
+            if (url && /^https?:/i.test(url)) addLink(url, p)
+          }
+        }}
+        data-testid="board"
+      >
+        <div className="absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
+          {items.map((item) => (
+            <ItemView key={item.id} item={item} editing={editing === item.id} onText={onText} onDone={onDone} onMeasure={onMeasure} />
+          ))}
+          <Lines lines={lines} items={items} selected={selectedSet} />
+          {draft?.ink && (
+            <svg className="pointer-events-none absolute top-0 left-0 overflow-visible" width={1} height={1}>
+              <path d={outline(draft.ink, tools.tool === 'marker' ? tools.penSize * 4 : tools.penSize, tools.tool === 'marker', false)} fill={paint(tools.pen)} opacity={tools.tool === 'marker' ? 0.42 : 1} />
+            </svg>
+          )}
+          {draft?.rect && <div className="pointer-events-none absolute rounded-md border-2 border-dashed border-accent-500 bg-accent-500/10" style={{ left: draft.rect.x, top: draft.rect.y, width: draft.rect.w, height: draft.rect.h }} />}
+          {draft?.line && (
+            <svg className="pointer-events-none absolute top-0 left-0 overflow-visible" width={1} height={1}>
+              <path d={`M${draft.line.a.x} ${draft.line.a.y}L${draft.line.b.x} ${draft.line.b.y}`} stroke="var(--color-accent-500)" strokeWidth={2 / view.zoom} strokeDasharray={`${6 / view.zoom} ${4 / view.zoom}`} />
+              {draft.line.target && byId.get(draft.line.target) && (() => {
+                const it = byId.get(draft.line.target)!
+                return <rect x={it.x - 6} y={it.y - 6} width={it.w + 12} height={it.h + 12} rx={10} fill="none" stroke="var(--color-accent-500)" strokeWidth={2 / view.zoom} />
+              })()}
+            </svg>
+          )}
+        </div>
+
+        {/* Overlay in screen pixels: guides, marquee, selection with handles. */}
+        {guides.x.map((x) => (
+          <div key={'gx' + x} className="pointer-events-none absolute top-0 bottom-0 w-px bg-accent-500/70" style={{ left: x * view.zoom + view.x }} />
+        ))}
+        {guides.y.map((y) => (
+          <div key={'gy' + y} className="pointer-events-none absolute right-0 left-0 h-px bg-accent-500/70" style={{ top: y * view.zoom + view.y }} />
+        ))}
+        {marquee && (
+          <div className="pointer-events-none absolute border border-accent-500 bg-accent-500/10" style={{ left: marquee.x * view.zoom + view.x, top: marquee.y * view.zoom + view.y, width: marquee.w * view.zoom, height: marquee.h * view.zoom }} />
+        )}
+        {screenBox && !editing && (
+          <div className={'pointer-events-none absolute border-[1.5px] ' + (allLocked ? 'border-dashed border-mist-500' : 'border-accent-500')} style={{ left: screenBox.x - 1, top: screenBox.y - 1, width: screenBox.w + 2, height: screenBox.h + 2 }}>
+            {!allLocked && !readOnly &&
+              (['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as Handle[])
+                .filter((h) => h.length === 2 || (selItems.length === 1 && selItems[0].kind !== 'image'))
+                .map((h) => (
+                  <span
+                    key={h}
+                    data-handle="resize"
+                    data-dir={h}
+                    className="pointer-events-auto absolute h-2.5 w-2.5 rounded-[3px] border-[1.5px] border-accent-500 bg-ink-950"
+                    style={{
+                      left: h.includes('w') ? -6 : h.includes('e') ? 'calc(100% - 4px)' : 'calc(50% - 5px)',
+                      top: h.includes('n') ? -6 : h.includes('s') ? 'calc(100% - 4px)' : 'calc(50% - 5px)',
+                      cursor: `${h}-resize`,
+                    }}
+                  />
+                ))}
+          </div>
+        )}
+        {single && single.kind !== 'ink' && !editing && !readOnly && screenBox && tools.tool === 'select' &&
+          (['top', 'right', 'bottom', 'left'] as Side[]).map((side) => {
+            const pos = {
+              top: { x: screenBox.x + screenBox.w / 2, y: screenBox.y - 22 },
+              bottom: { x: screenBox.x + screenBox.w / 2, y: screenBox.y + screenBox.h + 22 },
+              left: { x: screenBox.x - 22, y: screenBox.y + screenBox.h / 2 },
+              right: { x: screenBox.x + screenBox.w + 22, y: screenBox.y + screenBox.h / 2 },
+            }[side]
+            return (
+              <span
+                key={side}
+                data-handle="connect"
+                data-for={single.id}
+                data-side={side}
+                title={t('canvas.connect')}
+                className="absolute grid h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-crosshair place-items-center rounded-full border border-accent-500/70 bg-ink-950 text-accent-400 opacity-70 transition hover:scale-110 hover:opacity-100"
+                style={{ left: pos.x, top: pos.y }}
+              >
+                <Plus className="pointer-events-none h-3 w-3" strokeWidth={2.5} />
+              </span>
+            )
+          })}
+        {lineGeo && singleLine && !readOnly &&
+          (['a', 'b'] as const).map((which) => {
+            const pt = toScreen(lineGeo[which], view)
+            return <span key={which} data-handle="end" data-line={singleLine.id} data-which={which} className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 cursor-move rounded-full border-2 border-accent-500 bg-ink-950" style={{ left: pt.x, top: pt.y }} />
+          })}
+
+        {barAt && (selItems.length > 0 || selLines.length > 0) && (
+          <div data-ui>
+            <ContextBar items={selItems} lines={selLines} at={barAt} actions={actions} />
+          </div>
+        )}
+
+        {/* Floating controls. data-ui keeps the board from treating clicks on them as board clicks. */}
+        <div data-ui className="pointer-events-none absolute top-3 left-1/2 z-20 -translate-x-1/2">
+          {!readOnly && (
+            <Toolbar
+              state={tools}
+              set={(change) => {
+                setTools((s) => ({ ...s, ...change }))
+                setEditing(null)
+              }}
+              onUpload={() => fileInput.current?.click()}
+              onLink={() => setAsking('link')}
+              onSample={() => {
+                const kinds: PhotoKind[] = ['fjord', 'sunset', 'forest', 'room', 'kitchen', 'city', 'desk', 'plant']
+                addImage(photo(kinds[Math.floor(Math.random() * kinds.length)]), middle())
+              }}
+            />
+          )}
+        </div>
+        <div data-ui className="nc-float absolute bottom-4 left-4 z-20 flex items-center gap-0.5 p-1">
+          <button type="button" className="nc-tool h-8 w-8" onClick={doc.undo} disabled={!doc.canUndo || readOnly} aria-label={t('canvas.undo')} title={`${t('canvas.undo')} (Ctrl Z)`}>
+            <Undo2 className="h-4 w-4" />
+          </button>
+          <button type="button" className="nc-tool h-8 w-8" onClick={doc.redo} disabled={!doc.canRedo || readOnly} aria-label={t('canvas.redo')} title={`${t('canvas.redo')} (Ctrl Shift Z)`}>
+            <Redo2 className="h-4 w-4" />
+          </button>
+          <span className="mx-1 h-5 w-px bg-ink-700" />
+          <button type="button" className="nc-tool h-8 w-8" onClick={() => zoomAt({ x: size.w / 2, y: size.h / 2 }, 1 / 1.25)} aria-label={t('canvas.zoomOut')} title={`${t('canvas.zoomOut')} (−)`}>
+            <Minus className="h-4 w-4" />
+          </button>
+          <button type="button" className="h-8 min-w-14 rounded-lg px-1 text-xs font-semibold text-mist-300 tabular-nums hover:bg-ink-800" onClick={() => zoomAt({ x: size.w / 2, y: size.h / 2 }, 1 / view.zoom)} title={t('canvas.zoom100')}>
+            {zoomPct} %
+          </button>
+          <button type="button" className="nc-tool h-8 w-8" onClick={() => zoomAt({ x: size.w / 2, y: size.h / 2 }, 1.25)} aria-label={t('canvas.zoomIn')} title={`${t('canvas.zoomIn')} (+)`}>
+            <Plus className="h-4 w-4" />
+          </button>
+          <button type="button" className="nc-tool h-8 w-8" onClick={() => fit()} aria-label={t('canvas.fit')} title={`${t('canvas.fit')} (Shift 1)`}>
+            <Maximize className="h-4 w-4" />
+          </button>
+        </div>
+        <button data-ui type="button" onClick={() => setKeys(true)} className="nc-float absolute right-4 bottom-4 z-20 grid h-10 w-10 place-items-center text-mist-400 hover:text-mist-100" aria-label={t('keys.title')} title={`${t('keys.title')} (?)`}>
+          <Keyboard className="h-4 w-4" />
+        </button>
+
+        {items.length === 0 && !readOnly && (
+          <div className="pointer-events-none absolute inset-0 grid place-items-center">
+            <div className="max-w-sm text-center">
+              <div className="mx-auto mb-4 flex w-max gap-2">
+                {(['yellow', 'pink', 'blue'] as const).map((c, i) => (
+                  <span key={c} className="h-12 w-12 rounded shadow" style={{ background: NOTE_COLORS[c], transform: `rotate(${(i - 1) * 6}deg)` }} />
+                ))}
+              </div>
+              <p className="text-base font-semibold text-mist-200">{t('canvas.emptyTitle')}</p>
+              <p className="mt-1 text-sm text-mist-500">{t('canvas.emptyHint')}</p>
+            </div>
+          </div>
+        )}
+
+        {menu && (
+          <div data-ui className="nc-menu absolute z-40" style={{ left: Math.min(menu.x, size.w - 210), top: Math.min(menu.y, size.h - 240) }} onPointerDown={(e) => e.stopPropagation()}>
+            {menu.on ? (
+              <>
+                <button type="button" className="nc-menu-item" onClick={() => { setMenu(null); duplicate(selected) }} disabled={readOnly}>{t('context.duplicate')}</button>
+                <button type="button" className="nc-menu-item" onClick={() => { setMenu(null); actions.front() }} disabled={readOnly}>{t('context.front')}</button>
+                <button type="button" className="nc-menu-item" onClick={() => { setMenu(null); actions.back() }} disabled={readOnly}>{t('context.back')}</button>
+                <button type="button" className="nc-menu-item" onClick={() => { setMenu(null); actions.lock(!allLocked) }} disabled={readOnly}>{allLocked ? t('context.unlock') : t('context.lock')}</button>
+                <div className="my-1 h-px bg-ink-700" />
+                <button type="button" className="nc-menu-item text-bad-500" onClick={() => { setMenu(null); removeIds(selected) }} disabled={readOnly}>{t('context.delete')}</button>
+              </>
+            ) : (
+              <>
+                <button type="button" className="nc-menu-item" disabled={readOnly} onClick={() => { setMenu(null); add({ id: uid(), kind: 'note', x: menu.at.x - 90, y: menu.at.y - 90, w: 180, h: 180, color: tools.note, text: '' }, true) }}>{t('menu.noteHere')}</button>
+                <button type="button" className="nc-menu-item" disabled={readOnly} onClick={() => { setMenu(null); add({ id: uid(), kind: 'text', x: menu.at.x, y: menu.at.y - 14, w: 280, h: 30, text: '', size: 'm', color: 'auto' }, true) }}>{t('menu.textHere')}</button>
+                <button type="button" className="nc-menu-item" disabled={readOnly} onClick={() => { setMenu(null); fileInput.current?.click() }}>{t('media.upload')}</button>
+                <div className="my-1 h-px bg-ink-700" />
+                <button type="button" className="nc-menu-item" onClick={() => { setMenu(null); setSelected([...items.map((i) => i.id), ...lines.map((l) => l.id)]) }}>{t('menu.selectAll')}</button>
+                <button type="button" className="nc-menu-item" onClick={() => { setMenu(null); fit() }}>{t('canvas.fit')}</button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      <input
+        ref={fileInput}
+        type="file"
+        multiple
+        hidden
+        onChange={(e) => {
+          addFiles([...(e.target.files ?? [])], middle())
+          e.target.value = ''
+        }}
+      />
+      {share && <ShareDialog board={board} onClose={() => setShare(false)} />}
+      {keys && <ShortcutsDialog onClose={() => setKeys(false)} />}
+      {asking === 'link' && <LinkDialog onClose={() => setAsking(null)} onAdd={(url) => { setAsking(null); addLink(url, middle()) }} />}
+    </div>
+  )
+}
+
+function LinkDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (url: string) => void }) {
+  const { t } = useTranslation()
+  const [url, setUrl] = useState('')
+  return (
+    <Dialog title={t('media.link')} onClose={onClose}>
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (url.trim()) onAdd(url.trim())
+        }}
+      >
+        <input className="nc-field" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://www.example.com/…" type="url" />
+        <p className="text-xs text-mist-600">{t('media.linkHint')}</p>
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="nc-btn nc-btn-ghost">
+            {t('common.cancel')}
+          </button>
+          <button type="submit" className="nc-btn nc-btn-accent">
+            {t('media.add')}
+          </button>
+        </div>
+      </form>
+    </Dialog>
+  )
+}

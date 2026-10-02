@@ -1,0 +1,97 @@
+"""Who may do what in which space, as in nexlore.
+
+Three rights, each including the ones before it: **read** (open boards, follow them live), **write** (change boards,
+add photos, the bin), **manage** (inviting, giving rights, public pages, renaming or deleting the space). They live
+in ``memberships``.
+
+A space **without any member** belongs to the operator. As soon as a space has members, the operator is one of them
+or sees nothing of it: the operator can hand a space to somebody, but never reads a foreign private space.
+
+**Nothing leaks.** A space or board somebody may not read is treated as if it did not exist: the same 404 as for one
+that really does not exist, no name in any list, no title in the search.
+"""
+
+from __future__ import annotations
+
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from ..models import MANAGE, OPERATOR, READ, SPACE_ROLES, WRITE, Account, Board, Membership, Space
+
+__all__ = ["MANAGE", "READ", "WRITE", "RightsError", "at_least", "board_for", "check", "readable_ids", "role_in"]
+
+
+class RightsError(Exception):
+    """``not_found`` when the space may not even be seen, ``forbidden`` when it may be seen but not changed."""
+
+    def __init__(self, code: str, text: str, status: int) -> None:
+        super().__init__(text)
+        self.code = code
+        self.text = text
+        self.status = status
+
+
+def operator_powers(account: Account) -> bool:
+    """The operator acting where it does not manage (members, public pages): in the interface, never through a
+    program's token."""
+    return account.role == OPERATOR and not account.via_key
+
+
+def at_least(role: str | None, need: str) -> bool:
+    return role is not None and SPACE_ROLES.index(role) >= SPACE_ROLES.index(need)
+
+
+def _members(db: Session, space_id: int) -> int:
+    return int(db.scalar(select(func.count()).select_from(Membership).where(Membership.space_id == space_id)) or 0)
+
+
+def role_in(db: Session, account: Account, space_id: int | None) -> str | None:
+    """The account's right in the space, or None. A token limited to some spaces sees no other."""
+    if space_id is None:
+        return None
+    if account.key_spaces is not None and space_id not in account.key_spaces:
+        return None
+    space = db.get(Space, space_id)
+    if space is None or space.deleted_at is not None:
+        return None
+    membership = db.get(Membership, (space_id, account.id))
+    if membership is not None:
+        return membership.role
+    if account.role == OPERATOR and _members(db, space_id) == 0:
+        return MANAGE
+    return None
+
+
+def readable_ids(db: Session, account: Account) -> set[int]:
+    """Every space the account may read."""
+    live = set(db.scalars(select(Space.id).where(Space.deleted_at.is_(None))))
+    own = set(db.scalars(select(Membership.space_id).where(Membership.account_id == account.id)))
+    if account.role == OPERATOR:
+        with_members = set(db.scalars(select(Membership.space_id).distinct()))
+        own |= live - with_members
+    own &= live
+    if account.key_spaces is not None:
+        own &= account.key_spaces
+    return own
+
+
+def check(db: Session, account: Account, space_id: int | None, need: str) -> Space:
+    """The right ``need`` in the space, or ``RightsError``."""
+    role = role_in(db, account, space_id)
+    if not at_least(role, READ):
+        raise RightsError("not_found", "Not found.", 404)
+    if not at_least(role, need):
+        raise RightsError("forbidden", "Your right in this space does not allow this.", 403)
+    space = db.get(Space, space_id)
+    assert space is not None
+    return space
+
+
+def board_for(db: Session, account: Account, board_id: str, need: str, *, deleted: bool = False) -> Board:
+    """The board with the right ``need`` in its space, or ``RightsError``. A board in the bin counts only when
+    ``deleted`` is asked for (the bin itself, restoring)."""
+    board = db.get(Board, board_id)
+    if board is None or (board.deleted_at is not None) != deleted:
+        raise RightsError("not_found", "Not found.", 404)
+    check(db, account, board.space_id, need)
+    return board
