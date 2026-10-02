@@ -2,6 +2,7 @@ import {
   Circle,
   Diamond,
   Eraser,
+  Frame as FrameIcon,
   Hand,
   Hexagon,
   Highlighter,
@@ -27,7 +28,7 @@ import { useTranslation } from 'react-i18next'
 import { NOTE_COLORS, PALETTE, paint } from '../palette'
 import type { NoteColor, ShapeKind } from '../types'
 
-export type Tool = 'select' | 'hand' | 'note' | 'shape' | 'text' | 'pen' | 'marker' | 'eraser' | 'line'
+export type Tool = 'select' | 'hand' | 'note' | 'shape' | 'text' | 'pen' | 'marker' | 'eraser' | 'line' | 'frame'
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const SHAPES: { kind: ShapeKind; Icon: typeof Square }[] = [
@@ -165,6 +166,7 @@ export function Toolbar({
       </div>
       {tool('text', t('tools.text'), Type, 'T')}
       {tool('line', t('tools.line'), Spline, 'L')}
+      {tool('frame', t('tools.frame'), FrameIcon, 'F')}
       <span className="mx-1 h-6 w-px bg-ink-700" />
       <div className="relative">
         <button

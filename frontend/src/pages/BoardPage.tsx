@@ -1,9 +1,11 @@
-import { ArrowLeft, ChevronRight, Copy, History, Keyboard, Maximize, Minus, MoreHorizontal, Plus, Redo2, Share2, Star, Trash2, Undo2 } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Copy, History, ImageDown, Keyboard, Maximize, Minus, MoreHorizontal, Plus, Presentation, Redo2, RotateCw, Share2, Star, Trash2, Undo2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { ContextBar, type ContextActions } from '../board/canvas/ContextBar'
+import { ExportDialog } from '../board/canvas/ExportDialog'
+import { ScenesPanel } from '../board/canvas/ScenesPanel'
 import { ItemView } from '../board/canvas/ItemView'
 import { ItemActions } from '../board/canvas/PdfPage'
 import { Lines } from '../board/canvas/Lines'
@@ -13,11 +15,11 @@ import { Toolbar, type Tool, type ToolState } from '../board/canvas/Toolbar'
 import { useLiveDoc } from '../board/canvas/useLiveDoc'
 import { VersionsDialog } from '../board/canvas/VersionsDialog'
 import { Peers, PeerPointers, personColor } from '../board/canvas/Peers'
-import { bounds, center, contains, intersects, lineGeometry, normalize, toBoard, toScreen, type Point, type Rect } from '../board/geometry'
+import { bounds, center, contains, intersects, lineGeometry, normalize, outer, toBoard, toScreen, turn, type Point, type Rect } from '../board/geometry'
 import { outline } from '../board/ink'
 import { NOTE_COLORS, paint } from '../board/palette'
 import { toBoard as boardFromInfo, useBoards } from '../board/store'
-import type { Board, Doc, End, InkItem, Item, LineItem, View } from '../board/types'
+import type { Board, Doc, End, FrameItem, InkItem, Item, LineItem, View } from '../board/types'
 import { ApiError, boardsApi, mediaApi } from '../api/client'
 import { errorText } from '../lib/errors'
 import { useAuth } from '../state/auth'
@@ -25,6 +27,34 @@ import { Dialog } from '../components/Dialog'
 import { Popover } from '../components/Popover'
 
 const uid = () => Math.random().toString(36).slice(2, 10)
+
+/** The ids given, and every item that shares a group with one of them: a group is picked as one. */
+function withGroups(ids: string[], items: Item[]): string[] {
+  const groups = new Set(items.filter((i) => i.group && ids.includes(i.id)).map((i) => i.group))
+  if (groups.size === 0) return ids
+  return [...new Set([...ids, ...items.filter((i) => i.group && groups.has(i.group)).map((i) => i.id)])]
+}
+
+/** What lies in a frame: everything whose middle is inside it. Moving the frame moves these along. */
+function inFrame(frame: Item, items: Item[]): Item[] {
+  return items.filter((i) => i.id !== frame.id && !(i.kind === 'frame' && i.w * i.h >= frame.w * frame.h) && contains(frame, center(i)))
+}
+
+/** Frames in reading order: rows from top to bottom, in a row from left to right. Presenting goes this way. */
+function framesInOrder(items: Item[]): FrameItem[] {
+  const frames = items.filter((i): i is FrameItem => i.kind === 'frame')
+  return frames.sort((a, b) => (Math.abs(a.y - b.y) > Math.min(a.h, b.h) / 2 ? a.y - b.y : a.x - b.x))
+}
+
+/** Gives copied items new group ids, so a copy of a group is a group of its own and not part of the first. */
+function freshGroups<T extends Item>(copies: T[]): T[] {
+  const map = new Map<string, string>()
+  return copies.map((c) => {
+    if (!c.group) return c
+    if (!map.has(c.group)) map.set(c.group, uid())
+    return { ...c, group: map.get(c.group) }
+  })
+}
 const MIN_ZOOM = 0.1
 const MAX_ZOOM = 4
 const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z))
@@ -39,7 +69,8 @@ type Gesture =
   // `origin` is the picture when the gesture began: where things were. The live picture is changed from it only for
   // what the gesture moves, so a note somebody else adds or edits meanwhile stays as it is.
   | { kind: 'marquee'; start: Point; add: string[] }
-  | { kind: 'create'; tool: 'note' | 'shape' | 'text'; start: Point }
+  | { kind: 'create'; tool: 'note' | 'shape' | 'text' | 'frame'; start: Point }
+  | { kind: 'rotate'; ids: string[]; middle: Point; from: number; origin: Doc; moved: boolean }
   | { kind: 'draw'; points: number[][] }
   | { kind: 'erase'; hit: boolean }
   | { kind: 'line'; a: End; from?: string; side?: Side; startScreen: Point }
@@ -94,6 +125,7 @@ function Editor({ board }: { board: Board }) {
   const [notice, setNotice] = useState<string | null>(null)
   const [uploads, setUploads] = useState(0)
   const root = useRef<HTMLDivElement>(null)
+  const world = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 1200, h: 800 })
   const [view, setView] = useState<View>({ x: 0, y: 0, zoom: 1 })
   const viewRef = useRef(view)
@@ -106,6 +138,10 @@ function Editor({ board }: { board: Board }) {
   const [guides, setGuides] = useState<{ x: number[]; y: number[] }>({ x: [], y: [] })
   const [share, setShare] = useState(false)
   const [versions, setVersions] = useState(false)
+  const [scenes, setScenes] = useState(false)
+  /** The frame shown while presenting, as its place in reading order. */
+  const [presenting, setPresenting] = useState<number | null>(null)
+  const [exporting, setExporting] = useState<'board' | 'selection' | null>(null)
   const [keys, setKeys] = useState(false)
   const [asking, setAsking] = useState<'link' | null>(null)
   const [menu, setMenu] = useState<{ x: number; y: number; at: Point; on: string | null } | null>(null)
@@ -152,7 +188,7 @@ function Editor({ board }: { board: Board }) {
   }, [])
 
   const fit = useCallback(
-    (rect: Rect | null = bounds(doc.ref.current.items), animate = true) => {
+    (rect: Rect | null = bounds(doc.ref.current.items), animate = true, pad = 90) => {
       const el = root.current
       if (!el) return
       const w = el.clientWidth
@@ -161,9 +197,10 @@ function Editor({ board }: { board: Board }) {
         setView({ x: w / 2, y: h / 2, zoom: 1 })
         return
       }
-      const pad = 90
-      const zoom = clampZoom(Math.min((w - pad * 2) / Math.max(rect.w, 1), (h - pad * 2 - 40) / Math.max(rect.h, 1), 1.4))
-      const next = { zoom, x: w / 2 - (rect.x + rect.w / 2) * zoom, y: h / 2 + 20 - (rect.y + rect.h / 2) * zoom }
+      // Room for the tool bar at the top, except when presenting (a small margin, nothing over the frame).
+      const bar = pad >= 90 ? 40 : 0
+      const zoom = clampZoom(Math.min((w - pad * 2) / Math.max(rect.w, 1), (h - pad * 2 - bar) / Math.max(rect.h, 1), pad >= 90 ? 1.4 : MAX_ZOOM))
+      const next = { zoom, x: w / 2 - (rect.x + rect.w / 2) * zoom, y: h / 2 + bar / 2 - (rect.y + rect.h / 2) * zoom }
       if (!animate) return setView(next)
       const from = viewRef.current
       const start = performance.now()
@@ -266,11 +303,31 @@ function Editor({ board }: { board: Board }) {
         map.set(i.id, id)
         return { ...i, id, x: i.x + offset, y: i.y + offset, locked: false }
       })
+      const regrouped = freshGroups(copies)
       const lineCopies = d.lines
         .filter((l) => (l.a.item ? map.has(l.a.item) : false) && (l.b.item ? map.has(l.b.item) : false))
         .map((l) => ({ ...l, id: uid(), a: { ...l.a, item: map.get(l.a.item!) }, b: { ...l.b, item: map.get(l.b.item!) } }))
-      doc.commit((x) => ({ items: [...x.items, ...copies], lines: [...x.lines, ...lineCopies] }))
-      setSelected([...copies.map((c) => c.id), ...lineCopies.map((l) => l.id)])
+      doc.commit((x) => ({ items: [...x.items, ...regrouped], lines: [...x.lines, ...lineCopies] }))
+      setSelected([...regrouped.map((c) => c.id), ...lineCopies.map((l) => l.id)])
+    },
+    [doc],
+  )
+
+  /** Two or more items become one group (groups among them melt into it); lines are never part of one. */
+  const group = useCallback(
+    (ids: string[]) => {
+      const chosen = new Set(ids)
+      if (doc.ref.current.items.filter((i) => chosen.has(i.id)).length < 2) return
+      const id = uid()
+      doc.commit((d) => ({ ...d, items: d.items.map((i) => (chosen.has(i.id) ? { ...i, group: id } : i)) }))
+    },
+    [doc],
+  )
+
+  const ungroup = useCallback(
+    (ids: string[]) => {
+      const chosen = new Set(ids)
+      doc.commit((d) => ({ ...d, items: d.items.map((i) => (chosen.has(i.id) && i.group ? { ...i, group: undefined } : i)) }))
     },
     [doc],
   )
@@ -333,7 +390,7 @@ function Editor({ board }: { board: Board }) {
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (menu) setMenu(null)
     const target = e.target as HTMLElement
-    if (target.closest('[data-ui]')) return
+    if (target.closest('[data-ui]') || presenting !== null) return
     const s = local(e)
     pointers.current.set(e.pointerId, s)
     root.current?.setPointerCapture(e.pointerId)
@@ -371,6 +428,15 @@ function Editor({ board }: { board: Board }) {
       }
       return
     }
+    if (handle?.handle === 'rotate') {
+      const turning = selItems.filter((i) => !i.locked && i.kind !== 'frame')
+      const box = bounds(turning)
+      if (box && turning.length) {
+        const middle = turning.length === 1 ? center(turning[0]) : center(box)
+        gesture.current = { kind: 'rotate', ids: turning.map((i) => i.id), middle, from: Math.atan2(p.y - middle.y, p.x - middle.x), origin: doc.ref.current, moved: false }
+      }
+      return
+    }
     if (handle?.handle === 'connect') {
       gesture.current = { kind: 'line', a: { item: handle.for, x: p.x, y: p.y }, from: handle.for, side: handle.side as Side, startScreen: s }
       return
@@ -387,13 +453,20 @@ function Editor({ board }: { board: Board }) {
     if (tool === 'select') {
       const hit = itemId ?? lineId
       if (hit) {
+        const all = doc.ref.current.items
+        const picked = withGroups([hit], all)
         let next = selected
-        if (e.shiftKey) next = selectedSet.has(hit) ? selected.filter((x) => x !== hit) : [...selected, hit]
-        else if (!selectedSet.has(hit)) next = [hit]
+        if (e.shiftKey) next = selectedSet.has(hit) ? selected.filter((x) => !picked.includes(x)) : [...new Set([...selected, ...picked])]
+        else if (!selectedSet.has(hit)) next = picked
         setSelected(next)
         const chosen = new Set(next)
-        const movable = doc.ref.current.items.filter((i) => chosen.has(i.id) && !i.locked)
-        const freeLines = doc.ref.current.lines.filter((l) => chosen.has(l.id)).map((l) => l.id)
+        // A frame takes along what lies in it, and the free ends of lines in it.
+        const frames = all.filter((i) => chosen.has(i.id) && i.kind === 'frame' && !i.locked)
+        for (const frame of frames) for (const inside of inFrame(frame, all)) chosen.add(inside.id)
+        const movable = all.filter((i) => chosen.has(i.id) && !i.locked)
+        const freeLines = doc.ref.current.lines
+          .filter((l) => chosen.has(l.id) || frames.some((f) => (!l.a.item && contains(f, l.a)) || (!l.b.item && contains(f, l.b))))
+          .map((l) => l.id)
         const box = bounds(movable) ?? { x: p.x, y: p.y, w: 0, h: 0 }
         gesture.current = { kind: 'move', start: p, ids: movable.map((i) => i.id), lines: freeLines, origin: doc.ref.current, moved: false, box }
       } else {
@@ -402,7 +475,7 @@ function Editor({ board }: { board: Board }) {
       }
       return
     }
-    if (tool === 'note' || tool === 'shape' || tool === 'text') {
+    if (tool === 'note' || tool === 'shape' || tool === 'text' || tool === 'frame') {
       gesture.current = { kind: 'create', tool, start: p }
       return
     }
@@ -524,8 +597,68 @@ function Editor({ board }: { board: Board }) {
         }))
         return
       }
+      case 'rotate': {
+        let delta = ((Math.atan2(p.y - g.middle.y, p.x - g.middle.x) - g.from) * 180) / Math.PI
+        if (!g.moved) {
+          if (Math.abs(delta) < 1) return
+          doc.checkpoint()
+          g.moved = true
+        }
+        const startItems = new Map(g.origin.items.map((i) => [i.id, i]))
+        const first = startItems.get(g.ids[0])
+        // Shift turns in steps of 15 degrees; near a right angle it settles there by itself.
+        const settle = (deg: number) => {
+          if (e.shiftKey) return Math.round(deg / 15) * 15
+          const right = Math.round(deg / 90) * 90
+          return Math.abs(deg - right) < 4 ? right : deg
+        }
+        if (first) delta = settle((first.rot ?? 0) + delta) - (first.rot ?? 0)
+        const ids = new Set(g.ids)
+        doc.live((d) => ({
+          ...d,
+          items: d.items.map((i) => {
+            const from = ids.has(i.id) ? startItems.get(i.id) : undefined
+            if (!from) return i
+            const c = turn(center(from), g.middle, delta)
+            const rot = Math.round((((((from.rot ?? 0) + delta) % 360) + 540) % 360 - 180) * 10) / 10
+            return { ...i, x: c.x - from.w / 2, y: c.y - from.h / 2, rot: rot || undefined }
+          }),
+        }))
+        return
+      }
       case 'resize': {
         const { box, handle } = g
+        // One turned item: the handles turn with it, so the pointer is taken into the item's own upright frame.
+        const lone = g.ids.length === 1 ? g.origin.items.find((i) => i.id === g.ids[0]) : undefined
+        if (lone?.rot) {
+          const c0 = center(lone)
+          const q = turn(p, c0, -lone.rot)
+          let x1 = lone.x
+          let y1 = lone.y
+          let x2 = lone.x + lone.w
+          let y2 = lone.y + lone.h
+          if (handle.includes('w')) x1 = Math.min(q.x, x2 - 16)
+          if (handle.includes('e')) x2 = Math.max(q.x, x1 + 16)
+          if (handle.includes('n')) y1 = Math.min(q.y, y2 - 16)
+          if (handle.includes('s')) y2 = Math.max(q.y, y1 + 16)
+          if (g.keep || e.shiftKey) {
+            const k = Math.max((x2 - x1) / lone.w, (y2 - y1) / lone.h)
+            if (handle.includes('w')) x1 = x2 - lone.w * k
+            else x2 = x1 + lone.w * k
+            if (handle.includes('n')) y1 = y2 - lone.h * k
+            else y2 = y1 + lone.h * k
+          }
+          if (!g.moved) {
+            doc.checkpoint()
+            g.moved = true
+          }
+          // The far corner stays where it is on the board: the new middle, turned back out of the upright frame.
+          const c1 = turn({ x: (x1 + x2) / 2, y: (y1 + y2) / 2 }, c0, lone.rot)
+          const w = x2 - x1
+          const h = y2 - y1
+          doc.live((d) => ({ ...d, items: d.items.map((i) => (i.id === lone.id ? { ...i, x: c1.x - w / 2, y: c1.y - h / 2, w, h } : i)) }))
+          return
+        }
         let x1 = box.x
         let y1 = box.y
         let x2 = box.x + box.w
@@ -563,7 +696,11 @@ function Editor({ board }: { board: Board }) {
       case 'marquee': {
         const r = normalize(g.start, p)
         setMarquee(r)
-        const inside = doc.ref.current.items.filter((i) => intersects(i, r)).map((i) => i.id)
+        // A frame only when the rectangle holds all of it: a rectangle drawn inside a frame picks what is in there.
+        const inside = withGroups(
+          doc.ref.current.items.filter((i) => (i.kind === 'frame' ? contains(r, i) && contains(r, { x: i.x + i.w, y: i.y + i.h }) : intersects(outer(i), r))).map((i) => i.id),
+          doc.ref.current.items,
+        )
         const linesIn = doc.ref.current.lines
           .filter((l) => {
             const geo = lineGeometry(l, byId)
@@ -574,7 +711,7 @@ function Editor({ board }: { board: Board }) {
         return
       }
       case 'create':
-        if (g.tool === 'shape') setDraft({ rect: normalize(g.start, p) })
+        if (g.tool === 'shape' || g.tool === 'frame') setDraft({ rect: normalize(g.start, p) })
         return
       case 'draw': {
         const last = g.points[g.points.length - 1]
@@ -626,6 +763,10 @@ function Editor({ board }: { board: Board }) {
         const dragged = drag.w * viewRef.current.zoom > 8 && drag.h * viewRef.current.zoom > 8
         if (g.tool === 'note') {
           add({ id: uid(), kind: 'note', x: p.x - 90, y: p.y - 90, w: 180, h: 180, color: tools.note, text: '' }, true)
+        } else if (g.tool === 'frame') {
+          const r = dragged ? drag : { x: p.x - 320, y: p.y - 200, w: 640, h: 400 }
+          const number = doc.ref.current.items.filter((i) => i.kind === 'frame').length + 1
+          add({ id: uid(), kind: 'frame', ...r, title: t('frames.numbered', { n: number }), color: '#ff8a70' })
         } else if (g.tool === 'text') {
           add({ id: uid(), kind: 'text', x: p.x, y: p.y - 14, w: dragged ? drag.w : 280, h: 30, text: '', size: 'm', color: 'auto' }, true)
         } else {
@@ -706,6 +847,12 @@ function Editor({ board }: { board: Board }) {
     if (target.closest('[data-ui]')) return
     const id = target.closest<HTMLElement>('[data-item]')?.dataset.item
     const item = id ? byId.get(id) : undefined
+    if (item?.kind === 'frame' && !item.locked) {
+      setSelected([item.id])
+      setEditing(item.id)
+      freshText.current = null
+      return
+    }
     if (item && (item.kind === 'note' || item.kind === 'shape' || item.kind === 'text') && !item.locked) {
       setSelected([item.id])
       setEditing(item.id)
@@ -764,7 +911,7 @@ function Editor({ board }: { board: Board }) {
   useEffect(() => {
     const typing = (el: EventTarget | null) => el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
     const down = (e: KeyboardEvent) => {
-      if (typing(e.target) || share || keys || asking) return
+      if (typing(e.target) || share || keys || asking || exporting || versions || presenting !== null) return
       const mod = e.ctrlKey || e.metaKey
       const k = e.key.toLowerCase()
       if (e.key === ' ' && !e.repeat) {
@@ -791,6 +938,13 @@ function Editor({ board }: { board: Board }) {
       if (mod && k === 'd') {
         e.preventDefault()
         if (selected.length && !readOnly) duplicate(selected)
+        return
+      }
+      if (mod && k === 'g') {
+        e.preventDefault()
+        if (readOnly || !selected.length) return
+        if (e.shiftKey) ungroup(selected)
+        else group(selected)
         return
       }
       if (mod && k === 'c') {
@@ -838,7 +992,7 @@ function Editor({ board }: { board: Board }) {
       if (e.key === '-') return zoomAt({ x: size.w / 2, y: size.h / 2 }, 1 / 1.2)
       if (e.key === '!' || (e.shiftKey && e.code === 'Digit1')) return fit()
       if (e.key === '?') return setKeys(true)
-      const tool: Record<string, Tool> = { v: 'select', h: 'hand', n: 'note', s: 'shape', t: 'text', p: 'pen', m: 'marker', e: 'eraser', l: 'line' }
+      const tool: Record<string, Tool> = { v: 'select', h: 'hand', n: 'note', s: 'shape', t: 'text', p: 'pen', m: 'marker', e: 'eraser', l: 'line', f: 'frame' }
       if (tool[k] && !e.shiftKey && !e.altKey) {
         if (readOnly && tool[k] !== 'select' && tool[k] !== 'hand') return
         setTool(tool[k])
@@ -849,7 +1003,7 @@ function Editor({ board }: { board: Board }) {
       if (e.key === ' ') setSpaceHeld(false)
     }
     const paste = (e: ClipboardEvent) => {
-      if (typing(e.target) || readOnly || share || asking) return
+      if (typing(e.target) || readOnly || share || asking || exporting || presenting !== null) return
       const data = e.clipboardData
       if (!data) return
       const files = [...data.files]
@@ -869,11 +1023,13 @@ function Editor({ board }: { board: Board }) {
           const dx = box ? m.x - (box.x + box.w / 2) : 0
           const dy = box ? m.y - (box.y + box.h / 2) : 0
           const map = new Map<string, string>()
-          const fresh = copied.items.map((i) => {
-            const id = uid()
-            map.set(i.id, id)
-            return { ...i, id, x: i.x + dx, y: i.y + dy }
-          })
+          const fresh = freshGroups(
+            copied.items.map((i) => {
+              const id = uid()
+              map.set(i.id, id)
+              return { ...i, id, x: i.x + dx, y: i.y + dy }
+            }),
+          )
           const freshLines = copied.lines.map((l) => ({
             ...l,
             id: uid(),
@@ -899,7 +1055,7 @@ function Editor({ board }: { board: Board }) {
       window.removeEventListener('keyup', up)
       window.removeEventListener('paste', paste)
     }
-  }, [selected, byId, doc, duplicate, removeIds, setTool, zoomAt, size, fit, readOnly, share, keys, asking, middle, addFiles, addLink, add, tools.note])
+  }, [selected, byId, doc, duplicate, removeIds, setTool, zoomAt, size, fit, readOnly, share, keys, asking, middle, addFiles, addLink, add, tools.note, group, ungroup, presenting, exporting, versions])
 
   // ---------- context actions ----------
 
@@ -916,16 +1072,77 @@ function Editor({ board }: { board: Board }) {
     front: () => doc.commit((d) => ({ ...d, items: [...d.items.filter((i) => !selectedSet.has(i.id)), ...d.items.filter((i) => selectedSet.has(i.id))] })),
     back: () => doc.commit((d) => ({ ...d, items: [...d.items.filter((i) => selectedSet.has(i.id)), ...d.items.filter((i) => !selectedSet.has(i.id))] })),
     lock: (locked) => doc.commit((d) => ({ ...d, items: d.items.map((i) => (selectedSet.has(i.id) ? { ...i, locked } : i)) })),
+    group: () => group(selected),
+    ungroup: () => ungroup(selected),
+    exportSelection: () => setExporting('selection'),
   }
+
+  // ---------- frames: the list, and presenting them one after the other ----------
+
+  const frames = useMemo(() => framesInOrder(items), [items])
+  const showFrame = useCallback((frame: Rect, pad = 90) => fit(frame, true, pad), [fit])
+
+  useEffect(() => {
+    if (presenting === null) return
+    const frame = frames[presenting]
+    if (!frame) {
+      setPresenting(null)
+      return
+    }
+    setSelected([])
+    setEditing(null)
+    showFrame(frame, 16)
+  }, [presenting, frames, showFrame, size])
+
+  useEffect(() => {
+    if (presenting === null) return
+    const key = (e: KeyboardEvent) => {
+      if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key)) {
+        e.preventDefault()
+        setPresenting((n) => (n === null ? n : Math.min(frames.length - 1, n + 1)))
+      } else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key)) {
+        e.preventDefault()
+        setPresenting((n) => (n === null ? n : Math.max(0, n - 1)))
+      } else if (e.key === 'Escape') {
+        setPresenting(null)
+      }
+    }
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [presenting, frames.length])
+
+  // Presenting fills the screen where the browser allows it; leaving full screen ends presenting.
+  const present = (from: number) => {
+    setScenes(false)
+    setPresenting(from)
+    void document.documentElement.requestFullscreen?.().catch(() => undefined)
+  }
+  useEffect(() => {
+    const left = () => {
+      if (!document.fullscreenElement) setPresenting(null)
+    }
+    document.addEventListener('fullscreenchange', left)
+    return () => document.removeEventListener('fullscreenchange', left)
+  }, [])
+  useEffect(() => {
+    if (presenting === null && document.fullscreenElement) void document.exitFullscreen?.().catch(() => undefined)
+  }, [presenting])
 
   // ---------- drawing the overlay ----------
 
   const selBox = bounds(selItems)
   const screenBox = selBox ? { ...toScreen(selBox, view), w: selBox.w * view.zoom, h: selBox.h * view.zoom } : null
+  // The box drawn around the selection: one turned item gets its own box, turned with it; else the upright box.
+  const turned = selItems.length === 1 && selItems[0].rot ? selItems[0] : null
+  const selOutline = turned
+    ? { x: turned.x * view.zoom + view.x, y: turned.y * view.zoom + view.y, w: turned.w * view.zoom, h: turned.h * view.zoom, rot: turned.rot ?? 0 }
+    : screenBox
+      ? { ...screenBox, rot: 0 }
+      : null
   const singleLine = selLines.length === 1 && selItems.length === 0 ? selLines[0] : null
   const lineGeo = singleLine ? lineGeometry(singleLine, byId) : null
   const barAt = (() => {
-    if (editing || gesture.current?.kind === 'move' || readOnly) return null
+    if (editing || gesture.current?.kind === 'move' || gesture.current?.kind === 'rotate' || readOnly || presenting !== null) return null
     if (screenBox) return { x: screenBox.x + screenBox.w / 2, y: Math.max(64, screenBox.y - 14) }
     if (lineGeo) {
       const a = toScreen(lineGeo.a, view)
@@ -942,7 +1159,7 @@ function Editor({ board }: { board: Board }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       {/* The head row of the board, built like nexlore's note head: way back, place, star, who is here, share, more. */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-ink-700/80 bg-ink-950 px-3 py-2 sm:px-5">
+      <div className={'flex shrink-0 items-center gap-2 border-b border-ink-700/80 bg-ink-950 px-3 py-2 sm:px-5 ' + (presenting !== null ? 'hidden' : '')}>
         <Link to={space ? `/?space=${space.id}` : '/'} className="rounded-full p-1.5 text-mist-500 hover:bg-ink-850 hover:text-mist-100" aria-label={t('board.back')} title={t('board.back')}>
           <ArrowLeft className="h-4 w-4" />
         </Link>
@@ -995,6 +1212,14 @@ function Editor({ board }: { board: Board }) {
                   <Copy className="h-4 w-4 text-mist-500" />
                   {t('board.duplicate')}
                 </button>
+                <button type="button" role="menuitem" className="nc-menu-item" onClick={() => { close(); setExporting('board') }}>
+                  <ImageDown className="h-4 w-4 text-mist-500" />
+                  {t('export.title')}
+                </button>
+                <button type="button" role="menuitem" className="nc-menu-item" disabled={frames.length === 0} title={frames.length === 0 ? t('frames.none') : undefined} onClick={() => { close(); present(0) }}>
+                  <Presentation className="h-4 w-4 text-mist-500" />
+                  {t('frames.present')}
+                </button>
                 <button type="button" role="menuitem" className="nc-menu-item" onClick={() => { close(); setVersions(true) }}>
                   <History className="h-4 w-4 text-mist-500" />
                   {t('board.versions')}
@@ -1016,7 +1241,7 @@ function Editor({ board }: { board: Board }) {
 
       <div
         ref={root}
-        className="nc-board relative min-h-0 flex-1 touch-none overflow-hidden outline-none"
+        className={'nc-board min-h-0 flex-1 touch-none overflow-hidden outline-none ' + (presenting !== null ? 'fixed inset-0 z-40' : 'relative')}
         style={{ backgroundSize: `${24 * view.zoom}px ${24 * view.zoom}px`, backgroundPosition: `${view.x}px ${view.y}px`, cursor }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -1048,8 +1273,9 @@ function Editor({ board }: { board: Board }) {
         data-testid="board"
       >
         <ItemActions.Provider value={itemActions}>
-        <div className="absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
-          {items.map((item) => (
+        <div ref={world} className="absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, ['--zoom' as string]: view.zoom }}>
+          {/* Frames lie under everything else, whatever was made first. */}
+          {[...items.filter((i) => i.kind === 'frame'), ...items.filter((i) => i.kind !== 'frame')].map((item) => (
             <ItemView key={item.id} item={item} editing={editing === item.id} onText={onText} onDone={onDone} onMeasure={onMeasure} />
           ))}
           <Lines lines={lines} items={items} selected={selectedSet} />
@@ -1084,8 +1310,9 @@ function Editor({ board }: { board: Board }) {
         {marquee && (
           <div className="pointer-events-none absolute border border-accent-500 bg-accent-500/10" style={{ left: marquee.x * view.zoom + view.x, top: marquee.y * view.zoom + view.y, width: marquee.w * view.zoom, height: marquee.h * view.zoom }} />
         )}
-        {screenBox && !editing && (
-          <div className={'pointer-events-none absolute border-[1.5px] ' + (allLocked ? 'border-dashed border-mist-500' : 'border-accent-500')} style={{ left: screenBox.x - 1, top: screenBox.y - 1, width: screenBox.w + 2, height: screenBox.h + 2 }}>
+        {selOutline && !editing && presenting === null && (
+          <div className="pointer-events-none absolute" style={{ left: selOutline.x, top: selOutline.y, width: selOutline.w, height: selOutline.h, transform: selOutline.rot ? `rotate(${selOutline.rot}deg)` : undefined }}>
+            <div className={'absolute -inset-px border-[1.5px] ' + (allLocked ? 'border-dashed border-mist-500' : 'border-accent-500')} />
             {!allLocked && !readOnly &&
               (['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as Handle[])
                 .filter((h) => h.length === 2 || (selItems.length === 1 && selItems[0].kind !== 'image'))
@@ -1102,30 +1329,40 @@ function Editor({ board }: { board: Board }) {
                     }}
                   />
                 ))}
+            {!allLocked && !readOnly && tools.tool === 'select' && selItems.some((i) => i.kind !== 'frame' && !i.locked) && (
+              <span
+                data-handle="rotate"
+                title={t('canvas.rotate')}
+                className="pointer-events-auto absolute grid h-6 w-6 cursor-grab place-items-center rounded-full border border-accent-500/70 bg-ink-950 text-accent-400 opacity-80 hover:opacity-100"
+                style={{ left: 'calc(100% + 10px)', top: 'calc(100% + 10px)' }}
+              >
+                <RotateCw className="pointer-events-none h-3.5 w-3.5" strokeWidth={2.2} />
+              </span>
+            )}
+            {single && single.kind !== 'ink' && single.kind !== 'frame' && !readOnly && tools.tool === 'select' &&
+              (['top', 'right', 'bottom', 'left'] as Side[]).map((side) => {
+                const pos = {
+                  top: { x: selOutline.w / 2, y: -22 },
+                  bottom: { x: selOutline.w / 2, y: selOutline.h + 22 },
+                  left: { x: -22, y: selOutline.h / 2 },
+                  right: { x: selOutline.w + 22, y: selOutline.h / 2 },
+                }[side]
+                return (
+                  <span
+                    key={side}
+                    data-handle="connect"
+                    data-for={single.id}
+                    data-side={side}
+                    title={t('canvas.connect')}
+                    className="pointer-events-auto absolute grid h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-crosshair place-items-center rounded-full border border-accent-500/70 bg-ink-950 text-accent-400 opacity-70 transition hover:scale-110 hover:opacity-100"
+                    style={{ left: pos.x, top: pos.y }}
+                  >
+                    <Plus className="pointer-events-none h-3 w-3" strokeWidth={2.5} />
+                  </span>
+                )
+              })}
           </div>
         )}
-        {single && single.kind !== 'ink' && !editing && !readOnly && screenBox && tools.tool === 'select' &&
-          (['top', 'right', 'bottom', 'left'] as Side[]).map((side) => {
-            const pos = {
-              top: { x: screenBox.x + screenBox.w / 2, y: screenBox.y - 22 },
-              bottom: { x: screenBox.x + screenBox.w / 2, y: screenBox.y + screenBox.h + 22 },
-              left: { x: screenBox.x - 22, y: screenBox.y + screenBox.h / 2 },
-              right: { x: screenBox.x + screenBox.w + 22, y: screenBox.y + screenBox.h / 2 },
-            }[side]
-            return (
-              <span
-                key={side}
-                data-handle="connect"
-                data-for={single.id}
-                data-side={side}
-                title={t('canvas.connect')}
-                className="absolute grid h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-crosshair place-items-center rounded-full border border-accent-500/70 bg-ink-950 text-accent-400 opacity-70 transition hover:scale-110 hover:opacity-100"
-                style={{ left: pos.x, top: pos.y }}
-              >
-                <Plus className="pointer-events-none h-3 w-3" strokeWidth={2.5} />
-              </span>
-            )
-          })}
         {lineGeo && singleLine && !readOnly &&
           (['a', 'b'] as const).map((which) => {
             const pt = toScreen(lineGeo[which], view)
@@ -1140,7 +1377,7 @@ function Editor({ board }: { board: Board }) {
 
         {/* Floating controls. data-ui keeps the board from treating clicks on them as board clicks. */}
         <div data-ui className="pointer-events-none absolute top-3 left-1/2 z-20 -translate-x-1/2">
-          {!readOnly && (
+          {!readOnly && presenting === null && (
             <Toolbar
               state={tools}
               set={(change) => {
@@ -1153,7 +1390,7 @@ function Editor({ board }: { board: Board }) {
             />
           )}
         </div>
-        <div data-ui className="nc-float absolute bottom-4 left-4 z-20 flex items-center gap-0.5 p-1">
+        <div data-ui className={'nc-float absolute bottom-4 left-4 z-20 flex items-center gap-0.5 p-1 ' + (presenting !== null ? 'hidden' : '')}>
           <button type="button" className="nc-tool h-8 w-8" onClick={doc.undo} disabled={!doc.canUndo || readOnly} aria-label={t('canvas.undo')} title={`${t('canvas.undo')} (Ctrl Z)`}>
             <Undo2 className="h-4 w-4" />
           </button>
@@ -1174,9 +1411,50 @@ function Editor({ board }: { board: Board }) {
             <Maximize className="h-4 w-4" />
           </button>
         </div>
-        <button data-ui type="button" onClick={() => setKeys(true)} className="nc-float absolute right-4 bottom-4 z-20 grid h-10 w-10 place-items-center text-mist-400 hover:text-mist-100" aria-label={t('keys.title')} title={`${t('keys.title')} (?)`}>
-          <Keyboard className="h-4 w-4" />
-        </button>
+        {presenting === null && (
+          <div data-ui className="absolute right-4 bottom-4 z-20 flex items-end gap-2">
+            {scenes && (
+              <ScenesPanel
+                frames={frames}
+                onShow={(frame) => showFrame(frame)}
+                onPresent={present}
+                onClose={() => setScenes(false)}
+              />
+            )}
+            <button type="button" onClick={() => setScenes((v) => !v)} aria-expanded={scenes} className="nc-float grid h-10 w-10 place-items-center text-mist-400 hover:text-mist-100" aria-label={t('frames.scenes')} title={t('frames.scenes')}>
+              <Presentation className="h-4 w-4" />
+            </button>
+            <button type="button" onClick={() => setKeys(true)} className="nc-float hidden h-10 w-10 place-items-center text-mist-400 hover:text-mist-100 sm:grid" aria-label={t('keys.title')} title={`${t('keys.title')} (?)`}>
+              <Keyboard className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+        {presenting !== null && frames[presenting] && (() => {
+          const frame = frames[presenting]
+          const box = { x: frame.x * view.zoom + view.x, y: frame.y * view.zoom + view.y, w: frame.w * view.zoom, h: frame.h * view.zoom }
+          return (
+            <>
+              {/* Everything outside the frame goes dark, so the scene stands alone. */}
+              <div className="pointer-events-none absolute rounded-[14px]" style={{ left: box.x, top: box.y, width: box.w, height: box.h, boxShadow: '0 0 0 100vmax var(--color-ink-950)' }} />
+              <div data-ui className="nc-float absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 p-1 opacity-60 transition-opacity hover:opacity-100">
+                <button type="button" className="nc-tool h-9 w-9" disabled={presenting === 0} onClick={() => setPresenting(presenting - 1)} aria-label={t('frames.previous')} title={t('frames.previous')}>
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="min-w-28 px-2 text-center text-xs text-mist-300 tabular-nums">
+                  <span className="block truncate font-semibold text-mist-100">{frame.title || t('frames.untitled')}</span>
+                  {presenting + 1} / {frames.length}
+                </span>
+                <button type="button" className="nc-tool h-9 w-9" disabled={presenting === frames.length - 1} onClick={() => setPresenting(presenting + 1)} aria-label={t('frames.next')} title={t('frames.next')}>
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+                <span className="mx-1 h-6 w-px bg-ink-700" />
+                <button type="button" className="nc-tool h-9 w-9" onClick={() => setPresenting(null)} aria-label={t('frames.stop')} title={`${t('frames.stop')} (Esc)`}>
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </>
+          )
+        })()}
 
         {items.length === 0 && !readOnly && (
           <div className="pointer-events-none absolute inset-0 grid place-items-center">
@@ -1246,6 +1524,17 @@ function Editor({ board }: { board: Board }) {
       {share && <ShareDialog board={board} onClose={() => setShare(false)} />}
       {versions && <VersionsDialog boardId={board.id} readOnly={readOnly} onClose={() => setVersions(false)} />}
       {keys && <ShortcutsDialog onClose={() => setKeys(false)} />}
+      {exporting && (
+        <ExportDialog
+          title={board.title}
+          world={world}
+          items={items}
+          lines={lines}
+          selection={exporting === 'selection' ? selected : []}
+          frames={frames}
+          onClose={() => setExporting(null)}
+        />
+      )}
       {asking === 'link' && <LinkDialog onClose={() => setAsking(null)} onAdd={(url) => { setAsking(null); addLink(url, middle()) }} />}
     </div>
   )

@@ -1,4 +1,4 @@
-import { ArrowDownToLine, ArrowLeftRight, ArrowRight, ArrowUpToLine, Copy, Lock, LockOpen, Minus, PaintBucket, Spline, Trash2, Waypoints } from 'lucide-react'
+import { ArrowDownToLine, ArrowLeftRight, ArrowRight, ArrowUpToLine, Copy, Group, ImageDown, Lock, LockOpen, Minus, PaintBucket, Spline, Trash2, Ungroup, Waypoints } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -14,6 +14,10 @@ export interface ContextActions {
   front: () => void
   back: () => void
   lock: (locked: boolean) => void
+  group: () => void
+  ungroup: () => void
+  /** Opens the export with what is selected. */
+  exportSelection: () => void
 }
 
 function Btn({ label, onClick, pressed, children }: { label: string; onClick: () => void; pressed?: boolean; children: ReactNode }) {
@@ -54,12 +58,14 @@ export function ContextBar({ items, lines, at, actions }: { items: Item[]; lines
   const only = kinds.size === 1 ? [...kinds][0] : null
   const first = items[0]
   const locked = items.length > 0 && items.every((i) => i.locked)
+  // One group, and nothing else: then the bar offers to take it apart.
+  const grouped = items.length > 1 && !!items[0].group && items.every((i) => i.group === items[0].group)
   const colorLabel = (c: string) => (c === 'auto' ? t('colors.auto') : c === 'none' ? t('colors.none') : c)
 
   const setFill = (c: string) =>
     actions.change((x) => {
       if (x.kind === 'shape') return { ...x, fill: c }
-      if (x.kind === 'text' || x.kind === 'ink' || x.kind === 'line') return { ...x, color: c }
+      if (x.kind === 'text' || x.kind === 'ink' || x.kind === 'line' || x.kind === 'frame') return { ...x, color: c }
       return x
     })
 
@@ -82,7 +88,7 @@ export function ContextBar({ items, lines, at, actions }: { items: Item[]; lines
             ))}
           </div>
         )}
-        {(only === 'shape' || only === 'text' || only === 'ink' || only === 'line') && (
+        {(only === 'shape' || only === 'text' || only === 'ink' || only === 'line' || only === 'frame') && (
           <Btn label={only === 'shape' ? t('context.fill') : t('context.color')} onClick={() => setPanel(panel === 'fill' ? null : 'fill')} pressed={panel === 'fill'}>
             <span className="h-4 w-4 rounded-full ring-1 ring-ink-600" style={{ background: paint(first?.kind === 'shape' ? first.fill : first && 'color' in first ? first.color : lines[0]?.color ?? 'auto') }} />
           </Btn>
@@ -159,8 +165,22 @@ export function ContextBar({ items, lines, at, actions }: { items: Item[]; lines
             <Btn label={t('context.duplicate')} onClick={actions.duplicate}>
               <Copy className="h-4 w-4" />
             </Btn>
+            {grouped ? (
+              <Btn label={t('context.ungroup')} onClick={actions.ungroup}>
+                <Ungroup className="h-4 w-4" />
+              </Btn>
+            ) : (
+              items.length > 1 && (
+                <Btn label={t('context.group')} onClick={actions.group}>
+                  <Group className="h-4 w-4" />
+                </Btn>
+              )
+            )}
             <Btn label={locked ? t('context.unlock') : t('context.lock')} pressed={locked} onClick={() => actions.lock(!locked)}>
               {locked ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
+            </Btn>
+            <Btn label={t('export.selection')} onClick={actions.exportSelection}>
+              <ImageDown className="h-4 w-4" />
             </Btn>
           </>
         )}

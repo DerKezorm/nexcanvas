@@ -209,7 +209,8 @@
     "pages_one": "eine Seite",
     "pages_other": "{{count}} Seiten",
     "emptyTitle": "Ein leeres Board",
-    "emptyHint": "Oben ein Werkzeug wählen, doppelklicken für Text, oder Fotos und Dateien hierher ziehen."
+    "emptyHint": "Oben ein Werkzeug wählen, doppelklicken für Text, oder Fotos und Dateien hierher ziehen.",
+    "rotate": "Drehen (Umschalt: in 15°-Schritten)"
   },
   "tools": {
     "select": "Auswählen",
@@ -222,7 +223,8 @@
     "marker": "Textmarker",
     "eraser": "Radierer",
     "media": "Foto, Datei oder Link",
-    "size": "Stärke {{size}}"
+    "size": "Stärke {{size}}",
+    "frame": "Rahmen"
   },
   "shapes": {
     "rect": "Rechteck",
@@ -283,7 +285,9 @@
     "duplicate": "Duplizieren",
     "lock": "Sperren",
     "unlock": "Entsperren",
-    "delete": "Löschen"
+    "delete": "Löschen",
+    "group": "Gruppieren",
+    "ungroup": "Gruppe auflösen"
   },
   "menu": {
     "noteHere": "Notiz hier",
@@ -304,7 +308,8 @@
     "zoomStep": "Zoomen in Schritten",
     "del": "Entf",
     "ctrlWheel": "Strg + Mausrad",
-    "space": "Leertaste"
+    "space": "Leertaste",
+    "rotateSteps": "Beim Drehen halten: 15°-Schritte"
   },
   "share": {
     "button": "Teilen",
@@ -715,5 +720,33 @@
     "items_other": "{{count}} Dinge",
     "restore": "Zurückholen",
     "restoreNow": "Ja, zurückholen"
+  },
+  "frames": {
+    "untitled": "Rahmen",
+    "numbered": "Rahmen {{n}}",
+    "name": "Name des Rahmens",
+    "scenes": "Szenen",
+    "noneHint": "Noch keine Rahmen. Mit dem Rahmen-Werkzeug (F) einen um das ziehen, was zusammengehört; jeder Rahmen ist eine Szene zum Anspringen und Präsentieren.",
+    "none": "Auf diesem Board gibt es noch keine Rahmen.",
+    "present": "Präsentieren",
+    "presentFrom": "Ab {{title}} präsentieren",
+    "previous": "Vorige Szene",
+    "next": "Nächste Szene",
+    "stop": "Präsentation beenden"
+  },
+  "export": {
+    "title": "Exportieren",
+    "selection": "Auswahl exportieren",
+    "selectionShort": "Auswahl",
+    "what": "Was",
+    "board": "Ganzes Board",
+    "scenes_one": "Die Szene",
+    "scenes_other": "{{count}} Szenen",
+    "scenesHint": "Eine Seite je Rahmen, in der Reihenfolge der Szenenliste.",
+    "format": "Format",
+    "background": "Mit dem Hintergrund des Boards",
+    "go": "Exportieren",
+    "busy": "Wird gezeichnet …",
+    "failed": "Der Export hat nicht geklappt. Einen kleineren Teil des Boards versuchen."
   }
 }

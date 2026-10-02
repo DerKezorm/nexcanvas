@@ -23,7 +23,7 @@ export const Lines = memo(function Lines({ lines, items, selected }: { lines: Li
         return (
           <g key={line.id} data-line={line.id}>
             <path d={g.d} fill="none" stroke="transparent" strokeWidth={Math.max(14, line.width + 10)} style={{ pointerEvents: 'stroke', cursor: 'pointer' }} />
-            {selected.has(line.id) && <path d={g.d} fill="none" stroke="var(--color-accent-500)" strokeOpacity={0.35} strokeWidth={line.width + 8} strokeLinecap="round" />}
+            {selected.has(line.id) && <path data-export-skip d={g.d} fill="none" stroke="var(--color-accent-500)" strokeOpacity={0.35} strokeWidth={line.width + 8} strokeLinecap="round" />}
             <path d={g.d} fill="none" stroke={color} strokeWidth={line.width} strokeLinecap="round" strokeDasharray={line.dashed ? `${line.width * 4} ${line.width * 3}` : undefined} />
             {line.arrow !== 'none' && <path d={head(g.b, g.cb.x === g.b.x && g.cb.y === g.b.y ? g.a : g.cb, size)} fill={color} />}
             {line.arrow === 'both' && <path d={head(g.a, g.ca.x === g.a.x && g.ca.y === g.a.y ? g.b : g.ca, size)} fill={color} />}

@@ -8,7 +8,7 @@ import { ItemActions, PdfPage } from './PdfPage'
 import { shapePath, shapeTextBox } from '../geometry'
 import { inkPath } from '../ink'
 import { NOTE_COLORS, paint, textOn } from '../palette'
-import type { Item, TextSize } from '../types'
+import type { FrameItem, Item, TextSize } from '../types'
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const TEXT_SIZES: Record<TextSize, number> = { s: 15, m: 20, l: 28, xl: 44 }
@@ -34,8 +34,16 @@ interface Props {
 /** One item on the board, in board coordinates. The board's transform scales it. */
 export const ItemView = memo(function ItemView({ item, editing, onText, onDone, onMeasure }: Props) {
   // Drawings and empty frames only answer on their lines, so what lies under them stays reachable.
-  const thin = item.kind === 'ink' || (item.kind === 'shape' && item.fill === 'none')
-  const style = { left: item.x, top: item.y, width: item.w, height: item.kind === 'text' ? undefined : item.h, pointerEvents: thin ? ('none' as const) : undefined }
+  // Frames answer only on their edge and their name, so what lies in them can be picked and a selection rectangle drawn.
+  const thin = item.kind === 'ink' || item.kind === 'frame' || (item.kind === 'shape' && item.fill === 'none')
+  const style = {
+    left: item.x,
+    top: item.y,
+    width: item.w,
+    height: item.kind === 'text' ? undefined : item.h,
+    pointerEvents: thin ? ('none' as const) : undefined,
+    transform: item.rot ? `rotate(${item.rot}deg)` : undefined,
+  }
   return (
     <div data-item={item.id} data-kind={item.kind} className="absolute select-none" style={style}>
       <Body item={item} editing={editing} onText={onText} onDone={onDone} onMeasure={onMeasure} />
@@ -95,6 +103,54 @@ function Editor({ id, value, onChange, onDone, className, style }: { id: string;
       style={style}
       spellCheck
     />
+  )
+}
+
+/**
+ * A named area. Its name sits above its top edge and keeps the same size on screen whatever the zoom (the board sets
+ * `--zoom`), so a frame stays findable when the whole board is in view.
+ */
+function Frame({ item, editing, onDone }: { item: FrameItem; editing: boolean; onDone: () => void }) {
+  const { t } = useTranslation()
+  const { patch } = useContext(ItemActions)
+  const color = paint(item.color)
+  const name = item.title || t('frames.untitled')
+  return (
+    <>
+      <svg className="absolute inset-0 overflow-visible" width={item.w} height={item.h} aria-hidden="true">
+        <rect x={0} y={0} width={item.w} height={item.h} rx={14} fill={color} fillOpacity={0.06} stroke={color} strokeOpacity={0.7} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+        <rect x={0} y={0} width={item.w} height={item.h} rx={14} fill="none" stroke="transparent" strokeWidth={14} vectorEffect="non-scaling-stroke" style={{ pointerEvents: 'stroke' }} />
+      </svg>
+      <div
+        data-frame-title
+        className="absolute left-0 flex max-w-full items-center font-semibold whitespace-nowrap"
+        style={{ bottom: '100%', paddingBottom: 'calc(6px / var(--zoom, 1))', fontSize: 'calc(13px / var(--zoom, 1))', color, pointerEvents: 'auto' }}
+      >
+        {editing ? (
+          <input
+            autoFocus
+            defaultValue={item.title}
+            maxLength={120}
+            onFocus={(e) => e.target.select()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur()
+            }}
+            onBlur={(e) => {
+              const value = e.currentTarget.value.trim()
+              if (value !== item.title) patch(item.id, { title: value })
+              onDone()
+            }}
+            className="rounded border border-accent-500 bg-ink-950 px-1 text-mist-100 outline-none"
+            style={{ fontSize: 'inherit', width: `calc(${Math.max(8, name.length + 2)}ch)` }}
+            aria-label={t('frames.name')}
+          />
+        ) : (
+          <span className="truncate rounded px-0.5">{name}</span>
+        )}
+      </div>
+    </>
   )
 }
 
@@ -208,6 +264,8 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
           </div>
         </div>
       )
+    case 'frame':
+      return <Frame item={item} editing={editing} onDone={onDone} />
     case 'link':
       return (
         <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-ink-600 bg-ink-850 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6)]">

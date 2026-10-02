@@ -12,13 +12,34 @@ export interface Point {
   y: number
 }
 
-export function bounds(rects: Rect[]): Rect | null {
-  if (rects.length === 0) return null
+/** The upright box a turned item covers. */
+export function outer(r: Rect & { rot?: number }): Rect {
+  if (!r.rot) return { x: r.x, y: r.y, w: r.w, h: r.h }
+  const a = (r.rot * Math.PI) / 180
+  const cos = Math.abs(Math.cos(a))
+  const sin = Math.abs(Math.sin(a))
+  const w = r.w * cos + r.h * sin
+  const h = r.w * sin + r.h * cos
+  return { x: r.x + r.w / 2 - w / 2, y: r.y + r.h / 2 - h / 2, w, h }
+}
+
+/** A point turned around another by some degrees. */
+export function turn(p: Point, c: Point, deg: number): Point {
+  const a = (deg * Math.PI) / 180
+  const dx = p.x - c.x
+  const dy = p.y - c.y
+  return { x: c.x + dx * Math.cos(a) - dy * Math.sin(a), y: c.y + dx * Math.sin(a) + dy * Math.cos(a) }
+}
+
+/** The box around everything given; turned items count with the box they cover. */
+export function bounds(boxes: (Rect & { rot?: number })[]): Rect | null {
+  if (boxes.length === 0) return null
   let x1 = Infinity
   let y1 = Infinity
   let x2 = -Infinity
   let y2 = -Infinity
-  for (const r of rects) {
+  for (const box of boxes) {
+    const r = outer(box)
     x1 = Math.min(x1, r.x)
     y1 = Math.min(y1, r.y)
     x2 = Math.max(x2, r.x + r.w)
@@ -78,6 +99,7 @@ export interface LineGeometry {
 
 /** Like edgePoint, but on the curve of a round item, so lines touch circles instead of their corners. */
 function attach(item: Item, toward: Point, gap = 6): { p: Point; n: Point } {
+  if (item.rot || item.kind === 'frame') return edgePoint(outer(item), toward, gap)
   if (item.kind !== 'shape' || item.shape !== 'ellipse') return edgePoint(item, toward, gap)
   const c = center(item)
   const dx = toward.x - c.x

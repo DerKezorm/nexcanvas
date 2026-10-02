@@ -209,7 +209,8 @@
     "pages_one": "one page",
     "pages_other": "{{count}} pages",
     "emptyTitle": "An empty board",
-    "emptyHint": "Pick a tool at the top, double-click for text, or drop photos and files here."
+    "emptyHint": "Pick a tool at the top, double-click for text, or drop photos and files here.",
+    "rotate": "Turn (Shift: in steps of 15°)"
   },
   "tools": {
     "select": "Select",
@@ -222,7 +223,8 @@
     "marker": "Highlighter",
     "eraser": "Eraser",
     "media": "Photo, file or link",
-    "size": "Size {{size}}"
+    "size": "Size {{size}}",
+    "frame": "Frame"
   },
   "shapes": {
     "rect": "Rectangle",
@@ -283,7 +285,9 @@
     "duplicate": "Duplicate",
     "lock": "Lock",
     "unlock": "Unlock",
-    "delete": "Delete"
+    "delete": "Delete",
+    "group": "Group",
+    "ungroup": "Ungroup"
   },
   "menu": {
     "noteHere": "Note here",
@@ -304,7 +308,8 @@
     "zoomStep": "Zoom in steps",
     "del": "Del",
     "ctrlWheel": "Ctrl + wheel",
-    "space": "Space"
+    "space": "Space",
+    "rotateSteps": "Hold while turning: steps of 15°"
   },
   "share": {
     "button": "Share",
@@ -715,5 +720,33 @@
     "items_other": "{{count}} things",
     "restore": "Bring back",
     "restoreNow": "Yes, bring back"
+  },
+  "frames": {
+    "untitled": "Frame",
+    "numbered": "Frame {{n}}",
+    "name": "Name of the frame",
+    "scenes": "Scenes",
+    "noneHint": "No frames yet. Draw one with the frame tool (F) around what belongs together; every frame is a scene you can jump to and present.",
+    "none": "No frames on this board yet.",
+    "present": "Present",
+    "presentFrom": "Present from {{title}}",
+    "previous": "Previous scene",
+    "next": "Next scene",
+    "stop": "End presentation"
+  },
+  "export": {
+    "title": "Export",
+    "selection": "Export selection",
+    "selectionShort": "Selection",
+    "what": "What",
+    "board": "Whole board",
+    "scenes_one": "The scene",
+    "scenes_other": "{{count}} scenes",
+    "scenesHint": "One page per frame, in the order of the scene list.",
+    "format": "Format",
+    "background": "With the board background",
+    "go": "Export",
+    "busy": "Drawing …",
+    "failed": "The export did not work. Try a smaller part of the board."
   }
 }
