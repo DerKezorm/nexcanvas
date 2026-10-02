@@ -17,6 +17,12 @@ interface Box {
   y: number
   w: number
   h: number
+  /** Stacking order: higher lies on top. */
+  z?: number
+  /** Turned around its middle, in degrees. */
+  rot?: number
+  /** Items with the same group move and get selected together. */
+  group?: string
   locked?: boolean
 }
 
@@ -57,16 +63,29 @@ export interface InkItem extends Box {
 
 export interface ImageItem extends Box {
   kind: 'image'
-  src: string
+  /** The id of the photo on the server (``/api/media/<id>``). Never an address: the page builds that itself. */
+  media: string
+  /** A smaller copy exists for showing on the board. */
+  preview?: boolean
   caption?: string
 }
 
 export interface FileItem extends Box {
   kind: 'file'
+  media: string
   name: string
   ext: string
   sizeLabel: string
   pages?: number
+  /** The page a PDF shows on the board, from 1. */
+  page?: number
+}
+
+/** A named area of the board (Freeform: a scene); moving it moves what lies on it. */
+export interface FrameItem extends Box {
+  kind: 'frame'
+  title: string
+  color: string
 }
 
 export interface LinkItem extends Box {
@@ -77,7 +96,7 @@ export interface LinkItem extends Box {
   hue: number
 }
 
-export type Item = NoteItem | ShapeItem | TextItem | InkItem | ImageItem | FileItem | LinkItem
+export type Item = NoteItem | ShapeItem | TextItem | InkItem | ImageItem | FileItem | LinkItem | FrameItem
 
 /** One end of a line: fixed to an item (then it sits on its edge) or free on the board. */
 export interface End {
@@ -109,24 +128,26 @@ export interface View {
   zoom: number
 }
 
+export type Role = 'read' | 'write' | 'manage'
+
+/** A board as the overview knows it: its place, its state, and a picture of what is on it. */
 export interface Board extends Doc {
   id: string
   title: string
   created: number
   updated: number
+  updatedBy: string
   opened: number
   favorite: boolean
-  /** The space it lives in. Who may open it follows from the members of the space, as in nexlore. */
-  space: string
-  /** A public read-only page, as nexlore's shares. */
+  space: number
   publicLink: boolean
   deleted?: number
-  view?: View
+  role: Role | null
 }
 
 export interface Person {
-  id: string
+  id: number
   name: string
-  email: string
-  color: string
+  display_name: string
+  avatar: string | null
 }

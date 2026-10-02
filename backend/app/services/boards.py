@@ -1,9 +1,10 @@
 """Boards and their content.
 
-A board's content is a Yjs document with two maps: ``items`` (notes, shapes, texts, drawings, photos, files, links,
-frames; each a plain JSON object under its id, stacked by its number ``z``) and ``lines`` (connections between items
-or free points). The browser edits the document, the server keeps it (``models.Board``) and passes changes on
-(``services/live.py``).
+A board's content is a Yjs document with three maps: ``items`` (notes, shapes, texts, drawings, photos, files,
+links, frames; each a plain JSON object under its id, stacked by its number ``z``), ``lines`` (connections between
+items or free points) and ``texts`` (the words of an item as a shared Yjs text under the item's id, so two people
+can type in the same note at once). The browser edits the document, the server keeps it (``models.Board``) and
+passes changes on (``services/live.py``).
 
 Every change arrives as a Yjs update and is stored at once (``board_updates``); now and then the updates are folded
 into the board's state, and the plain JSON picture (``snapshot``) is written from the state. The server never takes
@@ -24,7 +25,7 @@ import unicodedata
 from datetime import timedelta
 from typing import Any
 
-from pycrdt import Doc, Map
+from pycrdt import Doc, Map, Text
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
@@ -83,6 +84,7 @@ def empty_doc() -> Doc:
     doc = Doc()
     doc.get("items", type=Map)
     doc.get("lines", type=Map)
+    doc.get("texts", type=Map)
     return doc
 
 
@@ -93,14 +95,17 @@ def doc_from_json(content: dict[str, Any] | None) -> Doc:
         return doc
     items = doc.get("items", type=Map)
     lines = doc.get("lines", type=Map)
+    texts = doc.get("texts", type=Map)
     raw_items = content.get("items") if isinstance(content.get("items"), list) else []
     raw_lines = content.get("lines") if isinstance(content.get("lines"), list) else []
     with doc.transaction():
         for number, item in enumerate(raw_items[:5000]):
             if isinstance(item, dict) and item.get("kind") in KINDS and ID.match(str(item.get("id", ""))):
-                value = {key: val for key, val in item.items() if key != "id"}
+                value = {key: val for key, val in item.items() if key not in ("id", "text")}
                 value.setdefault("z", float(number))
                 items[str(item["id"])] = value
+                if isinstance(item.get("text"), str):
+                    texts[str(item["id"])] = Text(item["text"][:100_000])
         for line in raw_lines[:5000]:
             if isinstance(line, dict) and ID.match(str(line.get("id", ""))):
                 lines[str(line["id"])] = {key: val for key, val in line.items() if key != "id"}
@@ -111,12 +116,23 @@ def snapshot_of(doc: Doc) -> dict[str, Any]:
     """The plain picture: items in stacking order, lines, each with its id."""
     items = doc.get("items", type=Map).to_py() or {}
     lines = doc.get("lines", type=Map).to_py() or {}
+    texts = doc.get("texts", type=Map).to_py() or {}
     ordered = sorted(
-        ({"id": key, **value} for key, value in items.items() if isinstance(value, dict)),
-        key=lambda item: (float(item.get("z", 0) or 0), item["id"]),
+        (
+            {"id": key, **value, **({"text": texts[key]} if isinstance(texts.get(key), str) else {})}
+            for key, value in items.items() if isinstance(value, dict)
+        ),
+        key=lambda item: (_number(item.get("z")), item["id"]),
     )
     connections = [{"id": key, **value} for key, value in lines.items() if isinstance(value, dict)]
     return {"items": ordered, "lines": connections}
+
+
+def _number(value: Any) -> float:
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def words_of(title: str, snapshot: dict[str, Any]) -> str:
@@ -250,8 +266,10 @@ def restore_version(db: Session, board: Board, version: BoardVersion) -> bytes:
     before = present.get_state()
     items = present.get("items", type=Map)
     lines = present.get("lines", type=Map)
+    texts = present.get("texts", type=Map)
     old_items = old.get("items", type=Map).to_py() or {}
     old_lines = old.get("lines", type=Map).to_py() or {}
+    old_texts = old.get("texts", type=Map).to_py() or {}
     with present.transaction():
         for key in list(items.keys()):
             if key not in old_items:
@@ -263,6 +281,16 @@ def restore_version(db: Session, board: Board, version: BoardVersion) -> bytes:
                 del lines[key]
         for key, value in old_lines.items():
             lines[key] = value
+        for key in list(texts.keys()):
+            if key not in old_texts:
+                del texts[key]
+        for key, value in old_texts.items():
+            if not isinstance(value, str):
+                continue
+            current = texts.get(key)
+            if isinstance(current, Text) and str(current) == value:
+                continue
+            texts[key] = Text(value)
     return present.get_update(before)
 
 

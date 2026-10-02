@@ -50,6 +50,7 @@ class Browser:
         self.doc = Doc()
         self.items = self.doc.get("items", type=Map)
         self.doc.get("lines", type=Map)
+        self.texts = self.doc.get("texts", type=Map)
         self._sent: list[bytes] = []
 
     def sync(self) -> None:
@@ -122,7 +123,9 @@ def test_a_newcomer_gets_the_whole_board(client: TestClient, operator: Account, 
     with client.websocket_connect(f"/api/boards/{board_id}/live", headers={"cookie": cookie_of(operator)}) as one:
         browser = Browser(one)
         browser.sync()
-        assert browser.items.to_py()["start-note"]["text"] == "Hi"
+        # The words travel as a shared text of their own, next to the item.
+        assert "text" not in browser.items.to_py()["start-note"]
+        assert browser.texts.to_py()["start-note"] == "Hi"
 
 
 def test_a_reader_follows_along_but_its_changes_are_dropped(client: TestClient, operator: Account,
@@ -240,4 +243,34 @@ def test_bringing_a_version_back_reaches_everyone(client: TestClient, operator: 
             assert other.post(f"/api/boards/{board_id}/versions/{version}/restore").status_code == 200
         browser.receive_update()
         assert browser.items.to_py() == {"first-note": {"kind": "note", "x": 0.0, "y": 0.0, "w": 100.0, "h": 100.0,
-                                                        "color": "blue", "text": "one", "z": 0.0}}
+                                                        "color": "blue", "z": 0.0}}
+        assert browser.texts.to_py() == {"first-note": "one"}
+
+
+def test_two_people_type_in_the_same_note_and_both_words_stay(client: TestClient, operator: Account,
+                                                               space: int) -> None:
+    from pycrdt import Text
+
+    board_id = make_board(client, space, content={"items": [
+        {"id": "shared-note", "kind": "note", "x": 0, "y": 0, "w": 100, "h": 100, "color": "blue", "text": "Milch"},
+    ], "lines": []})
+    anna = make_account("anna")
+    join(client, space, "anna", "write")
+    with client.websocket_connect(f"/api/boards/{board_id}/live", headers={"cookie": cookie_of(operator)}) as one, \
+            client.websocket_connect(f"/api/boards/{board_id}/live", headers={"cookie": cookie_of(anna)}) as two:
+        first, second = Browser(one), Browser(two)
+        first.sync()
+        second.sync()
+        # Both type at the same moment, before either sees the other: one at the start, one at the end.
+        for browser, at, words in ((first, 0, "Hafer"), (second, 5, ", Brot")):
+            before = browser.doc.get_state()
+            text = browser.texts["shared-note"]
+            assert isinstance(text, Text)
+            text.insert(at, words)
+            browser.socket.send_bytes(create_update_message(browser.doc.get_update(before)))
+        first.receive_update()
+        second.receive_update()
+        assert str(first.texts["shared-note"]) == str(second.texts["shared-note"]) == "HaferMilch, Brot"
+    wait_for(lambda: stored_updates(board_id) == 0)
+    picture = client.get(f"/api/boards/{board_id}").json()["picture"]
+    assert picture["items"][0]["text"] == "HaferMilch, Brot"

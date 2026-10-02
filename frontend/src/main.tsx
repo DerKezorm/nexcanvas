@@ -4,16 +4,16 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 
 import App from './App'
-import { BoardsProvider } from './board/store'
 import './i18n'
+import { AuthProvider } from './state/auth'
 import './styles/index.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <BoardsProvider>
+      <AuthProvider>
         <App />
-      </BoardsProvider>
+      </AuthProvider>
     </BrowserRouter>
   </StrictMode>,
 )

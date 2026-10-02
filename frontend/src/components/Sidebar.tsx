@@ -27,7 +27,7 @@ export function Sidebar() {
   const boards = useBoards()
   const shell = useShell()
   const [params] = useSearchParams()
-  const chosen = params.get('space')
+  const chosen = params.get('space') ? Number(params.get('space')) : null
   const [open, setOpen] = useState({ recent: true, favorites: true })
   const [shut, setShut] = useState<Record<string, boolean>>({})
   const live = boards.boards.filter((b) => !b.deleted)
@@ -58,7 +58,7 @@ export function Sidebar() {
       <section className="px-2.5 py-2.5">
         <div className="flex items-center justify-between px-1.5">
           <span className="rounded-full bg-ink-850 px-3 py-1 text-[11px] font-semibold tracking-wider text-mist-100 uppercase">{t('sidebar.spaces')}</span>
-          <button type="button" className="rounded p-1 text-mist-500 hover:bg-ink-850 hover:text-mist-100" title={t('sidebar.newSpace')} aria-label={t('sidebar.newSpace')} onClick={() => undefined}>
+          <button type="button" className="rounded p-1 text-mist-500 hover:bg-ink-850 hover:text-mist-100" title={t('sidebar.newSpace')} aria-label={t('sidebar.newSpace')} onClick={() => shell.newSpace()}>
             <Plus className="h-4 w-4" />
           </button>
         </div>
@@ -82,7 +82,7 @@ export function Sidebar() {
                     <span className="truncate">{space.name}</span>
                     <span className="ml-auto text-[11px] font-normal text-mist-600 tabular-nums opacity-0 group-hover:opacity-100">{inside.length}</span>
                   </Link>
-                  {space.role !== 'read' && (
+                  {(space.role === 'write' || space.role === 'manage') && (
                     <button type="button" onClick={() => shell.newBoard(space.id)} className="shrink-0 rounded p-0.5 text-mist-500 opacity-0 group-hover:opacity-100 hover:bg-ink-800 hover:text-mist-100 focus-visible:opacity-100" title={t('board.newIn', { space: space.name })} aria-label={t('board.newIn', { space: space.name })}>
                       <Plus className="h-3.5 w-3.5" />
                     </button>

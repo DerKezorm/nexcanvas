@@ -49,8 +49,8 @@ MEDIA_PREFIX = "media/"
 #: The key the server encrypts its own secrets with (OIDC client secret, mail password): without it a restore on
 #: another machine would bring those back unreadable. Whoever holds a backup holds the database anyway.
 SECRET_ENTRY = "secret.key"
-#: Media files are named by their id (``services/media_store.py``).
-MEDIA_NAME = re.compile(r"^[A-Za-z0-9_-]{8,40}$")
+#: Media files are named by their id, a smaller copy of a photo by its id and ``.p`` (``services/media_store.py``).
+MEDIA_NAME = re.compile(r"^[A-Za-z0-9_-]{8,40}(\.p)?$")
 PENDING = "restore-pending"
 MANUAL = "manual"
 SCHEDULED = "scheduled"

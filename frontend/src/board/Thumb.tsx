@@ -2,6 +2,7 @@ import { bounds, lineGeometry, shapePath } from './geometry'
 import { NOTE_COLORS, paint } from './palette'
 import type { Board, Item } from './types'
 import { inkPath } from './ink'
+import { mediaUrl } from '../api/client'
 
 /** A small picture of a board for the overview: the same items, simplified, fitted into the card. */
 export function Thumb({ board }: { board: Board }) {
@@ -45,7 +46,9 @@ function ThumbItem({ item }: { item: Item }) {
     case 'text':
       return <rect x={item.x} y={item.y + item.h * 0.3} width={Math.min(item.w, item.text.length * (item.size === 'xl' ? 22 : 12))} height={item.h * 0.4} rx={4} fill="var(--color-mist-500)" opacity={0.6} />
     case 'image':
-      return <image href={item.src} x={item.x} y={item.y} width={item.w} height={item.h} preserveAspectRatio="xMidYMid slice" />
+      return <image href={mediaUrl(item.media, true)} x={item.x} y={item.y} width={item.w} height={item.h} preserveAspectRatio="xMidYMid slice" />
+    case 'frame':
+      return <rect x={item.x} y={item.y} width={item.w} height={item.h} rx={14} fill="var(--color-ink-800)" opacity={0.6} stroke={item.color} strokeWidth={3} />
     case 'file':
     case 'link':
       return <rect x={item.x} y={item.y} width={item.w} height={item.h} rx={10} fill="var(--color-ink-800)" stroke="var(--color-ink-600)" strokeWidth={2} />

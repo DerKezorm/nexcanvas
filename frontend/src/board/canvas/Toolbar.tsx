@@ -19,7 +19,7 @@ import {
   Triangle,
   Type,
   Upload,
-  Image as ImageIcon,
+  Camera,
 } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -79,13 +79,13 @@ export function Toolbar({
   set,
   onUpload,
   onLink,
-  onSample,
+  onCamera,
 }: {
   state: ToolState
   set: (change: Partial<ToolState>) => void
   onUpload: () => void
   onLink: () => void
-  onSample: () => void
+  onCamera: () => void
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState<'shape' | 'pen' | 'media' | 'note' | null>(null)
@@ -221,9 +221,9 @@ export function Toolbar({
               <Link2 className="h-4 w-4 text-mist-500" />
               {t('media.link')}
             </button>
-            <button type="button" className="nc-menu-item" onClick={() => { close(); onSample() }}>
-              <ImageIcon className="h-4 w-4 text-mist-500" />
-              {t('media.sample')}
+            <button type="button" className="nc-menu-item" onClick={() => { close(); onCamera() }}>
+              <Camera className="h-4 w-4 text-mist-500" />
+              {t('media.camera')}
             </button>
             <p className="px-2.5 pt-1.5 pb-1 text-[11px] leading-snug text-mist-600">{t('media.dropHint')}</p>
           </div>

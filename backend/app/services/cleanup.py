@@ -66,6 +66,7 @@ def run_once() -> None:
             for row in old:
                 if row.id not in used:
                     media_store.path_of(row.id).unlink(missing_ok=True)
+                    media_store.preview_of(row.id).unlink(missing_ok=True)
                     db.delete(row)
                     logger.info("Media nobody uses removed id=%s", row.id)
             db.commit()
@@ -73,7 +74,8 @@ def run_once() -> None:
     with SessionLocal() as db:
         known = set(db.scalars(select(Media.id)))
     for path in media_store.root().iterdir():
-        if path.is_file() and not path.name.startswith(".") and path.name not in known:
+        owner = path.name.removesuffix(".p")
+        if path.is_file() and not path.name.startswith(".") and owner not in known:
             path.unlink(missing_ok=True)
 
 

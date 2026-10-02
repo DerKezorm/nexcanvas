@@ -21,7 +21,7 @@ export function TemplatesPage() {
             return (
               <button key={id} type="button" onClick={() => shell.newBoard(undefined, id)} className="group overflow-hidden rounded-2xl border border-ink-700 bg-ink-850 text-left transition-colors hover:border-accent-500/60">
                 <div className="aspect-[16/10] border-b border-ink-700/70">
-                  <Thumb board={{ id, title: id, items: doc.items, lines: doc.lines, created: 0, updated: 0, opened: 0, favorite: false, space: '', publicLink: false }} />
+                  <Thumb board={{ id, title: id, items: doc.items, lines: doc.lines, created: 0, updated: 0, updatedBy: '', opened: 0, favorite: false, space: 0, publicLink: false, role: null }} />
                 </div>
                 <div className="flex items-start gap-3 p-3.5">
                   <Icon className="mt-0.5 h-4 w-4 shrink-0 text-mist-500 group-hover:text-accent-400" strokeWidth={1.8} />

@@ -69,17 +69,25 @@ async def upload(
 
 
 @router.get("/media/{media_id}", response_model=None, summary="A photo or file, for those who may read its space")
-def file(media_id: MediaId, request: Request, account: Account, download: bool = False) -> Response:
+def file(
+    media_id: MediaId, request: Request, account: Account, download: bool = False, preview: bool = False
+) -> Response:
     with SessionLocal() as db:
         row = db.get(Media, media_id)
         if row is None or not rights.at_least(rights.role_in(db, account, row.space_id), READ):
             raise error("not_found", "Not found.", 404)
         db.expunge(row)
-    return deliver(row, request, download)
+    return deliver(row, request, download, preview)
 
 
-def deliver(row: Media, request: Request, download: bool) -> Response:
-    """The bytes, shown in the page only when a browser shows that kind by itself; everything else a download."""
+def deliver(row: Media, request: Request, download: bool, preview: bool = False) -> Response:
+    """The bytes, shown in the page only when a browser shows that kind by itself; everything else a download.
+    ``preview``: the smaller copy of a large photo, when there is one (the original otherwise)."""
+    small = media_store.preview_of(row.id) if preview and not download else None
+    if small is not None and small.is_file():
+        return FileResponse(small, media_type="image/webp", headers={
+            "Cache-Control": "private, max-age=31536000, immutable", "Content-Security-Policy": FILE_POLICY,
+            "X-Content-Type-Options": "nosniff"})
     path = media_store.path_of(row.id)
     if not path.is_file():
         raise error("not_found", "Not found.", 404)

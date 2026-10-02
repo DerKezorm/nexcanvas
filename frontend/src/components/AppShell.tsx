@@ -8,15 +8,17 @@ import { templateDoc, type TemplateId } from '../board/templates'
 import { AccountMenu } from './AccountMenu'
 import { Logo } from './Logo'
 import { NewBoardDialog } from './NewBoardDialog'
+import { NewSpaceDialog } from './NewSpaceDialog'
 import { QuickSwitcher } from './QuickSwitcher'
 import { ThemeSwitcher } from './ThemeSwitcher'
 
 interface Shell {
-  newBoard: (space?: string, template?: TemplateId) => void
+  newBoard: (space?: number, template?: TemplateId) => void
+  newSpace: () => void
   search: () => void
 }
 
-const ShellContext = createContext<Shell>({ newBoard: () => undefined, search: () => undefined })
+const ShellContext = createContext<Shell>({ newBoard: () => undefined, newSpace: () => undefined, search: () => undefined })
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useShell(): Shell {
@@ -35,12 +37,14 @@ export function AppShell() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const boards = useBoards()
-  const [asking, setAsking] = useState<{ space?: string; template?: TemplateId } | null>(null)
+  const [asking, setAsking] = useState<{ space?: number; template?: TemplateId } | null>(null)
   const [searching, setSearching] = useState(false)
+  const [spaceDialog, setSpaceDialog] = useState(false)
 
-  const newBoard = useCallback((space?: string, template?: TemplateId) => setAsking({ space, template }), [])
+  const newBoard = useCallback((space?: number, template?: TemplateId) => setAsking({ space, template }), [])
+  const newSpace = useCallback(() => setSpaceDialog(true), [])
   const search = useCallback(() => setSearching(true), [])
-  const shell = useMemo(() => ({ newBoard, search }), [newBoard, search])
+  const shell = useMemo(() => ({ newBoard, newSpace, search }), [newBoard, newSpace, search])
 
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -94,11 +98,6 @@ export function AppShell() {
             <AccountMenu />
           </div>
         </header>
-        {boards.full && (
-          <div className="shrink-0 border-b border-warn-500/30 bg-warn-500/10 px-4 py-2 text-sm text-warn-500" role="status">
-            {t('mock.full')}
-          </div>
-        )}
         <div className="flex min-h-0 flex-1">
           <Outlet />
         </div>
@@ -108,12 +107,25 @@ export function AppShell() {
           space={asking.space}
           template={asking.template}
           onClose={() => setAsking(null)}
-          onCreate={(space, title, template) => {
-            const id = boards.create(space, title)
-            const doc = templateDoc(template, t)
-            if (doc.items.length) boards.saveDoc(id, doc)
+          onCreate={async (space, title, template) => {
+            const doc = templateDoc(template, (key, values) => t(key, values as never) as unknown as string)
+            const id = await boards.create(space, title, doc.items.length ? doc : undefined)
             setAsking(null)
             navigate(`/b/${id}`)
+          }}
+          onNewSpace={() => {
+            setAsking(null)
+            setSpaceDialog(true)
+          }}
+        />
+      )}
+      {spaceDialog && (
+        <NewSpaceDialog
+          onClose={() => setSpaceDialog(false)}
+          onCreate={async (name, color) => {
+            const made = await boards.createSpace(name, color)
+            setSpaceDialog(false)
+            navigate(`/?space=${made.id}`)
           }}
         />
       )}

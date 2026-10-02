@@ -76,6 +76,35 @@ def path_of(media_id: str) -> Path:
     return root() / media_id
 
 
+#: Photos larger than this (on their longer side) get a smaller copy for showing on the board.
+PREVIEW_SIDE = 1600
+
+
+def preview_of(media_id: str) -> Path:
+    """The smaller copy of a photo, next to it (ids never hold a dot, so the name is never another id)."""
+    return root() / f"{media_id}.p"
+
+
+def _make_preview(source: Path, target: Path) -> bool:
+    """A WebP of at most ``PREVIEW_SIDE`` pixels on its longer side, upright, without any metadata."""
+    try:
+        from PIL import Image, ImageOps
+
+        with Image.open(source) as image:
+            if getattr(image, "is_animated", False):
+                return False
+            upright = ImageOps.exif_transpose(image)
+            upright.thumbnail((PREVIEW_SIDE, PREVIEW_SIDE))
+            if upright.mode not in ("RGB", "RGBA"):
+                upright = upright.convert("RGBA" if "A" in upright.getbands() else "RGB")
+            upright.save(target, "WEBP", quality=82, method=4)
+        return True
+    except Exception as exc:  # noqa: BLE001 - a broken picture fails in the decoder's own way
+        logger.info("No preview for a picture: %s", type(exc).__name__)
+        target.unlink(missing_ok=True)
+        return False
+
+
 def temporary() -> Path:
     return root() / f".upload-{secrets.token_hex(8)}"
 
@@ -158,6 +187,8 @@ def finish(db: Session, account: Account, space_id: int, received: Path, name: s
         db.delete(row)
         db.commit()
         raise
+    if kind in IMAGES and max(width, height) > PREVIEW_SIDE:
+        _make_preview(path_of(media_id), preview_of(media_id))
     logger.info("Media stored id=%s kind=%s bytes=%s by=%s", media_id, kind, size, account.name)
     return _stored(row, sorted(removed), known=False)
 

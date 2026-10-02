@@ -29,7 +29,8 @@ export default defineConfig({
     port: 5500,
     strictPort: true,
     proxy: {
-      '/api': { target: apiTarget, changeOrigin: false },
+      // ws: the live connection of a board runs through the same address.
+      '/api': { target: apiTarget, changeOrigin: false, ws: true },
     },
   },
   preview: {

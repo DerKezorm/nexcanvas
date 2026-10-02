@@ -1,9 +1,9 @@
-import { Copy, Globe, MoreHorizontal, Pencil, Plus, Star, Trash2, Users } from 'lucide-react'
+import { Copy, Globe, MoreHorizontal, Palette, Pencil, Plus, Star, Trash2, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
-import { PEOPLE } from '../board/demo'
+import { spacesApi } from '../api/client'
 import { useBoards } from '../board/store'
 import { Thumb } from '../board/Thumb'
 import type { Board } from '../board/types'
@@ -11,6 +11,7 @@ import { useShell } from '../components/AppShell'
 import { Avatar } from '../components/Avatar'
 import { Dialog } from '../components/Dialog'
 import { MembersDialog } from '../components/MembersDialog'
+import { NewSpaceDialog } from '../components/NewSpaceDialog'
 import { Popover } from '../components/Popover'
 import { Sidebar } from '../components/Sidebar'
 import { ago } from '../lib/time'
@@ -23,8 +24,9 @@ export function BoardsPage() {
   const boards = useBoards()
   const shell = useShell()
   const [params] = useSearchParams()
-  const spaceId = params.get('space')
+  const spaceId = Number(params.get('space') || 0)
   const space = spaceId ? boards.space(spaceId) : undefined
+  const [editing, setEditing] = useState(false)
   const [sort, setSort] = useState<Sort>('updated')
   const [members, setMembers] = useState(false)
   const [renaming, setRenaming] = useState<Board | null>(null)
@@ -45,12 +47,39 @@ export function BoardsPage() {
               <button type="button" onClick={() => setMembers(true)} className="ml-1 flex items-center gap-2 rounded-full border border-ink-700 py-1 pr-3 pl-1 text-xs text-mist-400 hover:bg-ink-850 hover:text-mist-100">
                 <span className="flex -space-x-1.5">
                   {space.members.slice(0, 4).map((m) => (
-                    <Avatar key={m.person} person={m.person} className="h-6 w-6 text-[11px]" ring />
+                    <Avatar key={m.id} person={m} className="h-6 w-6 text-[11px]" ring />
                   ))}
                 </span>
                 <Users className="h-3.5 w-3.5" />
                 {t('members.button', { count: space.members.length })}
               </button>
+            )}
+            {space?.role === 'manage' && (
+              <Popover label={t('space.options')} className="rounded-full p-1.5 text-mist-500 hover:bg-ink-850 hover:text-mist-100" button={<MoreHorizontal className="h-4 w-4" />} align="left">
+                {(close) => (
+                  <>
+                    <button type="button" role="menuitem" className="nc-menu-item" onClick={() => { close(); setEditing(true) }}>
+                      <Palette className="h-4 w-4 text-mist-500" />
+                      {t('space.edit')}
+                    </button>
+                    <div className="my-1 h-px bg-ink-700" />
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="nc-menu-item text-bad-500"
+                      onClick={async () => {
+                        close()
+                        if (!window.confirm(t('space.trashConfirm', { name: space.name }))) return
+                        await spacesApi.trash(space.id)
+                        await boards.refresh()
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {t('space.trash')}
+                    </button>
+                  </>
+                )}
+              </Popover>
             )}
             <div className="ml-auto flex items-center gap-2">
               <label className="sr-only" htmlFor="sort">
@@ -66,7 +95,7 @@ export function BoardsPage() {
           <p className="mt-1 text-sm text-mist-600">{t('boards.count', { count: list.length })}</p>
 
           <div className="mt-6 grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(250px,1fr))]">
-            {(!space || space.role !== 'read') && (
+            {(!space || space.role === 'write' || space.role === 'manage') && boards.loaded && (
               <button
                 type="button"
                 onClick={() => shell.newBoard(space?.id)}
@@ -85,6 +114,17 @@ export function BoardsPage() {
         </div>
       </main>
       {members && space && <MembersDialog space={space} onClose={() => setMembers(false)} />}
+      {editing && space && (
+        <NewSpaceDialog
+          initial={{ name: space.name, color: space.color, title: t('space.edit') }}
+          onClose={() => setEditing(false)}
+          onCreate={async (name, color) => {
+            await spacesApi.change(space.id, { name, color })
+            await boards.refresh()
+            setEditing(false)
+          }}
+        />
+      )}
       {renaming && <RenameDialog board={renaming} onClose={() => setRenaming(null)} />}
     </>
   )
@@ -95,7 +135,7 @@ function BoardCard({ board, onRename }: { board: Board; onRename: () => void }) 
   const boards = useBoards()
   const navigate = useNavigate()
   const space = boards.space(board.space)
-  const others = (space?.members ?? []).filter((m) => PEOPLE.some((p) => p.id === m.person)).slice(0, 3)
+  const others = (space?.members ?? []).slice(0, 3)
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-ink-700 bg-ink-850 transition-colors hover:border-ink-600">
       <Link to={`/b/${board.id}`} className="block aspect-[16/10] overflow-hidden border-b border-ink-700/70" aria-label={board.title}>
@@ -110,14 +150,14 @@ function BoardCard({ board, onRename }: { board: Board; onRename: () => void }) 
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: space?.color }} />
             <span className="truncate">{space?.name}</span>
             <span>·</span>
-            <span className="truncate">{ago(board.updated, i18n.language)}</span>
+            <span className="truncate" title={board.updatedBy}>{ago(board.updated, i18n.language)}</span>
             {board.publicLink && <Globe className="h-3 w-3 shrink-0 text-accent-400" aria-label={t('share.publicOn')} />}
           </div>
         </div>
         {others.length > 1 && (
           <span className="mt-0.5 flex -space-x-1.5">
             {others.map((m) => (
-              <Avatar key={m.person} person={m.person} className="h-5 w-5 text-[10px]" ring />
+              <Avatar key={m.id} person={m} className="h-5 w-5 text-[10px]" ring />
             ))}
           </span>
         )}
@@ -140,12 +180,12 @@ function BoardCard({ board, onRename }: { board: Board; onRename: () => void }) 
                 <Pencil className="h-4 w-4 text-mist-500" />
                 {t('board.rename')}
               </button>
-              <button type="button" role="menuitem" className="nc-menu-item" onClick={() => { close(); navigate(`/b/${boards.duplicate(board.id, t('board.copyOf', { title: board.title }))}`) }}>
+              <button type="button" role="menuitem" className="nc-menu-item" onClick={async () => { close(); navigate(`/b/${await boards.duplicate(board.id, t('board.copyOf', { title: board.title }))}`) }}>
                 <Copy className="h-4 w-4 text-mist-500" />
                 {t('board.duplicate')}
               </button>
               <div className="my-1 h-px bg-ink-700" />
-              <button type="button" role="menuitem" className="nc-menu-item text-bad-500" onClick={() => { close(); boards.trash(board.id) }}>
+              <button type="button" role="menuitem" className="nc-menu-item text-bad-500" disabled={board.role === 'read'} onClick={() => { close(); void boards.trash(board.id) }}>
                 <Trash2 className="h-4 w-4" />
                 {t('board.trash')}
               </button>

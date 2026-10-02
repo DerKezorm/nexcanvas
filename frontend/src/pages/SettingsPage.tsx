@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 
-import { ME, PEOPLE } from '../board/demo'
+import { useAuth } from '../state/auth'
 import { useBoards } from '../board/store'
 import { Avatar } from '../components/Avatar'
 
@@ -106,7 +106,7 @@ export function SettingsPage() {
                 <span className="text-xs text-mist-600">{t(`members.${s.role}`)}</span>
                 <span className="flex -space-x-1.5">
                   {s.members.map((m) => (
-                    <Avatar key={m.person} person={m.person} className="h-6 w-6 text-[11px]" ring />
+                    <Avatar key={m.id} person={m} className="h-6 w-6 text-[11px]" ring />
                   ))}
                 </span>
               </div>
@@ -130,14 +130,14 @@ export function SettingsPage() {
             />
             {sub === 'accounts' && (
               <Card title={t('server.accounts')} hint={t('server.accountsHint')}>
-                {PEOPLE.map((p) => (
+                {(boards.spaces.flatMap((s) => s.members).filter((m, i, all) => all.findIndex((x) => x.id === m.id) === i)).map((p) => (
                   <div key={p.id} className="flex items-center gap-3">
-                    <Avatar person={p.id} className="h-8 w-8 text-sm" />
+                    <Avatar person={p} className="h-8 w-8 text-sm" />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm text-mist-100">{p.name}</div>
-                      <div className="text-xs text-mist-600">{p.email}</div>
+                      <div className="text-xs text-mist-600">{p.name}</div>
                     </div>
-                    <span className="text-xs text-mist-500">{p.id === ME ? t('account.operator') : t('server.member')}</span>
+                    <span className="text-xs text-mist-500">{t(`roles.${p.role}`)}</span>
                   </div>
                 ))}
                 <button type="button" className="nc-btn nc-btn-accent mt-2">{t('server.invite')}</button>
@@ -244,7 +244,8 @@ export function AccountPage() {
   const { t } = useTranslation()
   const [params, setParams] = useSearchParams()
   const tab = params.get('tab') ?? 'profile'
-  const me = PEOPLE.find((p) => p.id === ME)!
+  const { me } = useAuth()
+  if (!me) return null
   return (
     <main className="nc-scroll min-w-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-4xl space-y-6 px-4 py-6 sm:px-8 sm:py-8">
@@ -254,7 +255,7 @@ export function AccountPage() {
         {tab === 'profile' && (
           <Card title={t('account.profile')}>
             <div className="flex items-center gap-4">
-              <Avatar person={ME} className="h-16 w-16 text-2xl" />
+              <Avatar person={me} className="h-16 w-16 text-2xl" />
               <button type="button" className="nc-btn nc-btn-ghost">{t('account.picture')}</button>
             </div>
             <Row label={t('account.displayName')}>

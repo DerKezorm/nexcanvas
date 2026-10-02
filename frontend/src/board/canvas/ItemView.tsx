@@ -1,6 +1,9 @@
-import { ExternalLink, FileText, Globe, Lock } from 'lucide-react'
-import { memo, useLayoutEffect, useRef } from 'react'
+import { Download, ExternalLink, FileText, Globe, Lock } from 'lucide-react'
+import { memo, useContext, useLayoutEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+
+import { useMediaUrl } from './media'
+import { ItemActions, PdfPage } from './PdfPage'
 
 import { shapePath, shapeTextBox } from '../geometry'
 import { inkPath } from '../ink'
@@ -45,19 +48,40 @@ export const ItemView = memo(function ItemView({ item, editing, onText, onDone, 
   )
 })
 
-function Editor({ value, onChange, onDone, className, style }: { value: string; onChange: (v: string) => void; onDone: () => void; className: string; style?: React.CSSProperties }) {
+function Editor({ id, value, onChange, onDone, className, style }: { id: string; value: string; onChange: (v: string) => void; onDone: () => void; className: string; style?: React.CSSProperties }) {
   const ref = useRef<HTMLTextAreaElement>(null)
+  const { textOf, watchText } = useContext(ItemActions)
+  // The field holds its own words (not React's state), and it follows the shared text directly: someone else's
+  // words are put in at the moment they arrive, before the next key, with the caret moved along with the words before
+  // it. So what the field shows is always what the shared text holds, and a key typed here is always a change of
+  // exactly that (the picture of the board, drawn a moment later, would be older, and keys typed meanwhile were lost).
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
+    el.value = textOf(id) ?? value
     el.focus()
     el.setSelectionRange(el.value.length, el.value.length)
-  }, [])
+    const follow = () => {
+      const latest = textOf(id)
+      if (latest === undefined || latest === el.value) return
+      const before = el.value
+      const start0 = el.selectionStart
+      const end0 = el.selectionEnd
+      let same = 0
+      while (same < before.length && same < latest.length && before[same] === latest[same]) same++
+      const shift = latest.length - before.length
+      el.value = latest
+      const start = start0 > same ? Math.max(same, start0 + shift) : start0
+      const end = end0 > same ? Math.max(same, end0 + shift) : end0
+      if (document.activeElement === el) el.setSelectionRange(start, end)
+    }
+    return watchText(id, follow)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
   return (
     <textarea
       ref={ref}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onInput={(e) => onChange(e.currentTarget.value)}
       onBlur={onDone}
       onKeyDown={(e) => {
         e.stopPropagation()
@@ -76,6 +100,7 @@ function Editor({ value, onChange, onDone, className, style }: { value: string; 
 
 function Body({ item, editing, onText, onDone, onMeasure }: Props) {
   const { t } = useTranslation()
+  const mediaUrl = useMediaUrl()
   const box = useRef<HTMLDivElement>(null)
 
   // Text items take the height of their words; the board learns it, so selection and lines fit.
@@ -91,7 +116,7 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
       return (
         <div className="nc-note-text flex h-full w-full rounded-[3px] p-[7%] shadow-[0_6px_16px_-6px_rgba(0,0,0,0.45)]" style={{ background: NOTE_COLORS[item.color] }}>
           {editing ? (
-            <Editor value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="nc-note-text h-full w-full leading-snug" style={{ fontSize: size, color: '#1c1917' }} />
+            <Editor id={item.id} value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="nc-note-text h-full w-full leading-snug" style={{ fontSize: size, color: '#1c1917' }} />
           ) : (
             <div className="h-full w-full overflow-hidden leading-snug break-words whitespace-pre-wrap" style={{ fontSize: size, color: '#1c1917' }}>
               {item.text || <span className="opacity-40">{t('canvas.notePlaceholder')}</span>}
@@ -121,7 +146,7 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
           </svg>
           <div className="absolute flex items-center justify-center text-center font-medium" style={{ left: tb.x, top: tb.y, width: tb.w, height: tb.h, color, fontSize: size, lineHeight: 1.2 }}>
             {editing ? (
-              <Editor value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="h-full w-full text-center font-medium" style={{ color, fontSize: size, lineHeight: 1.2, paddingTop: Math.max(0, tb.h / 2 - size * 0.7) }} />
+              <Editor id={item.id} value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="h-full w-full text-center font-medium" style={{ color, fontSize: size, lineHeight: 1.2, paddingTop: Math.max(0, tb.h / 2 - size * 0.7) }} />
             ) : (
               <span className="pointer-events-none line-clamp-4 px-1 break-words whitespace-pre-wrap">{item.text}</span>
             )}
@@ -138,7 +163,7 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
             {(item.text || ' ') + (item.text.endsWith('\n') ? ' ' : '')}
             {!item.text && !editing && <span className="opacity-40">{t('canvas.textPlaceholder')}</span>}
           </div>
-          {editing && <Editor value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="absolute inset-0 h-full w-full overflow-hidden p-0" style={style} />}
+          {editing && <Editor id={item.id} value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="absolute inset-0 h-full w-full overflow-hidden p-0" style={style} />}
         </div>
       )
     }
@@ -152,11 +177,12 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
     case 'image':
       return (
         <figure className="relative h-full w-full overflow-hidden rounded-md bg-ink-800 shadow-[0_8px_24px_-10px_rgba(0,0,0,0.55)]">
-          <img src={item.src} alt={item.caption ?? ''} draggable={false} className="h-full w-full object-cover" />
+          <img src={mediaUrl(item.media, { preview: item.preview })} alt={item.caption ?? ''} draggable={false} loading="lazy" className="h-full w-full object-cover" />
           {item.caption && <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pt-6 pb-2 text-xs font-medium text-white">{item.caption}</figcaption>}
         </figure>
       )
     case 'file':
+      if (item.ext === 'pdf') return <PdfPage item={item} />
       return (
         <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-ink-600 bg-ink-850 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6)]">
           <div className="relative flex flex-1 items-center justify-center bg-ink-800 p-4">
@@ -169,13 +195,16 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
           </div>
           <div className="flex items-center gap-2 border-t border-ink-700 px-3 py-2.5">
             <FileText className="h-4 w-4 shrink-0 text-mist-500" />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium text-mist-100">{item.name}</div>
               <div className="truncate text-[11px] text-mist-600">
                 {item.ext.toUpperCase()}
                 {item.pages ? ` · ${t('canvas.pages', { count: item.pages })}` : ''} · {item.sizeLabel}
               </div>
             </div>
+            <a href={mediaUrl(item.media, { download: true })} download onPointerDown={(e) => e.stopPropagation()} className="shrink-0 rounded-md p-1 text-mist-500 hover:bg-ink-800 hover:text-mist-100" title={t('media.download')} aria-label={t('media.download')}>
+              <Download className="h-4 w-4" />
+            </a>
           </div>
         </div>
       )

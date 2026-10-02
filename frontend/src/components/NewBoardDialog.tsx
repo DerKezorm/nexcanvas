@@ -2,7 +2,9 @@ import { Brain, CalendarDays, Columns3, Images, MessagesSquare, Square } from 'l
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ApiError } from '../api/client'
 import { useBoards } from '../board/store'
+import { errorText } from '../lib/errors'
 import { TEMPLATES, type TemplateId } from '../board/templates'
 import { Dialog } from './Dialog'
 
@@ -22,25 +24,51 @@ export function NewBoardDialog({
   template = 'blank',
   onClose,
   onCreate,
+  onNewSpace,
 }: {
-  space?: string
+  space?: number
   template?: TemplateId
   onClose: () => void
-  onCreate: (space: string, title: string, template: TemplateId) => void
+  onCreate: (space: number, title: string, template: TemplateId) => Promise<void>
+  onNewSpace: () => void
 }) {
   const { t } = useTranslation()
   const boards = useBoards()
-  const writable = boards.spaces.filter((s) => s.role !== 'read')
+  const writable = boards.spaces.filter((s) => s.role === 'write' || s.role === 'manage')
   const [title, setTitle] = useState('')
-  const [where, setWhere] = useState(space && writable.some((s) => s.id === space) ? space : (writable[0]?.id ?? ''))
+  const [where, setWhere] = useState<number>(space && writable.some((s) => s.id === space) ? space : (writable[0]?.id ?? 0))
   const [start, setStart] = useState<TemplateId>(template)
+  const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
   const name = title.trim() || t('board.untitled')
+  if (writable.length === 0) {
+    return (
+      <Dialog title={t('board.new')} onClose={onClose}>
+        <p className="text-sm text-mist-300">{t('board.noSpace')}</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="nc-btn nc-btn-ghost">
+            {t('common.cancel')}
+          </button>
+          <button type="button" onClick={onNewSpace} className="nc-btn nc-btn-accent">
+            {t('sidebar.newSpace')}
+          </button>
+        </div>
+      </Dialog>
+    )
+  }
   return (
     <Dialog title={t('board.new')} onClose={onClose} wide>
       <form
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault()
-          onCreate(where, name, start)
+          setBusy(true)
+          setProblem(null)
+          try {
+            await onCreate(where, name, start)
+          } catch (error) {
+            setProblem(error instanceof ApiError ? error.code : 'internal_error')
+            setBusy(false)
+          }
         }}
         className="space-y-5"
       >
@@ -51,7 +79,7 @@ export function NewBoardDialog({
           </label>
           <label className="block space-y-1.5">
             <span className="text-xs font-medium text-mist-500">{t('board.space')}</span>
-            <select className="nc-field" value={where} onChange={(e) => setWhere(e.target.value)}>
+            <select className="nc-field" value={where} onChange={(e) => setWhere(Number(e.target.value))}>
               {writable.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -86,11 +114,12 @@ export function NewBoardDialog({
             })}
           </div>
         </fieldset>
+        {problem && <p className="text-sm text-bad-500">{errorText(problem)}</p>}
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className="nc-btn nc-btn-ghost">
             {t('common.cancel')}
           </button>
-          <button type="submit" className="nc-btn nc-btn-accent" disabled={!where}>
+          <button type="submit" className="nc-btn nc-btn-accent" disabled={!where || busy}>
             {t('board.create')}
           </button>
         </div>

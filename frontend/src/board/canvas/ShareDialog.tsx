@@ -1,13 +1,17 @@
 import { Check, Copy, Globe, Lock, Users } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { api, ApiError } from '../../api/client'
 import { Avatar } from '../../components/Avatar'
 import { Dialog } from '../../components/Dialog'
 import { MembersDialog } from '../../components/MembersDialog'
-import { PEOPLE } from '../demo'
+import { errorText } from '../../lib/errors'
+import { useAuth } from '../../state/auth'
 import { useBoards } from '../store'
 import type { Board } from '../types'
+
+type ShareState = { link: string; expires_at: string | null; password: boolean }
 
 function CopyField({ value }: { value: string }) {
   const { t } = useTranslation()
@@ -32,17 +36,43 @@ function CopyField({ value }: { value: string }) {
 }
 
 /**
- * Who sees the board, built like nexlore's sharing: the members of the space see it with their role, and a
- * public read-only page can be switched on, with expiry and password, if the operator allows public pages.
+ * Who sees the board, built like nexlore's sharing: the members of the space see it with their role, and a public
+ * read-only page can be switched on, with expiry and password, if the operator allows public pages.
  */
 export function ShareDialog({ board, onClose }: { board: Board; onClose: () => void }) {
   const { t } = useTranslation()
+  const { me } = useAuth()
   const boards = useBoards()
   const space = boards.space(board.space)
   const [members, setMembers] = useState(false)
-  const [expiry, setExpiry] = useState('30')
+  const [share, setShare] = useState<ShareState | null>(null)
+  const [days, setDays] = useState('30')
   const [password, setPassword] = useState('')
+  const [problem, setProblem] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
   const manage = space?.role === 'manage'
+  const allowed = me?.shares_allowed ?? false
+
+  useEffect(() => {
+    api<ShareState>(`/api/boards/${board.id}/share`).then(setShare, () => setShare(null))
+  }, [board.id])
+
+  const fail = (error: unknown) => setProblem(error instanceof ApiError ? error.code : 'internal_error')
+
+  const publish = async () => {
+    setBusy(true)
+    setProblem(null)
+    try {
+      setShare(await api<ShareState>(`/api/boards/${board.id}/share`, { method: 'PUT', body: { days: days === 'never' ? null : Number(days), password } }))
+      setPassword('')
+      void boards.refresh()
+    } catch (error) {
+      fail(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   if (members && space) return <MembersDialog space={space} onClose={() => setMembers(false)} />
   return (
     <Dialog title={t('share.title', { title: board.title })} onClose={onClose}>
@@ -54,11 +84,11 @@ export function ShareDialog({ board, onClose }: { board: Board; onClose: () => v
         <p className="mt-1 text-xs text-mist-600">{t('share.whoHint', { space: space?.name })}</p>
         <div className="mt-3 flex items-center gap-2">
           <span className="flex -space-x-1.5">
-            {space?.members.map((m) => (
-              <Avatar key={m.person} person={m.person} className="h-7 w-7 text-xs" ring />
+            {space?.members.slice(0, 6).map((m) => (
+              <Avatar key={m.id} person={m} className="h-7 w-7 text-xs" ring />
             ))}
           </span>
-          <span className="truncate text-xs text-mist-500">{space?.members.map((m) => PEOPLE.find((p) => p.id === m.person)?.name.split(' ')[0]).join(', ')}</span>
+          <span className="min-w-0 truncate text-xs text-mist-500">{space?.members.map((m) => m.display_name || m.name).join(', ')}</span>
           {manage && (
             <button type="button" onClick={() => setMembers(true)} className="ml-auto shrink-0 text-xs font-semibold text-accent-400 hover:underline">
               {t('share.manage')}
@@ -80,21 +110,31 @@ export function ShareDialog({ board, onClose }: { board: Board; onClose: () => v
           <button
             type="button"
             role="switch"
-            aria-checked={board.publicLink}
+            aria-checked={share !== null}
             aria-label={t('share.public')}
-            disabled={!manage}
-            onClick={() => boards.patch(board.id, { publicLink: !board.publicLink })}
-            className={'relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40 ' + (board.publicLink ? 'bg-accent-500' : 'bg-ink-600')}
+            disabled={!manage || !allowed || busy}
+            onClick={async () => {
+              if (share) {
+                try {
+                  await api(`/api/boards/${board.id}/share`, { method: 'DELETE' })
+                  setShare(null)
+                  void boards.refresh()
+                } catch (error) {
+                  fail(error)
+                }
+              } else await publish()
+            }}
+            className={'relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40 ' + (share ? 'bg-accent-500' : 'bg-ink-600')}
           >
-            <span className={'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ' + (board.publicLink ? 'left-[22px]' : 'left-0.5')} />
+            <span className={'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ' + (share ? 'left-[22px]' : 'left-0.5')} />
           </button>
         </div>
-        {board.publicLink && (
+        {manage && allowed && (
           <div className="mt-4 space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block space-y-1.5">
                 <span className="text-xs font-medium text-mist-500">{t('share.expiry')}</span>
-                <select className="nc-field" value={expiry} onChange={(e) => setExpiry(e.target.value)}>
+                <select className="nc-field" value={days} onChange={(e) => setDays(e.target.value)}>
                   {['1', '7', '30', '365', 'never'].map((v) => (
                     <option key={v} value={v}>
                       {v === 'never' ? t('share.never') : t('share.days', { count: Number(v) })}
@@ -107,13 +147,25 @@ export function ShareDialog({ board, onClose }: { board: Board; onClose: () => v
                   <Lock className="h-3 w-3" />
                   {t('share.password')}
                 </span>
-                <input className="nc-field" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t('share.passwordNone')} autoComplete="new-password" />
+                <input className="nc-field" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={share?.password ? t('share.passwordKept') : t('share.passwordNone')} autoComplete="new-password" />
               </label>
             </div>
-            <CopyField value={`${location.origin}/s/${board.id.slice(2)}x7Kq`} />
+            {share && (
+              <>
+                <CopyField value={share.link} />
+                <div className="flex items-center justify-between text-xs text-mist-600">
+                  <span>{share.expires_at ? t('share.until', { date: new Date(share.expires_at).toLocaleDateString() }) : t('share.forever')}</span>
+                  <button type="button" disabled={busy} onClick={publish} className="font-semibold text-accent-400 hover:underline">
+                    {t('share.update')}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
-        {!manage && <p className="mt-3 text-xs text-mist-600">{t('share.onlyManagers')}</p>}
+        {!allowed && <p className="mt-3 text-xs text-mist-600">{t('share.operatorOff')}</p>}
+        {allowed && !manage && <p className="mt-3 text-xs text-mist-600">{t('share.onlyManagers')}</p>}
+        {problem && <p className="mt-3 text-sm text-bad-500">{errorText(problem)}</p>}
       </section>
     </Dialog>
   )

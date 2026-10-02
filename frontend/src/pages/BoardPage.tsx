@@ -5,19 +5,21 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { ContextBar, type ContextActions } from '../board/canvas/ContextBar'
 import { ItemView } from '../board/canvas/ItemView'
+import { ItemActions } from '../board/canvas/PdfPage'
 import { Lines } from '../board/canvas/Lines'
 import { ShareDialog } from '../board/canvas/ShareDialog'
 import { ShortcutsDialog } from '../board/canvas/ShortcutsDialog'
 import { Toolbar, type Tool, type ToolState } from '../board/canvas/Toolbar'
-import { useDoc } from '../board/canvas/useDoc'
-import { ME } from '../board/demo'
+import { useLiveDoc } from '../board/canvas/useLiveDoc'
+import { Peers, PeerPointers, personColor } from '../board/canvas/Peers'
 import { bounds, center, contains, intersects, lineGeometry, normalize, toBoard, toScreen, type Point, type Rect } from '../board/geometry'
 import { outline } from '../board/ink'
 import { NOTE_COLORS, paint } from '../board/palette'
-import { photo, type PhotoKind } from '../board/photos'
-import { useBoards } from '../board/store'
+import { toBoard as boardFromInfo, useBoards } from '../board/store'
 import type { Board, Doc, End, InkItem, Item, LineItem, View } from '../board/types'
-import { Avatar } from '../components/Avatar'
+import { ApiError, boardsApi, mediaApi } from '../api/client'
+import { errorText } from '../lib/errors'
+import { useAuth } from '../state/auth'
 import { Dialog } from '../components/Dialog'
 import { Popover } from '../components/Popover'
 
@@ -33,6 +35,8 @@ type Gesture =
   | { kind: 'pan'; start: Point; view: View }
   | { kind: 'move'; start: Point; ids: string[]; lines: string[]; origin: Doc; moved: boolean; box: Rect }
   | { kind: 'resize'; handle: Handle; start: Point; origin: Doc; box: Rect; ids: string[]; keep: boolean; moved: boolean }
+  // `origin` is the picture when the gesture began: where things were. The live picture is changed from it only for
+  // what the gesture moves, so a note somebody else adds or edits meanwhile stays as it is.
   | { kind: 'marquee'; start: Point; add: string[] }
   | { kind: 'create'; tool: 'note' | 'shape' | 'text'; start: Point }
   | { kind: 'draw'; points: number[][] }
@@ -44,8 +48,23 @@ type Gesture =
 export function BoardPage() {
   const { id = '' } = useParams()
   const boards = useBoards()
-  const board = boards.board(id)
+  const known = boards.board(id)
   const { t } = useTranslation()
+  // Opened by a link before the overview loaded (or a board from a space just joined): asked for on its own.
+  const [fetched, setFetched] = useState<Board | 'missing' | null>(null)
+  useEffect(() => {
+    if (known) return
+    let cancelled = false
+    boardsApi.read(id).then(
+      (info) => !cancelled && setFetched(boardFromInfo(info)),
+      () => !cancelled && setFetched('missing'),
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [id, known])
+  const board = known ?? (fetched && fetched !== 'missing' ? fetched : undefined)
+  if (!board && fetched !== 'missing') return <main className="nc-board flex-1" />
   if (!board || board.deleted) {
     return (
       <main className="grid flex-1 place-items-center p-8 text-center">
@@ -65,10 +84,14 @@ function Editor({ board }: { board: Board }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const boards = useBoards()
+  const { me } = useAuth()
   const space = boards.space(board.space)
-  const readOnly = space?.role === 'read'
-  const doc = useDoc({ items: board.items, lines: board.lines })
+  const shownName = me?.display_name || me?.name || '?'
+  const doc = useLiveDoc(board.id, { name: shownName, color: personColor(me?.name ?? '') })
+  const readOnly = board.role === 'read' || space?.role === 'read' || doc.status === 'gone'
   const { items, lines } = doc.doc
+  const [notice, setNotice] = useState<string | null>(null)
+  const [uploads, setUploads] = useState(0)
   const root = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 1200, h: 800 })
   const [view, setView] = useState<View>({ x: 0, y: 0, zoom: 1 })
@@ -86,11 +109,12 @@ function Editor({ board }: { board: Board }) {
   const [menu, setMenu] = useState<{ x: number; y: number; at: Point; on: string | null } | null>(null)
   const [title, setTitle] = useState<string | null>(null)
   const [spaceHeld, setSpaceHeld] = useState(false)
-  const [saved, setSaved] = useState(true)
   const gesture = useRef<Gesture | null>(null)
   const pointers = useRef(new Map<number, Point>())
   const pinch = useRef<{ dist: number; mid: Point; view: View } | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
+  const cameraInput = useRef<HTMLInputElement>(null)
+  const lastTold = useRef(0)
   const clipboard = useRef<Doc | null>(null)
   const freshText = useRef<string | null>(null)
 
@@ -101,21 +125,19 @@ function Editor({ board }: { board: Board }) {
 
   // Opening counts as a visit; the overview sorts "recent" by it.
   useEffect(() => {
-    boards.patch(board.id, { opened: Date.now() })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void boardsApi.visit(board.id).catch(() => undefined)
   }, [board.id])
 
-  // Save shortly after the last change, as nexlore saves notes.
+  // What this tab does, for the others: what it has selected and where it writes.
+  useEffect(() => doc.tell('selection', selected), [doc, selected])
+  useEffect(() => doc.tell('editing', editing), [doc, editing])
+
+  // A notice at the bottom goes by itself after a while.
   useEffect(() => {
-    if (doc.version === 0) return
-    setSaved(false)
-    const timer = setTimeout(() => {
-      boards.saveDoc(board.id, doc.doc)
-      setSaved(true)
-    }, 500)
+    if (!notice) return
+    const timer = setTimeout(() => setNotice(null), 6000)
     return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc.version])
+  }, [notice])
 
   // The size of the board area, for fitting and for placing things in the middle.
   useEffect(() => {
@@ -154,9 +176,13 @@ function Editor({ board }: { board: Board }) {
     [doc.ref],
   )
 
+  // The whole board in view once it arrived from the server (not before: an empty board would fit to nothing).
+  const fitted = useRef(false)
   useEffect(() => {
+    if (!doc.synced || fitted.current) return
+    fitted.current = true
     fit(undefined, false)
-  }, [fit])
+  }, [doc.synced, fit])
 
   const local = useCallback((e: { clientX: number; clientY: number }): Point => {
     const r = root.current!.getBoundingClientRect()
@@ -247,37 +273,38 @@ function Editor({ board }: { board: Board }) {
     [doc],
   )
 
-  const addImage = useCallback(
-    (src: string, at: Point, caption?: string) => {
-      const img = new Image()
-      img.onload = () => {
-        const scale = Math.min(1, 420 / Math.max(img.naturalWidth, img.naturalHeight))
-        const w = Math.max(60, img.naturalWidth * scale)
-        const h = Math.max(60, img.naturalHeight * scale)
-        add({ id: uid(), kind: 'image', x: at.x - w / 2, y: at.y - h / 2, w, h, src, caption })
-      }
-      img.src = src
-    },
-    [add],
-  )
-
+  /** Photos and files go to the server first; the board gets an item that names them by id. */
   const addFiles = useCallback(
     (files: File[], at: Point) => {
-      files.forEach((file, n) => {
+      files.forEach(async (file, n) => {
         const spot = { x: at.x + n * 30, y: at.y + n * 30 }
-        if (file.type.startsWith('image/')) {
-          const reader = new FileReader()
-          reader.onload = () => addImage(String(reader.result), spot)
-          reader.readAsDataURL(file)
-        } else {
-          const ext = (file.name.split('.').pop() ?? 'file').toLowerCase().slice(0, 5)
-          const kb = file.size / 1024
-          const sizeLabel = kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(kb))} KB`
-          add({ id: uid(), kind: 'file', x: spot.x - 95, y: spot.y - 115, w: 190, h: 230, name: file.name, ext, sizeLabel })
+        setUploads((count) => count + 1)
+        try {
+          const stored = await mediaApi.upload(board.space, file, file.name || 'file')
+          const isPicture = ['jpeg', 'png', 'gif', 'webp', 'avif', 'bmp'].includes(stored.kind) && stored.width > 0
+          if (isPicture) {
+            const scale = Math.min(1, 420 / Math.max(stored.width, stored.height))
+            const w = Math.max(60, stored.width * scale)
+            const h = Math.max(60, stored.height * scale)
+            add({ id: uid(), kind: 'image', x: spot.x - w / 2, y: spot.y - h / 2, w, h, media: stored.id, preview: stored.width > 1600 || stored.height > 1600 })
+          } else {
+            const ext = stored.kind === 'file' ? (stored.name.split('.').pop() ?? 'file').toLowerCase().slice(0, 5) : stored.kind
+            const kb = stored.size / 1024
+            const sizeLabel = kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(kb))} KB`
+            const pdf = stored.kind === 'pdf'
+            add({ id: uid(), kind: 'file', x: spot.x - 95, y: spot.y - 115, w: pdf ? 300 : 190, h: pdf ? 400 : 230, media: stored.id, name: stored.name, ext, sizeLabel, pages: stored.pages || undefined, page: pdf ? 1 : undefined })
+          }
+          if (stored.removed.includes('location') || stored.removed.includes('device')) setNotice(t('media.cleaned'))
+          if (stored.removed.includes('unchecked')) setNotice(t('media.unchecked'))
+        } catch (error) {
+          const code = error instanceof ApiError ? error.code : 'internal_error'
+          setNotice(errorText(code, error instanceof ApiError ? error.values : {}))
+        } finally {
+          setUploads((count) => count - 1)
         }
       })
     },
-    [add, addImage],
+    [add, board.space, t],
   )
 
   const addLink = useCallback(
@@ -408,6 +435,13 @@ function Editor({ board }: { board: Board }) {
 
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const s = local(e)
+    // The others see this pointer, a few times a second at most.
+    // eslint-disable-next-line react-hooks/purity -- an event handler, not part of drawing
+    const now = performance.now()
+    if (now - lastTold.current > 50) {
+      lastTold.current = now
+      doc.tell('pointer', toBoard(s, viewRef.current))
+    }
     if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, s)
     const g = gesture.current
     if (!g) return
@@ -474,13 +508,17 @@ function Editor({ board }: { board: Board }) {
         setGuides({ x: gx, y: gy })
         const ids = new Set(g.ids)
         const lineIds = new Set(g.lines)
-        doc.live(() => ({
-          items: g.origin.items.map((i) => (ids.has(i.id) ? { ...i, x: i.x + dx, y: i.y + dy } : i)),
-          lines: g.origin.lines.map((l) =>
-            lineIds.has(l.id)
-              ? { ...l, a: l.a.item ? l.a : { x: l.a.x + dx, y: l.a.y + dy }, b: l.b.item ? l.b : { x: l.b.x + dx, y: l.b.y + dy } }
-              : l,
-          ),
+        const startItems = new Map(g.origin.items.map((i) => [i.id, i]))
+        const startLines = new Map(g.origin.lines.map((l) => [l.id, l]))
+        doc.live((d) => ({
+          items: d.items.map((i) => {
+            const from = ids.has(i.id) ? startItems.get(i.id) : undefined
+            return from ? { ...i, x: from.x + dx, y: from.y + dy } : i
+          }),
+          lines: d.lines.map((l) => {
+            const from = lineIds.has(l.id) ? startLines.get(l.id) : undefined
+            return from ? { ...l, a: l.a.item ? l.a : { x: from.a.x + dx, y: from.a.y + dy }, b: l.b.item ? l.b : { x: from.b.x + dx, y: from.b.y + dy } } : l
+          }),
         }))
         return
       }
@@ -510,11 +548,13 @@ function Editor({ board }: { board: Board }) {
         const sx = (x2 - x1) / box.w
         const sy = (y2 - y1) / box.h
         const ids = new Set(g.ids)
+        const startItems = new Map(g.origin.items.map((i) => [i.id, i]))
         doc.live((d) => ({
           ...d,
-          items: g.origin.items.map((i) =>
-            ids.has(i.id) ? { ...i, x: x1 + (i.x - box.x) * sx, y: y1 + (i.y - box.y) * sy, w: Math.max(12, i.w * sx), h: Math.max(12, i.h * sy) } : i,
-          ),
+          items: d.items.map((i) => {
+            const from = ids.has(i.id) ? startItems.get(i.id) : undefined
+            return from ? { ...i, x: x1 + (from.x - box.x) * sx, y: y1 + (from.y - box.y) * sy, w: Math.max(12, from.w * sx), h: Math.max(12, from.h * sy) } : i
+          }),
         }))
         return
       }
@@ -647,9 +687,20 @@ function Editor({ board }: { board: Board }) {
     }
   }
 
+  /** What lies under the pointer. Not `event.target`: while the board holds the pointer (it captures it to follow a
+   * drag), clicks and double-clicks name the board itself as their target. */
+  const under = (e: { clientX: number; clientY: number }): HTMLElement => {
+    for (const el of document.elementsFromPoint(e.clientX, e.clientY)) {
+      if (el instanceof HTMLElement || el instanceof SVGElement) {
+        if (el.closest('[data-ui]') || el.closest('[data-item]') || el.closest('[data-line]')) return el as HTMLElement
+      }
+    }
+    return root.current as HTMLElement
+  }
+
   const onDoubleClick = (e: React.MouseEvent) => {
     if (readOnly) return
-    const target = e.target as HTMLElement
+    const target = under(e)
     if (target.closest('[data-ui]')) return
     const id = target.closest<HTMLElement>('[data-item]')?.dataset.item
     const item = id ? byId.get(id) : undefined
@@ -669,7 +720,18 @@ function Editor({ board }: { board: Board }) {
     }
   }
 
-  const onText = useCallback((id: string, text: string) => doc.live((d) => ({ ...d, items: d.items.map((i) => (i.id === id && 'text' in i ? { ...i, text } : i)) })), [doc])
+  const onText = useCallback((id: string, text: string) => doc.setText(id, text), [doc])
+  const { commit, textOf, watchText } = doc
+  const itemActions = useMemo(
+    () => ({
+      patch: (id: string, change: Partial<Item>) =>
+        commit((d) => ({ ...d, items: d.items.map((i) => (i.id === id ? ({ ...i, ...change } as Item) : i)) })),
+      readOnly,
+      textOf,
+      watchText,
+    }),
+    [commit, textOf, watchText, readOnly],
+  )
   const onMeasure = useCallback((id: string, h: number) => doc.quiet((d) => ({ ...d, items: d.items.map((i) => (i.id === id ? { ...i, h } : i)) })), [doc])
 
   // Writing starts a step in the history; leaving an empty new text removes it again.
@@ -913,22 +975,13 @@ function Editor({ board }: { board: Board }) {
         <button type="button" onClick={() => boards.patch(board.id, { favorite: !board.favorite })} aria-pressed={board.favorite} aria-label={board.favorite ? t('board.unfavorite') : t('board.favorite')} title={board.favorite ? t('board.unfavorite') : t('board.favorite')} className="rounded-full p-1.5 text-mist-500 hover:bg-ink-850 hover:text-mist-100">
           <Star className={'h-4 w-4 ' + (board.favorite ? 'fill-accent-500 text-accent-500' : '')} />
         </button>
-        <span className="hidden text-xs text-mist-600 sm:inline" role="status">
-          {readOnly ? t('board.readOnly') : saved ? t('board.saved') : t('board.saving')}
+        <span className={'hidden items-center gap-1.5 text-xs sm:inline-flex ' + (doc.status === 'live' ? 'text-mist-600' : 'text-warn-500')} role="status">
+          <span className={'h-1.5 w-1.5 rounded-full ' + (doc.status === 'live' ? 'bg-ok-500' : 'bg-warn-500')} />
+          {doc.status === 'gone' ? t('board.gone') : doc.status === 'offline' ? t('board.offline') : !doc.synced ? t('board.connecting') : readOnly ? t('board.readOnly') : t('board.live')}
         </span>
+        {uploads > 0 && <span className="hidden text-xs text-mist-500 sm:inline">{t('media.uploading', { count: uploads })}</span>}
         <div className="ml-auto flex items-center gap-2">
-          {space && space.members.length > 1 && (
-            <span className="hidden items-center sm:flex" title={t('board.hereNow')}>
-              <span className="flex -space-x-1.5">
-                {space.members
-                  .filter((m) => m.person !== ME)
-                  .slice(0, 1)
-                  .map((m) => (
-                    <Avatar key={m.person} person={m.person} className="h-7 w-7 text-xs" ring />
-                  ))}
-              </span>
-            </span>
-          )}
+          <Peers peers={doc.peers} />
           <button type="button" onClick={() => setShare(true)} className="inline-flex items-center gap-2 rounded-full border border-accent-500/60 px-3 py-1.5 text-sm font-semibold text-accent-400 hover:bg-accent-500/10">
             <Share2 className="h-4 w-4" />
             <span className="hidden sm:inline">{t('share.button')}</span>
@@ -967,12 +1020,14 @@ function Editor({ board }: { board: Board }) {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onPointerLeave={() => doc.tell('pointer', null)}
         onDoubleClick={onDoubleClick}
         onContextMenu={(e) => {
           e.preventDefault()
-          if ((e.target as HTMLElement).closest('[data-ui]')) return
+          const hit = under(e)
+          if (hit.closest('[data-ui]')) return
           const s = local(e)
-          const on = (e.target as HTMLElement).closest<HTMLElement>('[data-item]')?.dataset.item ?? null
+          const on = hit.closest<HTMLElement>('[data-item]')?.dataset.item ?? null
           if (on && !selectedSet.has(on)) setSelected([on])
           setMenu({ x: s.x, y: s.y, at: toBoard(s, viewRef.current), on })
         }}
@@ -990,6 +1045,7 @@ function Editor({ board }: { board: Board }) {
         }}
         data-testid="board"
       >
+        <ItemActions.Provider value={itemActions}>
         <div className="absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
           {items.map((item) => (
             <ItemView key={item.id} item={item} editing={editing === item.id} onText={onText} onDone={onDone} onMeasure={onMeasure} />
@@ -1011,6 +1067,10 @@ function Editor({ board }: { board: Board }) {
             </svg>
           )}
         </div>
+
+        <PeerPointers peers={doc.peers} view={view} items={byId} />
+
+        </ItemActions.Provider>
 
         {/* Overlay in screen pixels: guides, marquee, selection with handles. */}
         {guides.x.map((x) => (
@@ -1087,10 +1147,7 @@ function Editor({ board }: { board: Board }) {
               }}
               onUpload={() => fileInput.current?.click()}
               onLink={() => setAsking('link')}
-              onSample={() => {
-                const kinds: PhotoKind[] = ['fjord', 'sunset', 'forest', 'room', 'kitchen', 'city', 'desk', 'plant']
-                addImage(photo(kinds[Math.floor(Math.random() * kinds.length)]), middle())
-              }}
+              onCamera={() => cameraInput.current?.click()}
             />
           )}
         </div>
@@ -1168,6 +1225,22 @@ function Editor({ board }: { board: Board }) {
           e.target.value = ''
         }}
       />
+      <input
+        ref={cameraInput}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        hidden
+        onChange={(e) => {
+          addFiles([...(e.target.files ?? [])], middle())
+          e.target.value = ''
+        }}
+      />
+      {notice && (
+        <div role="status" className="nc-float pointer-events-none fixed bottom-20 left-1/2 z-50 max-w-md -translate-x-1/2 px-4 py-2.5 text-sm text-mist-200">
+          {notice}
+        </div>
+      )}
       {share && <ShareDialog board={board} onClose={() => setShare(false)} />}
       {keys && <ShortcutsDialog onClose={() => setKeys(false)} />}
       {asking === 'link' && <LinkDialog onClose={() => setAsking(null)} onAdd={(url) => { setAsking(null); addLink(url, middle()) }} />}
