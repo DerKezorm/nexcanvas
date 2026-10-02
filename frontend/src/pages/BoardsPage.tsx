@@ -14,6 +14,7 @@ import { MembersDialog } from '../components/MembersDialog'
 import { NewSpaceDialog } from '../components/NewSpaceDialog'
 import { Popover } from '../components/Popover'
 import { Sidebar } from '../components/Sidebar'
+import { Confirm } from './settings/ui'
 import { ago } from '../lib/time'
 
 type Sort = 'updated' | 'title' | 'created'
@@ -27,6 +28,8 @@ export function BoardsPage() {
   const spaceId = Number(params.get('space') || 0)
   const space = spaceId ? boards.space(spaceId) : undefined
   const [editing, setEditing] = useState(false)
+  const [trashing, setTrashing] = useState(false)
+  const navigate = useNavigate()
   const [sort, setSort] = useState<Sort>('updated')
   const [members, setMembers] = useState(false)
   const [renaming, setRenaming] = useState<Board | null>(null)
@@ -67,11 +70,9 @@ export function BoardsPage() {
                       type="button"
                       role="menuitem"
                       className="nc-menu-item text-bad-500"
-                      onClick={async () => {
+                      onClick={() => {
                         close()
-                        if (!window.confirm(t('space.trashConfirm', { name: space.name }))) return
-                        await spacesApi.trash(space.id)
-                        await boards.refresh()
+                        setTrashing(true)
                       }}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -114,6 +115,21 @@ export function BoardsPage() {
         </div>
       </main>
       {members && space && <MembersDialog space={space} onClose={() => setMembers(false)} />}
+      {trashing && space && (
+        <Confirm
+          title={t('space.trashTitle', { name: space.name })}
+          text={t('space.trashText')}
+          confirm={t('space.trash')}
+          danger
+          onCancel={() => setTrashing(false)}
+          onConfirm={async () => {
+            await spacesApi.trash(space.id)
+            setTrashing(false)
+            await boards.refresh()
+            navigate('/')
+          }}
+        />
+      )}
       {editing && space && (
         <NewSpaceDialog
           initial={{ name: space.name, color: space.color, title: t('space.edit') }}

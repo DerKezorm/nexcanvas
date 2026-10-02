@@ -122,6 +122,7 @@ function Editor({ board }: { board: Board }) {
   const { me } = useAuth()
   const space = boards.space(board.space)
   const shownName = me?.display_name || me?.name || '?'
+  const prefs = { snap: me?.preferences?.snap ?? true, dots: me?.preferences?.dots ?? true, tool_back: me?.preferences?.tool_back ?? true }
   const doc = useLiveDoc(board.id, { name: shownName, color: personColor(me?.name ?? '') })
   const readOnly = board.role === 'read' || space?.role === 'read' || doc.status === 'gone'
   const { items, lines } = doc.doc
@@ -589,7 +590,7 @@ function Editor({ board }: { board: Board }) {
         // Snap the edges and middles of what moves to those of the other items, unless Alt is held.
         const gx: number[] = []
         const gy: number[] = []
-        if (!e.altKey && g.ids.length) {
+        if ((prefs.snap !== e.altKey) && g.ids.length) {
           const tol = 6 / v.zoom
           const moving = { x: g.box.x + dx, y: g.box.y + dy, w: g.box.w, h: g.box.h }
           const others = g.origin.items.filter((i) => !g.ids.includes(i.id) && i.kind !== 'ink')
@@ -835,8 +836,8 @@ function Editor({ board }: { board: Board }) {
           add({ id: uid(), kind: 'shape', ...r, shape: tools.shape, fill: '#60a5fa', stroke: 'none', text: '' })
         }
         setDraft(null)
-        // Back to Select, but keep the new note or text open for writing.
-        setTools((t) => ({ ...t, tool: 'select' }))
+        // Back to Select (unless the account keeps the tool), but keep the new note or text open for writing.
+        if (prefs.tool_back || g.tool === 'note' || g.tool === 'text') setTools((t) => ({ ...t, tool: 'select' }))
         return
       }
       case 'draw': {
@@ -882,7 +883,7 @@ function Editor({ board }: { board: Board }) {
         const line: LineItem = { id: uid(), kind: 'line', a: g.a, b: { item: target, x: p.x, y: p.y }, color: 'auto', width: 2, arrow: 'end', curve: !!(g.a.item && target) }
         doc.commit((d) => ({ ...d, lines: [...d.lines, line] }))
         setSelected([line.id])
-        if (tools.tool === 'line') setTools((t) => ({ ...t, tool: 'select' }))
+        if (tools.tool === 'line' && prefs.tool_back) setTools((t) => ({ ...t, tool: 'select' }))
         return
       }
       case 'end':
@@ -1329,7 +1330,7 @@ function Editor({ board }: { board: Board }) {
       <div
         ref={root}
         className={'nc-board min-h-0 flex-1 touch-none overflow-hidden outline-none ' + (presenting !== null ? 'fixed inset-0 z-40' : 'relative')}
-        style={{ backgroundSize: `${24 * view.zoom}px ${24 * view.zoom}px`, backgroundPosition: `${view.x}px ${view.y}px`, cursor }}
+        style={{ backgroundSize: `${24 * view.zoom}px ${24 * view.zoom}px`, backgroundPosition: `${view.x}px ${view.y}px`, backgroundImage: prefs.dots ? undefined : 'none', cursor }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

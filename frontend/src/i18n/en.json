@@ -302,7 +302,7 @@
     "copyPaste": "Copy and paste",
     "write": "Write in the selection",
     "nudge": "Nudge (Shift: 10)",
-    "noSnap": "Hold while dragging: no snapping",
+    "noSnap": "Hold while dragging: snapping the other way",
     "pan": "Hold and drag: move the board",
     "zoom": "Zoom",
     "zoomStep": "Zoom in steps",
@@ -346,7 +346,7 @@
     "spacesHint": "Spaces hold boards and decide who sees them, as in nexlore.",
     "saved": "Saved.",
     "ownPassword": "Your own password",
-    "snapHint": "Hold Alt while dragging to place freely.",
+    "snapHint": "Alt while dragging does the opposite.",
     "spacesBin": "Spaces in the bin",
     "spacesBinHint": "Their boards come back with them. After 30 days they go for good."
   },
@@ -713,7 +713,8 @@
     "edit": "Name and colour",
     "options": "Space options",
     "trash": "Move space to the bin",
-    "trashConfirm": "Move “{{name}}” with all its boards into the bin? Managers can bring it back for 30 days."
+    "trashTitle": "Put “{{name}}” in the bin?",
+    "trashText": "With all its boards. Managers can bring it back for 30 days."
   },
   "versions": {
     "lead": "nexcanvas keeps a state of the board every half hour while people work on it. Bringing one back is a change like any other: everybody sees it at once.",

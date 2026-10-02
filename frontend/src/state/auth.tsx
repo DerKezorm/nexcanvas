@@ -5,7 +5,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { ApiError, authApi, SIGNED_OUT_EVENT, type Me } from '../api/client'
-import i18n, { setLanguage, type Language } from '../i18n'
+import i18n, { changeLanguage } from '../i18n'
 
 type Status = 'loading' | 'setup' | 'signedOut' | 'signedIn'
 
@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMeState(next)
     setStatus('signedIn')
     // The account's language wins over the browser's.
-    if ((next.language === 'de' || next.language === 'en') && next.language !== i18n.language) setLanguage(next.language as Language)
+    if (next.language && next.language !== i18n.language) void changeLanguage(next.language)
   }, [])
 
   const refresh = useCallback(async () => {

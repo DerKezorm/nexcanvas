@@ -302,7 +302,7 @@
     "copyPaste": "Kopieren und einfügen",
     "write": "In die Auswahl schreiben",
     "nudge": "Verschieben (Umschalt: 10)",
-    "noSnap": "Beim Ziehen halten: nicht einrasten",
+    "noSnap": "Beim Ziehen halten: Einrasten umkehren",
     "pan": "Halten und ziehen: Board verschieben",
     "zoom": "Zoomen",
     "zoomStep": "Zoomen in Schritten",
@@ -346,7 +346,7 @@
     "spacesHint": "Bereiche enthalten die Boards und bestimmen, wer sie sieht, wie in nexlore.",
     "saved": "Gespeichert.",
     "ownPassword": "Dein eigenes Passwort",
-    "snapHint": "Beim Ziehen Alt halten, um frei zu setzen.",
+    "snapHint": "Alt beim Ziehen bewirkt das Gegenteil.",
     "spacesBin": "Bereiche im Papierkorb",
     "spacesBinHint": "Ihre Boards kommen mit zurück. Nach 30 Tagen sind sie endgültig weg."
   },
@@ -713,7 +713,8 @@
     "edit": "Name und Farbe",
     "options": "Optionen des Bereichs",
     "trash": "Bereich in den Papierkorb",
-    "trashConfirm": "„{{name}}“ mit allen Boards in den Papierkorb? Verwalter können ihn 30 Tage lang zurückholen."
+    "trashTitle": "„{{name}}“ in den Papierkorb?",
+    "trashText": "Mit allen Boards. Verwalter können ihn 30 Tage lang zurückholen."
   },
   "versions": {
     "lead": "nexcanvas hält alle halbe Stunde einen Stand fest, während am Board gearbeitet wird. Einen zurückholen ist eine Änderung wie jede andere: alle sehen sie sofort.",

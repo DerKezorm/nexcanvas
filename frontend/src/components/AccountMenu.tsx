@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { authApi } from '../api/client'
-import { LANGUAGES, setLanguage, type Language } from '../i18n'
+import { changeLanguage, languageOptions, type LanguageOption } from '../i18n'
 import { useAuth } from '../state/auth'
 import { Avatar } from './Avatar'
 import { ThemeSwitcher } from './ThemeSwitcher'
@@ -16,6 +16,14 @@ export function AccountMenu() {
   const { me, signOut, setMe } = useAuth()
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
+  const [languages, setLanguages] = useState<LanguageOption[]>([
+    { code: 'de', name: 'Deutsch', added: false },
+    { code: 'en', name: 'English', added: false },
+  ])
+  // The operator's languages join the two shipped ones once the menu opens.
+  useEffect(() => {
+    if (open) void languageOptions().then(setLanguages)
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -66,21 +74,22 @@ export function AccountMenu() {
           <div className="flex items-center justify-between px-2.5 py-1.5">
             <span className="text-xs text-mist-500">{t('account.language')}</span>
             <div className="flex rounded-full border border-ink-700 bg-ink-900 p-0.5">
-              {(Object.keys(LANGUAGES) as Language[]).map((code) => (
+              {languages.map(({ code, name }) => (
                 <button
                   key={code}
                   type="button"
                   onClick={() => {
-                    setLanguage(code)
+                    void changeLanguage(code)
                     // Kept with the account, so the next browser speaks it too.
                     void authApi.language(code).then(setMe, () => undefined)
                   }}
                   aria-pressed={i18n.language === code}
-                  title={LANGUAGES[code].name}
+                  title={name}
+                  aria-label={name}
                   className={'flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ' + (i18n.language === code ? 'bg-accent-500 text-on-accent' : 'text-mist-500 hover:text-mist-100')}
                 >
                   {i18n.language === code && <Check className="h-3 w-3" />}
-                  {LANGUAGES[code].label}
+                  {code.toUpperCase()}
                 </button>
               ))}
             </div>

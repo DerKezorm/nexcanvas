@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react'
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { useEffect, type ReactNode } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 
-import { BoardsProvider } from './board/store'
+import { BoardsProvider, useBoards } from './board/store'
 import { AppShell } from './components/AppShell'
 import { InvitePage, LoginPage, SetupPage } from './pages/AuthPages'
 import { BoardPage } from './pages/BoardPage'
@@ -19,7 +19,29 @@ function SignedIn({ children }: { children: ReactNode }) {
   if (status === 'loading') return null
   if (status === 'setup') return <Navigate to="/setup" replace />
   if (status === 'signedOut') return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />
-  return <BoardsProvider>{children}</BoardsProvider>
+  return (
+    <BoardsProvider>
+      <StartAtLast />
+      {children}
+    </BoardsProvider>
+  )
+}
+
+/** Once per visit: whoever chose "the board open last" as their start page lands there instead of the overview. */
+let started = false
+function StartAtLast() {
+  const { me } = useAuth()
+  const { loaded, boards } = useBoards()
+  const location = useLocation()
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (started || !loaded) return
+    started = true
+    if (location.pathname !== '/' || location.search || me?.preferences?.start !== 'last') return
+    const last = boards.filter((b) => b.opened > 0).sort((a, b) => b.opened - a.opened)[0]
+    if (last) navigate(`/b/${last.id}`, { replace: true })
+  }, [loaded, boards, me, location, navigate])
+  return null
 }
 
 export default function App() {

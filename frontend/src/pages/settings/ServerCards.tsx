@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 
 import { api, type Me } from '../../api/client'
 import { Avatar } from '../../components/Avatar'
+import { forgetAddedLanguages, templateFile } from '../../i18n'
 import { useAuth } from '../../state/auth'
 import { Button, Card, Confirm, Feedback, Row, saveAsFile, Switch, useAction } from './ui'
 
@@ -422,7 +423,7 @@ export function BackupsCard({ server }: { server: ReturnType<typeof useServerSet
 type Locale = { code: string; name: string; keys: number }
 
 export function LanguagesCard() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const [list, setList] = useState<Locale[]>([])
   const [code, setCode] = useState('')
   const file = useRef<HTMLInputElement>(null)
@@ -431,10 +432,7 @@ export function LanguagesCard() {
     api<Locale[]>('/api/locales').then(setList, () => undefined)
   }, [])
   useEffect(load, [load])
-  const template = () => {
-    const english = i18n.getResourceBundle('en', 'translation') as object
-    saveAsFile('nexcanvas-language-template.json', new Blob([JSON.stringify({ _meta: { name: 'Español' }, ...english }, null, 2)], { type: 'application/json' }))
-  }
+  const template = () => saveAsFile('nexcanvas-language-template.json', templateFile())
   return (
     <Card title={t('server.languages')} text={t('server.languagesHint')}>
       <div className="flex flex-wrap gap-2">
@@ -445,6 +443,7 @@ export function LanguagesCard() {
             {entry.name} ({entry.code}) · {t('server.texts', { count: entry.keys })}
             <button type="button" aria-label={t('server.remove')} className="text-mist-500 hover:text-bad-500" onClick={() => void action.run(async () => {
               await api(`/api/locales/${entry.code}`, { method: 'DELETE' })
+              forgetAddedLanguages()
               load()
             })}>
               <Trash2 className="h-3 w-3" />
@@ -473,6 +472,7 @@ export function LanguagesCard() {
             if (!chosen) return
             void action.run(async () => {
               await api(`/api/locales/${encodeURIComponent(code)}`, { method: 'PUT', raw: chosen })
+              forgetAddedLanguages()
               load()
             }, t('server.languageAdded'))
           }}
