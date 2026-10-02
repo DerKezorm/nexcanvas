@@ -1,293 +1,390 @@
-import { Download, KeyRound, ShieldCheck, Upload } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+/**
+ * Settings and the own account, laid out like nexlore's: whoever knows one finds their way in the other.
+ * Settings: General (the own preferences), Spaces, Server (the operator's, in a second row of tabs).
+ * Account: Profile, Security.
+ */
+import { LogOut, RotateCcw, ShieldCheck, Upload, Users } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 
-import { useAuth } from '../state/auth'
-import { useBoards } from '../board/store'
+import { api, authApi, type Me, type Preferences } from '../api/client'
+import { useBoards, type Space } from '../board/store'
 import { Avatar } from '../components/Avatar'
-
-/**
- * Settings and account, laid out like nexlore's, so whoever knows one finds their way in the other.
- * In the mock the cards only show what will be there; nothing is saved.
- */
-
-function TabRow({ tabs, value, onChange, small = false }: { tabs: [string, string][]; value: string; onChange: (v: string) => void; small?: boolean }) {
-  return (
-    <div className={'flex gap-1 overflow-x-auto ' + (small ? '' : 'border-b border-ink-700/80')} role="tablist">
-      {tabs.map(([id, label]) => (
-        <button
-          key={id}
-          type="button"
-          role="tab"
-          aria-selected={value === id}
-          onClick={() => onChange(id)}
-          className={
-            small
-              ? 'shrink-0 rounded-full px-3 py-1 text-xs font-medium ' + (value === id ? 'bg-accent-500/15 text-accent-400' : 'text-mist-500 hover:bg-ink-850 hover:text-mist-100')
-              : 'shrink-0 border-b-2 px-3 pb-2.5 text-sm font-medium ' + (value === id ? 'border-accent-500 text-mist-100' : 'border-transparent text-mist-500 hover:text-mist-100')
-          }
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function Card({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
-  return (
-    <section className="rounded-2xl border border-ink-700 bg-ink-850 p-5">
-      <h2 className="text-base font-semibold text-mist-100">{title}</h2>
-      {hint && <p className="mt-1 text-sm text-mist-500">{hint}</p>}
-      <div className="mt-4 space-y-3">{children}</div>
-    </section>
-  )
-}
-
-function Switch({ label, on: start = false }: { label: string; on?: boolean }) {
-  const [on, setOn] = useState(start)
-  return (
-    <label className="flex items-center justify-between gap-4 text-sm text-mist-300">
-      <span>{label}</span>
-      <button type="button" role="switch" aria-checked={on} onClick={() => setOn(!on)} className={'relative h-6 w-11 shrink-0 rounded-full transition-colors ' + (on ? 'bg-accent-500' : 'bg-ink-600')}>
-        <span className={'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ' + (on ? 'left-[22px]' : 'left-0.5')} />
-      </button>
-    </label>
-  )
-}
-
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="grid items-center gap-2 text-sm sm:grid-cols-[200px_1fr]">
-      <span className="text-mist-500">{label}</span>
-      <div>{children}</div>
-    </div>
-  )
-}
-
-function MockNote() {
-  const { t } = useTranslation()
-  return <p className="rounded-lg border border-warn-500/30 bg-warn-500/10 px-3 py-2 text-xs text-warn-500">{t('mock.settings')}</p>
-}
+import { MembersDialog } from '../components/MembersDialog'
+import { useAuth } from '../state/auth'
+import { AboutCard, AccountsCard, BackupsCard, LanguagesCard, LogCard, MailCard, PublicCard, SignInCard, UploadsCard, useServerSettings } from './settings/ServerCards'
+import { Button, Card, Feedback, Row, Switch, TabRow, useAction } from './settings/ui'
 
 export function SettingsPage() {
   const { t } = useTranslation()
-  const boards = useBoards()
+  const { me } = useAuth()
   const [params, setParams] = useSearchParams()
+  const operator = me?.role === 'operator'
   const tab = params.get('tab') ?? 'general'
   const sub = params.get('sub') ?? 'accounts'
-  const go = (next: Record<string, string>) => setParams(next)
+  const tabs: [string, string][] = [['general', t('settings.general')], ['spaces', t('settings.spaces')]]
+  if (operator) tabs.push(['server', t('settings.server')])
   return (
     <main className="nc-scroll min-w-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-4xl space-y-6 px-4 py-6 sm:px-8 sm:py-8">
         <h1 className="text-2xl font-bold tracking-tight text-mist-100">{t('settings.title')}</h1>
-        <MockNote />
-        <TabRow tabs={[['general', t('settings.general')], ['spaces', t('settings.spaces')], ['server', t('settings.server')]]} value={tab} onChange={(v) => go({ tab: v })} />
-        {tab === 'general' && (
-          <Card title={t('settings.general')}>
-            <Row label={t('settings.startPage')}>
-              <select className="nc-field">
-                <option>{t('boards.all')}</option>
-                <option>{t('settings.lastBoard')}</option>
-              </select>
-            </Row>
-            <Switch label={t('settings.snap')} on />
-            <Switch label={t('settings.grid')} on />
-            <Switch label={t('settings.toolBack')} on />
-          </Card>
-        )}
-        {tab === 'spaces' && (
-          <Card title={t('settings.spaces')} hint={t('settings.spacesHint')}>
-            {boards.spaces.map((s) => (
-              <div key={s.id} className="flex items-center gap-3 rounded-xl border border-ink-700 px-3 py-2.5">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
-                <span className="flex-1 text-sm text-mist-100">{s.name}</span>
-                <span className="text-xs text-mist-600">{t(`members.${s.role}`)}</span>
-                <span className="flex -space-x-1.5">
-                  {s.members.map((m) => (
-                    <Avatar key={m.id} person={m} className="h-6 w-6 text-[11px]" ring />
-                  ))}
-                </span>
-              </div>
-            ))}
-          </Card>
-        )}
-        {tab === 'server' && (
-          <>
-            <TabRow
-              small
-              tabs={[
-                ['accounts', t('server.accounts')],
-                ['signin', t('server.signin')],
-                ['public', t('server.public')],
-                ['backups', t('server.backups')],
-                ['languages', t('server.languages')],
-                ['log', t('server.log')],
-              ]}
-              value={sub}
-              onChange={(v) => go({ tab: 'server', sub: v })}
-            />
-            {sub === 'accounts' && (
-              <Card title={t('server.accounts')} hint={t('server.accountsHint')}>
-                {(boards.spaces.flatMap((s) => s.members).filter((m, i, all) => all.findIndex((x) => x.id === m.id) === i)).map((p) => (
-                  <div key={p.id} className="flex items-center gap-3">
-                    <Avatar person={p} className="h-8 w-8 text-sm" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm text-mist-100">{p.name}</div>
-                      <div className="text-xs text-mist-600">{p.name}</div>
-                    </div>
-                    <span className="text-xs text-mist-500">{t(`roles.${p.role}`)}</span>
-                  </div>
-                ))}
-                <button type="button" className="nc-btn nc-btn-accent mt-2">{t('server.invite')}</button>
-              </Card>
-            )}
-            {sub === 'signin' && (
-              <div className="space-y-4">
-                <Card title={t('server.oidc')} hint={t('server.oidcHint')}>
-                  <Row label={t('server.oidcIssuer')}>
-                    <input className="nc-field" placeholder="https://auth.example.com/application/o/nexcanvas/" />
-                  </Row>
-                  <Row label="Client ID">
-                    <input className="nc-field" placeholder="nexcanvas" />
-                  </Row>
-                  <Switch label={t('server.oidcOnly')} />
-                </Card>
-                <Card title={t('server.twoFactor')}>
-                  <Switch label={t('server.twoFactorRequired')} />
-                </Card>
-              </div>
-            )}
-            {sub === 'public' && (
-              <Card title={t('server.public')} hint={t('server.publicHint')}>
-                <Switch label={t('server.publicAllowed')} on />
-              </Card>
-            )}
-            {sub === 'backups' && (
-              <Card title={t('server.backups')} hint={t('server.backupsHint')}>
-                <Row label={t('server.schedule')}>
-                  <select className="nc-field" defaultValue="daily">
-                    <option value="off">{t('server.off')}</option>
-                    <option value="daily">{t('server.daily')}</option>
-                    <option value="weekly">{t('server.weekly')}</option>
-                  </select>
-                </Row>
-                <Row label={t('server.keep')}>
-                  <input className="nc-field w-24" defaultValue="7" />
-                </Row>
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <button type="button" className="nc-btn nc-btn-accent">{t('server.backupNow')}</button>
-                  <button type="button" className="nc-btn nc-btn-ghost">
-                    <Upload className="h-4 w-4" />
-                    {t('server.restore')}
-                  </button>
-                </div>
-                <ul className="divide-y divide-ink-700/70 rounded-xl border border-ink-700 text-sm">
-                  {['2026-10-02 03:00', '2026-10-01 03:00', '2026-09-30 03:00'].map((d) => (
-                    <li key={d} className="flex items-center gap-3 px-3 py-2">
-                      <span className="flex-1 font-mono text-xs text-mist-300">nexcanvas-{d.replace(/[ :]/g, '-')}.zip</span>
-                      <span className="text-xs text-mist-600">4,1 MB</span>
-                      <button type="button" className="rounded p-1 text-mist-500 hover:text-mist-100" aria-label={t('server.download')}>
-                        <Download className="h-4 w-4" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            )}
-            {sub === 'languages' && (
-              <Card title={t('server.languages')} hint={t('server.languagesHint')}>
-                <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full border border-ink-700 px-3 py-1 text-xs text-mist-300">Deutsch · {t('server.builtIn')}</span>
-                  <span className="rounded-full border border-ink-700 px-3 py-1 text-xs text-mist-300">English · {t('server.builtIn')}</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" className="nc-btn nc-btn-ghost">
-                    <Download className="h-4 w-4" />
-                    {t('server.template')}
-                  </button>
-                  <button type="button" className="nc-btn nc-btn-ghost">
-                    <Upload className="h-4 w-4" />
-                    {t('server.upload')}
-                  </button>
-                </div>
-              </Card>
-            )}
-            {sub === 'log' && (
-              <Card title={t('server.log')} hint={t('server.logHint')}>
-                <Row label={t('server.level')}>
-                  <select className="nc-field" defaultValue="normal">
-                    {['quiet', 'normal', 'detailed', 'trace'].map((l) => (
-                      <option key={l} value={l}>
-                        {t(`server.levels.${l}`)}
-                      </option>
-                    ))}
-                  </select>
-                </Row>
-                <pre className="nc-scroll max-h-56 overflow-auto rounded-xl border border-ink-700 bg-ink-950 p-3 font-mono text-[11px] leading-relaxed text-mist-400">
-                  {`2026-10-02 21:04:11 INFO  nexcanvas.boards [a81f] | board saved (42 items)
-2026-10-02 21:03:58 INFO  nexcanvas.auth   [a7c2] | signed in via OIDC
-2026-10-02 03:00:02 INFO  nexcanvas.backup [-]    | backup written (4.1 MB, 7 kept)
-2026-10-01 22:17:40 WARN  nexcanvas.media  [9e03] | upload refused: larger than 50 MB`}
-                </pre>
-              </Card>
-            )}
-          </>
-        )}
+        <TabRow tabs={tabs} value={tab} onChange={(v) => setParams({ tab: v })} />
+        {tab === 'general' && <General />}
+        {tab === 'spaces' && <Spaces />}
+        {tab === 'server' && operator && <Server sub={sub} onSub={(v) => setParams({ tab: 'server', sub: v })} />}
       </div>
     </main>
   )
 }
 
+function General() {
+  const { t } = useTranslation()
+  const { me, setMe } = useAuth()
+  const action = useAction()
+  const preferences = me?.preferences
+  if (!me || !preferences) return null
+  const change = (patch: Partial<Preferences>) =>
+    void action.run(async () => {
+      const next = await authApi.preferences(patch)
+      setMe({ ...me, preferences: next } as Me)
+    })
+  return (
+    <Card title={t('settings.general')}>
+      <Row label={t('settings.startPage')}>
+        <select className="nc-field" value={preferences.start} onChange={(e) => change({ start: e.target.value as Preferences['start'] })}>
+          <option value="boards">{t('boards.all')}</option>
+          <option value="last">{t('settings.lastBoard')}</option>
+        </select>
+      </Row>
+      <Switch label={t('settings.snap')} hint={t('settings.snapHint')} on={preferences.snap} onChange={(on) => change({ snap: on })} />
+      <Switch label={t('settings.grid')} on={preferences.dots} onChange={(on) => change({ dots: on })} />
+      <Switch label={t('settings.toolBack')} on={preferences.tool_back} onChange={(on) => change({ tool_back: on })} />
+      <Feedback problem={action.problem} done={null} />
+    </Card>
+  )
+}
+
+function Spaces() {
+  const { t } = useTranslation()
+  const boards = useBoards()
+  const [members, setMembers] = useState<Space | null>(null)
+  const [bin, setBin] = useState<{ id: number; name: string; color: string; deleted_at: string }[]>([])
+  const action = useAction()
+  useEffect(() => {
+    api<{ id: number; name: string; color: string; deleted_at: string }[]>('/api/spaces/bin').then(setBin, () => undefined)
+  }, [])
+  return (
+    <>
+      <Card title={t('settings.spaces')} text={t('settings.spacesHint')}>
+        {boards.spaces.map((s) => (
+          <div key={s.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-ink-700 px-3 py-2.5">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
+            <span className="min-w-0 flex-1 truncate text-sm text-mist-100">{s.name}</span>
+            <span className="text-xs text-mist-600">
+              {t(`roles.${s.role}`)} · {t('boards.count', { count: s.boards })}
+            </span>
+            <span className="flex -space-x-1.5">
+              {s.members.slice(0, 5).map((m) => (
+                <Avatar key={m.id} person={m} className="h-6 w-6 text-[11px]" ring />
+              ))}
+            </span>
+            <button type="button" className="rounded-full border border-ink-700 px-2.5 py-1 text-xs text-mist-300 hover:bg-ink-800" onClick={() => setMembers(s)}>
+              <Users className="mr-1 inline h-3.5 w-3.5" />
+              {t('share.manage')}
+            </button>
+          </div>
+        ))}
+      </Card>
+      {bin.length > 0 && (
+        <Card title={t('settings.spacesBin')} text={t('settings.spacesBinHint')}>
+          {bin.map((s) => (
+            <div key={s.id} className="flex items-center gap-3">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
+              <span className="flex-1 text-sm text-mist-200">{s.name}</span>
+              <Button
+                busy={action.busy}
+                onClick={() =>
+                  void action.run(async () => {
+                    await api(`/api/spaces/${s.id}/restore`, { method: 'POST' })
+                    setBin((list) => list.filter((x) => x.id !== s.id))
+                    await boards.refresh()
+                  })
+                }
+              >
+                <RotateCcw className="h-4 w-4" />
+                {t('files.restore')}
+              </Button>
+            </div>
+          ))}
+          <Feedback problem={action.problem} done={null} />
+        </Card>
+      )}
+      {members && <MembersDialog space={members} onClose={() => setMembers(null)} />}
+    </>
+  )
+}
+
+function Server({ sub, onSub }: { sub: string; onSub: (v: string) => void }) {
+  const { t } = useTranslation()
+  const server = useServerSettings()
+  return (
+    <div className="space-y-4">
+      <TabRow
+        small
+        tabs={[
+          ['accounts', t('server.accounts')],
+          ['signin', t('server.signin')],
+          ['public', t('server.public')],
+          ['uploads', t('server.uploads')],
+          ['mail', t('server.mail')],
+          ['backups', t('server.backups')],
+          ['languages', t('server.languages')],
+          ['log', t('server.log')],
+          ['about', t('server.about')],
+        ]}
+        value={sub}
+        onChange={onSub}
+      />
+      {sub === 'accounts' && <AccountsCard />}
+      {sub === 'signin' && <SignInCard server={server} />}
+      {sub === 'public' && <PublicCard server={server} />}
+      {sub === 'uploads' && <UploadsCard server={server} />}
+      {sub === 'mail' && <MailCard server={server} />}
+      {sub === 'backups' && <BackupsCard server={server} />}
+      {sub === 'languages' && <LanguagesCard />}
+      {sub === 'log' && <LogCard />}
+      {sub === 'about' && <AboutCard />}
+    </div>
+  )
+}
+
+// --- The own account ------------------------------------------------------------------------------------------------
+
 export function AccountPage() {
   const { t } = useTranslation()
+  const { me } = useAuth()
   const [params, setParams] = useSearchParams()
   const tab = params.get('tab') ?? 'profile'
-  const { me } = useAuth()
   if (!me) return null
   return (
     <main className="nc-scroll min-w-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-4xl space-y-6 px-4 py-6 sm:px-8 sm:py-8">
         <h1 className="text-2xl font-bold tracking-tight text-mist-100">{t('account.mine')}</h1>
-        <MockNote />
-        <TabRow tabs={[['profile', t('account.profile')], ['security', t('account.security')], ['connections', t('account.connections')]]} value={tab} onChange={(v) => setParams({ tab: v })} />
-        {tab === 'profile' && (
-          <Card title={t('account.profile')}>
-            <div className="flex items-center gap-4">
-              <Avatar person={me} className="h-16 w-16 text-2xl" />
-              <button type="button" className="nc-btn nc-btn-ghost">{t('account.picture')}</button>
-            </div>
-            <Row label={t('account.displayName')}>
-              <input className="nc-field" defaultValue={me.name} />
-            </Row>
-            <Row label={t('account.email')}>
-              <input className="nc-field" defaultValue={me.email} />
-            </Row>
-          </Card>
-        )}
-        {tab === 'security' && (
-          <div className="space-y-4">
-            <Card title={t('account.password')}>
-              <button type="button" className="nc-btn nc-btn-ghost">
-                <KeyRound className="h-4 w-4" />
-                {t('account.changePassword')}
-              </button>
-            </Card>
-            <Card title={t('server.twoFactor')} hint={t('account.twoFactorHint')}>
-              <button type="button" className="nc-btn nc-btn-accent">
-                <ShieldCheck className="h-4 w-4" />
-                {t('account.twoFactorSetup')}
-              </button>
-            </Card>
-          </div>
-        )}
-        {tab === 'connections' && (
-          <Card title={t('account.apiTokens')} hint={t('account.apiHint')}>
-            <button type="button" className="nc-btn nc-btn-accent">{t('account.newToken')}</button>
-          </Card>
-        )}
+        <TabRow tabs={[['profile', t('account.profile')], ['security', t('account.security')]]} value={tab} onChange={(v) => setParams({ tab: v })} />
+        {tab === 'profile' && <Profile me={me} />}
+        {tab === 'security' && <Security me={me} />}
       </div>
     </main>
+  )
+}
+
+function Profile({ me }: { me: Me }) {
+  const { t } = useTranslation()
+  const { setMe } = useAuth()
+  const [shown, setShown] = useState(me.display_name)
+  const picture = useRef<HTMLInputElement>(null)
+  const action = useAction()
+  return (
+    <Card title={t('account.profile')}>
+      <div className="flex flex-wrap items-center gap-4">
+        <Avatar person={me} className="h-16 w-16 text-2xl" />
+        <Button onClick={() => picture.current?.click()} busy={action.busy}>
+          <Upload className="h-4 w-4" />
+          {t('account.picture')}
+        </Button>
+        {me.avatar && (
+          <Button danger busy={action.busy} onClick={() => void action.run(async () => setMe(await api<Me>('/api/auth/avatar', { method: 'DELETE' })))}>
+            {t('account.pictureRemove')}
+          </Button>
+        )}
+        <input
+          ref={picture}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            if (file) void action.run(async () => setMe(await api<Me>('/api/auth/avatar', { method: 'PUT', raw: file })))
+          }}
+        />
+      </div>
+      <Row label={t('account.displayName')} hint={t('account.displayNameHint', { name: me.name })}>
+        <div className="flex gap-2">
+          <input className="nc-field" value={shown} onChange={(e) => setShown(e.target.value)} maxLength={80} />
+          <Button accent busy={action.busy} onClick={() => void action.run(async () => setMe(await authApi.profile(shown.trim())), t('settings.saved'))}>
+            {t('common.save')}
+          </Button>
+        </div>
+      </Row>
+      <Feedback problem={action.problem} done={action.done} />
+    </Card>
+  )
+}
+
+type Enrolment = { secret: string; uri: string; qr_svg: string }
+
+function Security({ me }: { me: Me }) {
+  const { t } = useTranslation()
+  const { refresh } = useAuth()
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const password = useAction()
+  const others = useAction()
+  const factor = useAction()
+  const [enrolment, setEnrolment] = useState<Enrolment | null>(null)
+  const [code, setCode] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [codes, setCodes] = useState<string[] | null>(null)
+  const [asking, setAsking] = useState<'disable' | 'renew' | null>(null)
+  return (
+    <>
+      {me.sign_in === 'password' ? (
+        <Card title={t('account.password')}>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void password.run(async () => {
+                await authApi.password(current, next)
+                setCurrent('')
+                setNext('')
+              }, t('account.passwordChanged'))
+            }}
+          >
+            <Row label={t('account.currentPassword')}>
+              <input className="nc-field" type="password" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
+            </Row>
+            <Row label={t('account.newPassword')} hint={t('auth.passwordHint')}>
+              <input className="nc-field" type="password" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
+            </Row>
+            <Button type="submit" accent busy={password.busy} disabled={!current || !next}>
+              {t('account.changePassword')}
+            </Button>
+            <Feedback problem={password.problem} done={password.done} />
+          </form>
+        </Card>
+      ) : (
+        <Card title={t('account.password')} text={t('account.viaProvider')}>
+          <span />
+        </Card>
+      )}
+
+      <Card title={t('server.twoFactor')} text={t('account.twoFactorHint')}>
+        {me.sign_in !== 'password' ? (
+          <p className="text-sm text-mist-400">{t('account.twoFactorProvider')}</p>
+        ) : codes ? (
+          <div className="space-y-3 rounded-xl border border-accent-500/40 bg-accent-500/10 p-3">
+            <p className="text-sm font-semibold text-mist-100">{t('account.codesTitle')}</p>
+            <p className="text-xs text-mist-400">{t('account.codesLead')}</p>
+            <ol className="grid grid-cols-2 gap-2 rounded-lg bg-ink-950 px-4 py-3 font-mono text-sm text-mist-100">
+              {codes.map((entry) => (
+                <li key={entry}>{entry}</li>
+              ))}
+            </ol>
+            <div className="flex gap-2">
+              <Button onClick={() => void navigator.clipboard?.writeText(codes.join('\n'))}>{t('common.copy')}</Button>
+              <Button
+                accent
+                onClick={() => {
+                  setCodes(null)
+                  void refresh()
+                }}
+              >
+                {t('account.codesDone')}
+              </Button>
+            </div>
+          </div>
+        ) : enrolment ? (
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void factor.run(async () => {
+                const result = await api<{ recovery_codes: string[] }>('/api/auth/totp/confirm', { method: 'POST', body: { code: code.trim(), password: confirmPassword } })
+                setEnrolment(null)
+                setCode('')
+                setConfirmPassword('')
+                setCodes(result.recovery_codes)
+              })
+            }}
+          >
+            <p className="text-sm text-mist-300">{t('account.scan')}</p>
+            <div className="flex justify-center">
+              <img src={'data:image/svg+xml;utf8,' + encodeURIComponent(enrolment.qr_svg)} alt={t('account.qr')} width={196} height={196} className="rounded-lg" />
+            </div>
+            <code className="block rounded-lg bg-ink-950 px-3 py-2 font-mono text-xs break-all text-mist-200">{enrolment.secret.replace(/(.{4})/g, '$1 ').trim()}</code>
+            <Row label={t('auth.code.label')}>
+              <input className="nc-field" value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" autoFocus />
+            </Row>
+            <Row label={t('auth.password')}>
+              <input className="nc-field" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="current-password" />
+            </Row>
+            <div className="flex gap-2">
+              <Button onClick={() => setEnrolment(null)}>{t('common.cancel')}</Button>
+              <Button type="submit" accent busy={factor.busy} disabled={code.trim().length !== 6 || !confirmPassword}>
+                {t('account.twoFactorConfirm')}
+              </Button>
+            </div>
+          </form>
+        ) : asking ? (
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void factor.run(async () => {
+                if (asking === 'disable') {
+                  await api('/api/auth/totp/disable', { method: 'POST', body: { password: confirmPassword } })
+                  await refresh()
+                } else {
+                  setCodes((await api<{ recovery_codes: string[] }>('/api/auth/totp/recovery', { method: 'POST', body: { password: confirmPassword } })).recovery_codes)
+                }
+                setAsking(null)
+                setConfirmPassword('')
+              })
+            }}
+          >
+            <p className="text-sm text-mist-300">{asking === 'disable' ? t('account.twoFactorDisableText') : t('account.twoFactorRenewText')}</p>
+            <input className="nc-field" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="current-password" autoFocus placeholder={t('auth.password')} />
+            <div className="flex gap-2">
+              <Button onClick={() => setAsking(null)}>{t('common.cancel')}</Button>
+              <Button type="submit" danger={asking === 'disable'} accent={asking !== 'disable'} busy={factor.busy} disabled={!confirmPassword}>
+                {asking === 'disable' ? t('account.twoFactorDisable') : t('account.twoFactorRenew')}
+              </Button>
+            </div>
+          </form>
+        ) : me.two_factor ? (
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <span className="flex items-center gap-1.5 text-mist-200">
+              <ShieldCheck className="h-4 w-4 text-ok-500" />
+              {t('account.twoFactorOn', { count: me.two_factor_recovery_left })}
+            </span>
+            <Button onClick={() => setAsking('renew')}>{t('account.twoFactorRenew')}</Button>
+            <Button danger onClick={() => setAsking('disable')}>
+              {t('account.twoFactorDisable')}
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <span className="text-mist-400">{t('account.twoFactorOff')}</span>
+            <Button accent busy={factor.busy} onClick={() => void factor.run(async () => setEnrolment(await api<Enrolment>('/api/auth/totp/begin', { method: 'POST' })))}>
+              {t('account.twoFactorSetup')}
+            </Button>
+          </div>
+        )}
+        <Feedback problem={factor.problem} done={null} />
+      </Card>
+
+      <Card title={t('account.sessions')} text={t('account.sessionsHint')}>
+        <div>
+          <Button busy={others.busy} onClick={() => void others.run(() => api('/api/auth/logout-all', { method: 'POST' }), t('account.othersSignedOut'))}>
+            <LogOut className="h-4 w-4" />
+            {t('account.signOutOthers')}
+          </Button>
+        </div>
+        <Feedback problem={others.problem} done={others.done} />
+      </Card>
+    </>
   )
 }

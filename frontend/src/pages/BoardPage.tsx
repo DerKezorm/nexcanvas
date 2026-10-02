@@ -11,6 +11,7 @@ import { ShareDialog } from '../board/canvas/ShareDialog'
 import { ShortcutsDialog } from '../board/canvas/ShortcutsDialog'
 import { Toolbar, type Tool, type ToolState } from '../board/canvas/Toolbar'
 import { useLiveDoc } from '../board/canvas/useLiveDoc'
+import { VersionsDialog } from '../board/canvas/VersionsDialog'
 import { Peers, PeerPointers, personColor } from '../board/canvas/Peers'
 import { bounds, center, contains, intersects, lineGeometry, normalize, toBoard, toScreen, type Point, type Rect } from '../board/geometry'
 import { outline } from '../board/ink'
@@ -104,6 +105,7 @@ function Editor({ board }: { board: Board }) {
   const [draft, setDraft] = useState<{ ink?: number[][]; rect?: Rect; line?: { a: Point; b: Point; target?: string } } | null>(null)
   const [guides, setGuides] = useState<{ x: number[]; y: number[] }>({ x: [], y: [] })
   const [share, setShare] = useState(false)
+  const [versions, setVersions] = useState(false)
   const [keys, setKeys] = useState(false)
   const [asking, setAsking] = useState<'link' | null>(null)
   const [menu, setMenu] = useState<{ x: number; y: number; at: Point; on: string | null } | null>(null)
@@ -993,7 +995,7 @@ function Editor({ board }: { board: Board }) {
                   <Copy className="h-4 w-4 text-mist-500" />
                   {t('board.duplicate')}
                 </button>
-                <button type="button" role="menuitem" className="nc-menu-item" disabled title={t('mock.notYet')}>
+                <button type="button" role="menuitem" className="nc-menu-item" onClick={() => { close(); setVersions(true) }}>
                   <History className="h-4 w-4 text-mist-500" />
                   {t('board.versions')}
                 </button>
@@ -1242,6 +1244,7 @@ function Editor({ board }: { board: Board }) {
         </div>
       )}
       {share && <ShareDialog board={board} onClose={() => setShare(false)} />}
+      {versions && <VersionsDialog boardId={board.id} readOnly={readOnly} onClose={() => setVersions(false)} />}
       {keys && <ShortcutsDialog onClose={() => setKeys(false)} />}
       {asking === 'link' && <LinkDialog onClose={() => setAsking(null)} onAdd={(url) => { setAsking(null); addLink(url, middle()) }} />}
     </div>

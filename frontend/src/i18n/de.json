@@ -45,7 +45,31 @@
     "twoFactorSetup": "Zweiten Faktor einrichten",
     "apiTokens": "API-Token",
     "apiHint": "Für Dashboards und Automatisierungen, mit Stufe, Bereichen und Ablauf. Der Betreiber schaltet sie frei.",
-    "newToken": "Neuer Token"
+    "newToken": "Neuer Token",
+    "pictureRemove": "Bild entfernen",
+    "displayNameHint": "Was andere sehen. Anmelden tust du dich als {{name}}.",
+    "currentPassword": "Bisheriges Passwort",
+    "newPassword": "Neues Passwort",
+    "passwordChanged": "Passwort geändert. Andere Browser sind abgemeldet.",
+    "viaProvider": "Dieses Konto meldet sich über den Anbieter an; das Passwort liegt dort.",
+    "twoFactorProvider": "Konten vom Anbieter bringen dessen zweiten Faktor mit.",
+    "twoFactorOff": "Aus.",
+    "twoFactorOn_one": "An. Noch ein Wiederherstellungscode übrig.",
+    "twoFactorOn_other": "An. Noch {{count}} Wiederherstellungscodes übrig.",
+    "twoFactorConfirm": "Einschalten",
+    "twoFactorDisable": "Ausschalten",
+    "twoFactorRenew": "Neue Wiederherstellungscodes",
+    "twoFactorDisableText": "Dein Passwort, und die Anmeldung braucht wieder nur das Passwort.",
+    "twoFactorRenewText": "Dein Passwort, und die alten Wiederherstellungscodes gelten nicht mehr.",
+    "scan": "Den Code mit deiner Authenticator-App scannen, dann die sechs Ziffern eingeben, die sie zeigt.",
+    "qr": "QR-Code für die Authenticator-App",
+    "codesTitle": "Deine Wiederherstellungscodes",
+    "codesLead": "Jeder gilt einmal, wenn das Handy weg ist. Auf Papier oder im Passwortmanager aufheben; sie werden nur jetzt gezeigt.",
+    "codesDone": "Ich habe sie aufgehoben",
+    "sessions": "Anderswo angemeldet",
+    "sessionsHint": "Ein verlorenes Handy oder ein geliehener Rechner: jede Anmeldung außer dieser beenden.",
+    "signOutOthers": "Überall sonst abmelden",
+    "othersSignedOut": "Alle anderen Browser sind abgemeldet."
   },
   "board": {
     "new": "Neues Board",
@@ -314,7 +338,12 @@
     "snap": "Beim Ziehen an anderen Dingen einrasten",
     "grid": "Punkte auf dem Board",
     "toolBack": "Nach dem Platzieren zurück zu Auswählen",
-    "spacesHint": "Bereiche enthalten die Boards und bestimmen, wer sie sieht, wie in nexlore."
+    "spacesHint": "Bereiche enthalten die Boards und bestimmen, wer sie sieht, wie in nexlore.",
+    "saved": "Gespeichert.",
+    "ownPassword": "Dein eigenes Passwort",
+    "snapHint": "Beim Ziehen Alt halten, um frei zu setzen.",
+    "spacesBin": "Bereiche im Papierkorb",
+    "spacesBinHint": "Ihre Boards kommen mit zurück. Nach 30 Tagen sind sie endgültig weg."
   },
   "server": {
     "accounts": "Konten",
@@ -354,7 +383,122 @@
       "normal": "Normal",
       "detailed": "Ausführlich (1 Stunde)",
       "trace": "Alles (1 Stunde)"
-    }
+    },
+    "uploads": "Hochladen",
+    "uploadsHint": "Fotos und Dateien auf Boards.",
+    "uploadMax": "Größte Datei (MB)",
+    "uploadCeiling": "Höchstens {{mb}} MB (NEXCANVAS_UPLOAD_MAX_MB).",
+    "stripLocation": "Ort und Gerät aus Fotos entfernen",
+    "stripLocationHint": "Handys schreiben hinein, wo und womit ein Foto entstand. Ab Werk an.",
+    "mail": "Mail",
+    "mailHint": "Nur für Einladungen. Ohne Server reicht der Link zum Kopieren.",
+    "smtpHost": "Server und Port",
+    "smtpSecurity": "Verschlüsselung",
+    "smtpUser": "Benutzer",
+    "smtpFrom": "Absender",
+    "none": "keine",
+    "mailTest": "Testmail an",
+    "send": "Senden",
+    "mailSent": "Die Testmail ist raus.",
+    "secretKept": "Bleibt; nur zum Ändern tippen.",
+    "passwordLogin": "Mitglieder melden sich mit Passwort an",
+    "passwordLoginHint": "Der Betreiber darf es immer: der Weg hinein, wenn der Anbieter ausfällt.",
+    "twoFactorRequiredHint": "Bis ein Konto einen hat, erreicht es nur seine Kontoseite. Erst den eigenen einschalten.",
+    "oidcName": "Name auf dem Knopf",
+    "redirect": "Rücksprungadresse",
+    "redirectHint": "Beim Anbieter eintragen.",
+    "oidcAutoCreate": "Unbekannte Identitäten bekommen ein Konto",
+    "oidcAutoCreateHint": "Aus: nur eingeladene oder verknüpfte Konten kommen hinein.",
+    "oidcRemove": "Anbieter entfernen",
+    "publicUrl": "Öffentliche Adresse",
+    "publicUrlHint": "Für Links in Einladungen und öffentlichen Seiten, und den OIDC-Rücksprung.",
+    "inSpaces_one": "in einem Bereich",
+    "inSpaces_other": "in {{count}} Bereichen",
+    "withTwoFactor": "zweiter Faktor",
+    "locked": "eine Weile gesperrt",
+    "makeOperator": "Zum Betreiber machen",
+    "makeMember": "Zum Mitglied machen",
+    "newPassword": "Neues Passwort",
+    "resetTwoFactor": "Zweiten Faktor entfernen",
+    "signOutEverywhere": "Überall abmelden",
+    "deleteAccount": "Löschen",
+    "inviteHint": "Ein Link zum Kopieren, 7 Tage gültig, für ein neues Konto.",
+    "passwordGiven": "Das neue Passwort, einmal weiterzugeben:",
+    "confirm": {
+      "role": {
+        "title": "Rolle von {{name}} ändern?",
+        "text": "Betreiber ändern jede Einstellung dieses Servers.",
+        "button": "Rolle ändern"
+      },
+      "delete": {
+        "title": "{{name}} löschen?",
+        "text": "Das Konto geht; seine Boards bleiben in ihren Bereichen.",
+        "button": "Konto löschen"
+      },
+      "password": {
+        "title": "Neues Passwort für {{name}}?",
+        "text": "Ein zufälliges wird erzeugt; jede Anmeldung des Kontos endet.",
+        "button": "Passwort erzeugen"
+      },
+      "reset": {
+        "title": "Zweiten Faktor von {{name}} entfernen?",
+        "text": "Für ein verlorenes Handy: Das Konto meldet sich nur mit Passwort an, bis es einen neuen einrichtet.",
+        "button": "Entfernen"
+      },
+      "signout": {
+        "title": "{{name}} überall abmelden?",
+        "text": "Jeder Browser des Kontos muss sich neu anmelden.",
+        "button": "Abmelden"
+      },
+      "backup_restore": {
+        "title": "Diese Sicherung wiederherstellen?",
+        "text": "Der jetzige Stand wird vorher gesichert. nexcanvas startet neu, alle melden sich neu an.",
+        "button": "Wiederherstellen"
+      },
+      "backup_download": {
+        "title": "Diese Sicherung herunterladen?",
+        "text": "Sie enthält jedes Board, jedes Foto und jedes Konto. Sie ist nicht verschlüsselt.",
+        "button": "Herunterladen"
+      },
+      "backup_delete": {
+        "title": "Diese Sicherung löschen?",
+        "text": "Sie lässt sich nicht zurückholen.",
+        "button": "Löschen"
+      }
+    },
+    "backupMade": "Sicherung erstellt.",
+    "noBackups": "Noch keine Sicherungen.",
+    "kinds": {
+      "manual": "von Hand",
+      "scheduled": "geplant",
+      "update": "vor einer Änderung"
+    },
+    "backupContent": "{{boards}} Boards, {{files}} Dateien",
+    "check": "Prüfen",
+    "checkOk": "Vollständig: {{boards}} Boards, {{files}} Dateien. Wiederherstellen würde {{add}} Dateien hinzufügen und {{remove}} entfernen.",
+    "checkBad": "Beschädigt: Diese Sicherung lässt sich nicht wiederherstellen.",
+    "deleteBackup": "Löschen",
+    "restarting": "nexcanvas startet mit der Sicherung neu. Die Seite lädt gleich neu.",
+    "texts_one": "ein Text",
+    "texts_other": "{{count}} Texte",
+    "remove": "Entfernen",
+    "languageCode": "Sprachcode",
+    "languageAdded": "Sprache hinzugefügt. Sie erscheint nach dem Neuladen im Kontomenü.",
+    "allLevels": "Alle Stufen",
+    "logSearch": "Enthält …",
+    "refresh": "Aktualisieren",
+    "logEmpty": "Nichts im Log.",
+    "logClear": "Log leeren",
+    "logClearText": "Jede Zeile geht. Neue kommen wie bisher.",
+    "logUntil": "Um {{time}} zurück auf normal.",
+    "about": "Über",
+    "aboutText": "nexcanvas {{version}}, AGPL-3.0. Ein Whiteboard für den eigenen Server.",
+    "updateCheck": "Einmal am Tag nach neuen Fassungen sehen",
+    "updateCheckHint": "Nur die Frage geht an GitHub, nichts über deine Boards.",
+    "updateNewer": "Fassung {{version}} ist erschienen.",
+    "updateNone": "Das ist die neueste Fassung.",
+    "updateUnknown": "Noch nicht gefragt.",
+    "updateNow": "Jetzt nachsehen"
   },
   "errors": {
     "avatar_not_a_picture": "Das ist kein Bild, das nexcanvas annimmt (JPEG, PNG, WebP, GIF, HEIC oder AVIF).",
@@ -563,5 +707,13 @@
     "options": "Optionen des Bereichs",
     "trash": "Bereich in den Papierkorb",
     "trashConfirm": "„{{name}}“ mit allen Boards in den Papierkorb? Verwalter können ihn 30 Tage lang zurückholen."
+  },
+  "versions": {
+    "lead": "nexcanvas hält alle halbe Stunde einen Stand fest, während am Board gearbeitet wird. Einen zurückholen ist eine Änderung wie jede andere: alle sehen sie sofort.",
+    "none": "Noch kein früherer Stand. Der erste kommt nach einer Weile Arbeit.",
+    "items_one": "ein Ding",
+    "items_other": "{{count}} Dinge",
+    "restore": "Zurückholen",
+    "restoreNow": "Ja, zurückholen"
   }
 }
