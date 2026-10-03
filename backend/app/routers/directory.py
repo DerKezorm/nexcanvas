@@ -18,7 +18,7 @@ from ..deps import Account, DbSession, OperatorAccount
 from ..errors import error
 from ..models import OPERATOR, Team
 from ..models import Account as AccountRow
-from ..services import teams
+from ..services import suite, teams
 
 logger = logging.getLogger("nexcanvas.teams")
 
@@ -66,6 +66,7 @@ def directory(account: Account, db: DbSession) -> dict[str, Any]:
 
 @router.post("/teams", status_code=201, summary="Make a team (operator)")
 def create_team(payload: TeamIn, operator: OperatorAccount, db: DbSession) -> dict[str, Any]:
+    suite.refuse_if_managed(db)
     try:
         team = teams.create(db, payload.name, payload.color)
         if payload.members:
@@ -88,6 +89,7 @@ def _set_lead(db: DbSession, team: Team, lead: int | None) -> None:
 
 @router.patch("/teams/{team_id}", summary="Rename, recolour, change members or lead (operator; members also the lead)")
 def change_team(team_id: TeamId, payload: TeamChange, account: Account, db: DbSession) -> dict[str, Any]:
+    suite.refuse_if_managed(db)
     team = db.get(Team, team_id)
     if team is None:
         raise error("not_found", "Not found.", 404)
@@ -114,6 +116,7 @@ def change_team(team_id: TeamId, payload: TeamChange, account: Account, db: DbSe
 
 @router.delete("/teams/{team_id}", status_code=204, summary="Delete a team (operator); its rights in spaces go with it")
 def delete_team(team_id: TeamId, operator: OperatorAccount, db: DbSession) -> None:
+    suite.refuse_if_managed(db)
     team = db.get(Team, team_id)
     if team is None:
         raise error("not_found", "Not found.", 404)

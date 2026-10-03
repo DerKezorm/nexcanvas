@@ -25,7 +25,7 @@ from ..errors import detail, error
 from ..models import MANAGE, OPERATOR, SPACE_ROLES, Invite, Membership, Space, TeamGrant, TeamMember
 from ..models import Account as AccountRow
 from ..security import MIN_PASSWORD, SESSION_COOKIE, brake, session_account
-from ..services import accounts, mailer, notices, rights, settings_service
+from ..services import accounts, mailer, notices, rights, settings_service, suite
 from ..services.accounts import AccountError
 from .auth import check_password, fail, sign_in
 
@@ -136,6 +136,7 @@ def members(space_id: SpaceId, account: Account, db: DbSession) -> dict[str, Any
 def set_member(
     space_id: SpaceId, person: AccountName, payload: MemberIn, account: Account, db: DbSession, response: Response
 ) -> dict:
+    suite.refuse_if_space_managed(db, space_id)
     if payload.role not in SPACE_ROLES:
         raise error("invalid_role", "Unknown right.", 422)
     space = _space(db, account, space_id, operator_may=True)
@@ -189,6 +190,7 @@ def set_member(
 
 @router.delete("/spaces/{space_id}/members/{person}", status_code=204, summary="Take an account out of the space")
 def remove_member(space_id: SpaceId, person: AccountName, account: Account, db: DbSession) -> None:
+    suite.refuse_if_space_managed(db, space_id)
     target = accounts.by_name(db, person)
     leaving = target is not None and target.id == account.id
     if leaving:
@@ -324,6 +326,7 @@ def _create(db: DbSession, request: Request, by: AccountRow, space: Space | None
 
 @router.post("/spaces/{space_id}/invites", status_code=201, summary="Invite into the space; the link is shown once")
 def invite_to_space(space_id: SpaceId, payload: InviteIn, request: Request, account: Account, db: DbSession) -> dict:
+    suite.refuse_if_space_managed(db, space_id)
     space = _space(db, account, space_id)
     if payload.role not in SPACE_ROLES:
         raise error("invalid_role", "Unknown right.", 422)
@@ -337,6 +340,7 @@ def list_invites(_operator: OperatorAccount, db: DbSession) -> list[dict[str, An
 
 @router.post("/invites", status_code=201, summary="Invite into nexcanvas without a space (operator)")
 def invite(payload: InviteIn, request: Request, operator: OperatorAccount, db: DbSession) -> dict[str, Any]:
+    suite.refuse_if_managed(db)
     if payload.role:
         raise error("invalid_role", "A right needs a space.", 422)
     return _create(db, request, operator, None, payload)
@@ -382,6 +386,7 @@ NAME_TRIES = 8
 
 @router.post("/invite/{token}", summary="Accept an invitation with a new account")
 def accept(token: Token, payload: AcceptIn, request: Request, response: Response, db: DbSession) -> dict[str, Any]:
+    suite.refuse_if_managed(db)
     # A name that is taken must be said, so the person can pick another; the brake keeps it from being a way to try
     # names one after another (one link took 60 tries without a pause).
     key = "invite-name:" + client_ip(request)

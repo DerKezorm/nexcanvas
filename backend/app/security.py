@@ -111,7 +111,7 @@ def session_account(db: Session, token: str | None) -> Account | None:
         db.commit()
         return None
     account = db.get(Account, session.account_id)
-    if account is None:
+    if account is None or account.blocked_at is not None:
         return None
     # Only every few minutes: the interface asks often.
     if (now - session.last_seen_at).total_seconds() > 300:

@@ -18,7 +18,7 @@ from ..deps import Account, DbSession
 from ..errors import error
 from ..models import MANAGE, SPACE_ROLES, Board, Membership, Space, Team, TeamGrant
 from ..models import Account as AccountRow
-from ..services import rights, spaces
+from ..services import rights, spaces, suite
 
 logger = logging.getLogger("nexcanvas.spaces")
 
@@ -88,6 +88,7 @@ def listing(account: Account, db: DbSession) -> list[dict[str, Any]]:
 
 @router.post("", status_code=201, summary="Make a space; the own account manages it")
 def create(payload: SpaceIn, account: Account, db: DbSession) -> dict[str, Any]:
+    suite.refuse_if_managed(db)
     try:
         space = spaces.create(db, account, payload.name, payload.color)
     except spaces.SpaceError as exc:
@@ -97,6 +98,7 @@ def create(payload: SpaceIn, account: Account, db: DbSession) -> dict[str, Any]:
 
 @router.patch("/{space_id}", summary="Rename or recolour a space (managers)")
 def change(space_id: SpaceId, payload: SpaceChange, account: Account, db: DbSession) -> dict[str, Any]:
+    suite.refuse_if_space_managed(db, space_id)
     try:
         space = rights.check(db, account, space_id, MANAGE)
         spaces.change(db, space, payload.name, payload.color)
@@ -107,6 +109,7 @@ def change(space_id: SpaceId, payload: SpaceChange, account: Account, db: DbSess
 
 @router.delete("/{space_id}", status_code=204, summary="Move a space with its boards into the bin (managers)")
 def trash(space_id: SpaceId, account: Account, db: DbSession) -> None:
+    suite.refuse_if_space_managed(db, space_id)
     try:
         space = rights.check(db, account, space_id, MANAGE)
     except rights.RightsError as exc:
@@ -143,6 +146,7 @@ def restore(space_id: SpaceId, account: Account, db: DbSession) -> dict[str, Any
 def give_team(
     space_id: SpaceId, team_id: SpaceId, payload: TeamRight, account: Account, db: DbSession
 ) -> dict[str, Any]:
+    suite.refuse_if_space_managed(db, space_id)
     try:
         space = rights.check(db, account, space_id, MANAGE)
     except rights.RightsError as exc:
@@ -161,6 +165,7 @@ def give_team(
 
 @router.delete("/{space_id}/teams/{team_id}", summary="Take a team's right in the space away (managers)")
 def take_team(space_id: SpaceId, team_id: SpaceId, account: Account, db: DbSession) -> dict[str, Any]:
+    suite.refuse_if_space_managed(db, space_id)
     try:
         space = rights.check(db, account, space_id, MANAGE)
     except rights.RightsError as exc:

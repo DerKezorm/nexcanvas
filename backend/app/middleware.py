@@ -106,6 +106,8 @@ CLIENT_HEADER = b"x-nexcanvas-client"
 CLIENT_PATTERN = re.compile(rb"^[A-Za-z0-9_-]{8,64}$")
 #: The API for programs: a token in ``Authorization``, no tab, an ``Origin`` refused (``routers/v1.py``).
 API_PREFIX = "/api/v1/"
+#: Notices from nexsuite: signed with the app's token instead (``routers/suite.py``).
+SUITE_NOTICE = "/api/suite/event"
 #: Largest body an ordinary request may carry: a board's JSON with many items, an imported canvas.
 MAX_BODY = 16 * 1024 * 1024
 #: Where a larger body is expected, with its own limit checked while streaming. An upload's limit is the operator's
@@ -146,7 +148,7 @@ class GuardMiddleware:
             return
         headers = dict(scope.get("headers") or [])
         # The API for programs needs a token in ``Authorization`` instead, and refuses a request with an ``Origin``.
-        exempt = scope["path"].startswith(API_PREFIX)
+        exempt = scope["path"].startswith(API_PREFIX) or scope["path"] == SUITE_NOTICE
         if scope.get("method") in CHANGING and not exempt and not CLIENT_PATTERN.match(headers.get(CLIENT_HEADER, b"")):
             for message in _refuse(400, "client_required", "Changes need the header X-Nexcanvas-Client."):
                 await send(message)

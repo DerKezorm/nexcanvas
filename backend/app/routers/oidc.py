@@ -33,7 +33,7 @@ from ..errors import error
 from ..models import SIGN_IN_OIDC, SIGN_IN_PASSWORD
 from ..models import Account as AccountRow
 from ..security import SESSION_COOKIE, brake, decrypt_secret, encrypt_secret, session_account, start_session
-from ..services import accounts, authentik, logs, oidc, settings_service
+from ..services import accounts, authentik, logs, oidc, settings_service, suite
 from .auth import _set_cookie, secure_cookie
 
 router = APIRouter(prefix="/api/oidc", tags=["oidc"])
@@ -69,6 +69,7 @@ def read_config(_operator: OperatorAccount, request: Request, db: DbSession) -> 
 
 @router.put("/config", summary="Set the OIDC provider; the issuer is checked once")
 async def write_config(payload: ConfigIn, operator: OperatorAccount, request: Request, db: DbSession) -> dict[str, Any]:
+    suite.refuse_if_managed(db)
     issuer = payload.issuer.strip().rstrip("/")
     if not issuer.lower().startswith(("http://", "https://")):
         raise error("issuer_invalid", "The issuer must start with http:// or https://.", 422)
@@ -100,6 +101,7 @@ async def write_config(payload: ConfigIn, operator: OperatorAccount, request: Re
 
 @router.delete("/config", status_code=204, summary="Remove the OIDC configuration")
 def delete_config(operator: OperatorAccount, db: DbSession) -> None:
+    suite.refuse_if_managed(db)
     settings_service.save(
         db, {"oidc_issuer": "", "oidc_client_id": "", "oidc_client_secret_enc": "", "oidc_provider_name": ""}
     )
@@ -270,6 +272,9 @@ async def callback(
         # Nothing was written for a refusal: the invitation comes back with the rollback.
         db.rollback()
         return refuse(account, f"no account for this identity: {account} address={oidc.masked(identity.email)}")
+    if account.blocked_at is not None:
+        db.rollback()
+        return refuse("account_blocked", f"account {account.name} is blocked")
     if invite is not None:
         accounts.redeem(db, invite, account, consumed=True)
 
@@ -286,6 +291,7 @@ async def callback(
 async def authentik_setup(
     payload: AuthentikSetupIn, operator: OperatorAccount, request: Request, db: DbSession
 ) -> dict[str, Any]:
+    suite.refuse_if_managed(db)
     url = payload.url.strip().rstrip("/")
     if not url.lower().startswith(("http://", "https://")):
         raise error("url_invalid", "The authentik address must start with http:// or https://.", 422)

@@ -44,7 +44,7 @@ from ..security import (
     session_account,
     start_session,
 )
-from ..services import accounts, avatars, locales, mailer, settings_service, spaces, totp
+from ..services import accounts, avatars, locales, mailer, settings_service, spaces, suite, totp
 from ..services.accounts import AccountError
 
 logger = logging.getLogger("nexcanvas.auth")
@@ -257,6 +257,17 @@ def login(payload: LoginIn, request: Request, response: Response, db: DbSession)
     if not settings_service.get(db, "password_login") and account.role != OPERATOR:
         # The operator keeps the password as the way in when the provider is down.
         raise error("password_login_off", "Sign-in with a password is turned off.", 403)
+    if suite.connected(db):
+        # Connected, a password sign-in is the emergency account's: nexsuite's log shows it.
+        import threading
+
+        def _tell(name: str = account.name) -> None:
+            from ..db import SessionLocal
+
+            with SessionLocal() as own:
+                suite.report(own, "emergency_sign_in", name)
+
+        threading.Thread(target=_tell, name="suite-report", daemon=True).start()
     if account.totp_secret_enc:
         # Nothing opens yet: the browser gets a short-lived cookie that names the waiting sign-in and nothing else.
         response.set_cookie(
@@ -322,6 +333,7 @@ def change_password(payload: PasswordChangeIn, request: Request, account: Accoun
 
 @router.put("/me/profile", summary="The own display name; empty shows the name")
 def set_profile(payload: ProfileIn, account: Account, db: DbSession) -> dict[str, Any]:
+    suite.refuse_if_managed(db)
     row = db.get(AccountRow, account.id)
     assert row is not None
     shown = check_display_name(payload.display_name)
@@ -481,6 +493,7 @@ def delete_account(
 ) -> None:
     """Its rights go with it; its notes stay where they are. A space it was the only member of has no members any
     more and so belongs to the operator (who runs the disk it lies on anyway)."""
+    suite.refuse_if_managed(db)
     confirm_operator(request, db, operator, payload.current_password)
     if account_id == operator.id:
         raise error("cannot_delete_self", "You cannot delete your own account.", 409)
@@ -503,6 +516,7 @@ def sign_out_account(account_id: int, operator: OperatorAccount, db: DbSession) 
 def set_role(
     account_id: int, payload: RoleIn, request: Request, operator: OperatorAccount, db: DbSession,
 ) -> dict[str, Any]:
+    suite.refuse_if_managed(db)
     confirm_operator(request, db, operator, payload.current_password)
     if payload.role not in ROLES:
         raise error("invalid_role", "Unknown role.", 422)

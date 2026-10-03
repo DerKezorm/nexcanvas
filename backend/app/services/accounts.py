@@ -197,7 +197,7 @@ def authenticate(db: Session, name: str, password: str, device: int | None = Non
     Failures from that browser do not count towards the lock.
     """
     account = by_name(db, name)
-    if account is None or account.sign_in != SIGN_IN_PASSWORD:
+    if account is None or account.sign_in != SIGN_IN_PASSWORD or account.blocked_at is not None:
         verify_password(password, _dummy_hash())
         logger.warning("Sign-in failed for an unknown account")
         raise AccountError("wrong_credentials", "Name or password is wrong.", 401)

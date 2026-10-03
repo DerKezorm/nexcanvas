@@ -28,6 +28,7 @@ from .routers import directory as directory_router
 from .routers import locales as locales_router
 from .routers import logs as logs_router
 from .routers import settings as settings_router
+from .routers import suite as suite_router
 from .routers import totp as totp_router
 from .routers import v1 as v1_router
 from .security import HashingBusy, purge_sessions
@@ -38,7 +39,8 @@ logger = logging.getLogger("nexcanvas")
 
 ROUTERS = [
     health, about, locales_router, logs_router, auth, totp_router, oidc, members, settings_router, backups_router,
-    avatars_router, spaces, directory_router, boards, media, shares, shapes, templates, apitokens, v1_router,
+    avatars_router, spaces, directory_router, suite_router, boards, media, shares, shapes, templates, apitokens,
+    v1_router,
 ]
 
 
@@ -53,6 +55,21 @@ def _read_log_mode() -> tuple[str, datetime | None]:
 def _write_log_mode(mode: str, until: datetime | None) -> None:
     with SessionLocal() as db:
         settings_service.save(db, {"log_mode": mode, "log_mode_until": until.isoformat() if until else None})
+
+
+async def _suite_forever(stop: asyncio.Event) -> None:
+    """Connected to nexsuite: fetch the directory once a minute, whatever the notices did."""
+    from .services import suite
+
+    while not stop.is_set():
+        try:
+            await asyncio.to_thread(suite.run_forever_sync)
+        except Exception:
+            logger.exception("Fetching the directory from nexsuite failed")
+        try:
+            await asyncio.wait_for(stop.wait(), 60)
+        except TimeoutError:
+            continue
 
 
 async def _sweep_forever(stop: asyncio.Event) -> None:
@@ -98,6 +115,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         tasks.append(asyncio.create_task(backups.run_forever(stop)))
         tasks.append(asyncio.create_task(cleanup.run_forever(stop)))
         tasks.append(asyncio.create_task(_sweep_forever(stop)))
+        tasks.append(asyncio.create_task(_suite_forever(stop)))
     logger.info("nexcanvas %s started", __version__)
     with SessionLocal() as db:
         accounts.announce_setup_code(db)

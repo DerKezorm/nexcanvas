@@ -50,6 +50,20 @@ DEFAULTS: dict[str, Any] = {
     "smtp_user": "",
     "smtp_password_enc": "",
     "smtp_from": "",
+    #: nexsuite (``services/suite.py``): "" on its own, ``connecting``, ``connected``; its address, the app's token
+    #: (sealed), what pairing gave until the operator finishes, what was set before (for the way back), the person
+    #: whose own password sign-in stays (emergency account), the emergency code hashes, the last fetch.
+    "suite_state": "",
+    "suite_url": "",
+    "suite_token_enc": "",
+    "suite_pending": None,
+    "suite_saved": None,
+    "suite_emergency_account": 0,
+    "suite_emergency": [],
+    "suite_mail": False,
+    "suite_last_sync": None,
+    "suite_revision": 0,
+    "suite_problem": "",
 }
 
 
