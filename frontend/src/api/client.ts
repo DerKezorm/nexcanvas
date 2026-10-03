@@ -251,6 +251,9 @@ export const boardsApi = {
   restoreVersion: (id: string, version: number) => api<void>(`/api/boards/${id}/versions/${version}/restore`, { method: 'POST' }),
   /** Where the board downloads as JSON Canvas (a .canvas file, or a .zip when photos and files go along). */
   exportUrl: (id: string) => `/api/boards/${encodeURIComponent(id)}/export`,
+  /** A new board from a JSON Canvas file (another nexcanvas, nexlore, Obsidian); a typed name wins over the file's. */
+  fromFile: (space: number, file: File, title: string) =>
+    upload<{ board: BoardInfo; items: number; lines: number; files: number; missing: string[]; skipped: number }>('/api/boards/from-file', { space_id: space, name: file.name, title }, file),
   importCanvas: (id: string, file: Blob, at: { x: number; y: number }) =>
     upload<{ items: number; lines: number; files: number; missing: string[]; skipped: number }>(`/api/boards/${encodeURIComponent(id)}/import`, { x: Math.round(at.x), y: Math.round(at.y) }, file),
   search: (q: string) => api<BoardInfo[]>('/api/search', { query: { q } }),

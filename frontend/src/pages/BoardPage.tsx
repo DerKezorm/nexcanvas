@@ -78,6 +78,23 @@ function freshGroups<T extends Item>(copies: T[]): T[] {
     return { ...c, group: map.get(c.group) }
   })
 }
+
+/**
+ * What the wheel means over `target`: `scroll` when something between it and the board scrolls and can still move
+ * that way, `end` when such a list is at its end (then nothing moves, the board does not take over), else `board`.
+ */
+function wheelOver(target: EventTarget | null, board: HTMLElement, deltaY: number): 'scroll' | 'end' | 'board' {
+  let end = false
+  for (let el = target instanceof Element ? target : null; el && el !== board; el = el.parentElement) {
+    if (!(el instanceof HTMLElement) || el.scrollHeight <= el.clientHeight) continue
+    const overflow = getComputedStyle(el).overflowY
+    if (overflow !== 'auto' && overflow !== 'scroll') continue
+    if (deltaY < 0 ? el.scrollTop > 0 : el.scrollTop + el.clientHeight < el.scrollHeight - 1) return 'scroll'
+    end = true
+  }
+  return end ? 'end' : 'board'
+}
+
 /** The box a drag makes: corner to corner, or out of the middle with Alt; Shift (and a note) keeps it square. */
 function dragBox(start: Point, p: Point, square: boolean, fromMiddle: boolean, ratio = 1): Rect {
   let dx = p.x - start.x
@@ -162,6 +179,22 @@ function Editor({ board }: { board: Board }) {
   const doc = useLiveDoc(board.id, { name: shownName, color: personColor(me?.name ?? '') })
   const readOnly = board.role === 'read' || space?.role === 'read' || doc.status === 'gone'
   const { items, lines } = doc.doc
+  // Leaving the board, its card in the list shows what is on it now (the list itself loads again only now and then).
+  // Only once the board arrived: before that the document is empty and would wipe the card.
+  const leaving = useRef({ board, synced: false, background: doc.background, defs: doc.defs })
+  leaving.current = { board, synced: doc.synced, background: doc.background, defs: doc.defs }
+  const putInList = boards.put
+  const shown = doc.ref
+  useEffect(
+    () => () => {
+      const last = leaving.current
+      if (!last.synced) return
+      putInList({ ...last.board, items: shown.current.items, lines: shown.current.lines, background: last.background, defs: last.defs, updated: Date.now() })
+    },
+    // Once per board: the card is put when the board is left.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [board.id],
+  )
   const [notice, setNotice] = useState<string | null>(null)
   const [uploads, setUploads] = useState(0)
   const root = useRef<HTMLDivElement>(null)
@@ -341,7 +374,11 @@ function Editor({ board }: { board: Board }) {
     const el = root.current
     if (!el) return
     const wheel = (e: WheelEvent) => {
+      // Over something on the board that scrolls itself (the shape library, a menu, a dialog), the wheel is its own.
+      const over = e.ctrlKey || e.metaKey ? 'board' : wheelOver(e.target, el, e.deltaY)
+      if (over === 'scroll') return
       e.preventDefault()
+      if (over === 'end') return
       // A mouse wheel notch is about 100, a trackpad pinch sends small steps; both should feel alike.
       if (e.ctrlKey || e.metaKey) zoomAt(local(e), Math.exp(-Math.max(-60, Math.min(60, e.deltaY)) * (Math.abs(e.deltaY) < 40 ? 0.01 : 0.0035)))
       else setView((v) => ({ ...v, x: v.x - (e.shiftKey ? e.deltaY : e.deltaX), y: v.y - (e.shiftKey ? 0 : e.deltaY) }))

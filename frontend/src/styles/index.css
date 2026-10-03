@@ -159,3 +159,22 @@
     @apply border border-ink-700 text-mist-300 hover:bg-ink-800 hover:text-mist-100;
   }
 }
+
+/* Outside the layers on purpose: these win over the utilities of the elements (as in nexlore). */
+
+/* A field's edge at 3:1 to its ground; a field in focus keeps the accent, one without a frame stays so. */
+:is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']), select, textarea)[class*='border-ink-7']:not(:focus) {
+  border-color: var(--color-edge);
+}
+
+/* Less motion when the system asks for it: no fades, no slides, no smooth scrolling. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

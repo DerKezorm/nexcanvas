@@ -5,8 +5,11 @@ import { BrowserRouter } from 'react-router-dom'
 
 import App from './App'
 import './i18n'
+import { followSystem } from './lib/theme'
 import { AuthProvider } from './state/auth'
 import './styles/index.css'
+
+followSystem()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

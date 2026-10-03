@@ -14,13 +14,9 @@ export function Thumb({ board }: { board: Board }) {
   const shown = effectiveBackground(board.background, true)
   const look = backgroundStyle(shown, { x: 0, y: 0, zoom: 14 / 24 })
   const box = bounds(board.items)
-  if (!box) {
-    return (
-      <div className="nc-board grid h-full w-full place-items-center" style={look}>
-        <span className="text-xs text-mist-600">·</span>
-      </div>
-    )
-  }
+  // An empty board is its background, nothing on it.
+  if (!box) return <div className="nc-board h-full w-full" style={look} data-empty />
+
   const pad = Math.max(box.w, box.h) * 0.06 + 20
   const view = `${box.x - pad} ${box.y - pad} ${box.w + pad * 2} ${box.h + pad * 2}`
   const items = new Map(board.items.map((i) => [i.id, i]))

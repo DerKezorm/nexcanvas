@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
+from pathlib import PurePosixPath
 from typing import Annotated, Any
 from urllib.parse import quote, urlsplit
 
@@ -268,16 +269,9 @@ def export_canvas(board_id: BoardId, account: Account, db: DbSession) -> Respons
     })
 
 
-@router.post("/boards/{board_id}/import", summary="Cards and arrows of a JSON Canvas (.canvas or .zip) onto the board")
-async def import_canvas(
-    board_id: BoardId,
-    request: Request,
-    account: Account,
-    x: Annotated[float, Query(ge=-1e7, le=1e7)] = 0,
-    y: Annotated[float, Query(ge=-1e7, le=1e7)] = 0,
-) -> dict[str, Any]:
+async def _canvas_body(request: Request) -> bytes:
+    """The file of an import, read to its end within the limit."""
     with SessionLocal() as db:
-        _board(db, account, board_id, WRITE)
         # An archive holds several photos; it may be a few times as large as one upload.
         limit = media_store.max_bytes(db) * 4
     declared = request.headers.get("content-length", "")
@@ -293,11 +287,77 @@ async def import_canvas(
         raise error("upload_aborted", "The upload stopped before the end.") from exc
     if not body:
         raise error("empty", "The file is empty.")
+    return bytes(body)
+
+
+def _imported(result: canvas_file.Imported) -> dict[str, Any]:
+    return {"items": result.items, "lines": result.lines, "files": result.files, "missing": result.missing[:50],
+            "skipped": result.skipped}
+
+
+@router.post("/boards/from-file", status_code=201,
+             summary="A new board from a JSON Canvas (.canvas or .zip), as another nexcanvas or Obsidian wrote it")
+async def board_from_file(
+    request: Request,
+    account: Account,
+    space_id: Annotated[int, Query(ge=1, le=2**31)],
+    name: Annotated[str, Query(max_length=255)] = "",
+    title: Annotated[str, Query(max_length=200)] = "",
+) -> dict[str, Any]:
+    with SessionLocal() as db:
+        try:
+            rights.check(db, account, space_id, WRITE)
+        except rights.RightsError as exc:
+            raise _fail(exc) from exc
+    body = await _canvas_body(request)
+
+    def bring_in() -> tuple[str, bytes, canvas_file.Imported]:
+        with SessionLocal() as db:
+            stem = PurePosixPath(name.replace("\\", "/")).name.rsplit(".", 1)[0].strip()
+            # A name typed in the dialog first, then the one the file carries, then the file's own.
+            chosen = title.strip() or canvas_file.title_of(body) or stem or "Imported board"
+            board = boards.create(db, account, space_id, chosen)
+            try:
+                update, result = canvas_file.import_into(db, account, board, body, (0.0, 0.0))
+            except canvas_file.CanvasError:
+                # Nothing to bring in: no empty board is left behind.
+                db.delete(board)
+                db.commit()
+                raise
+            db.add(Visit(account_id=account.id, board_id=board.id, opened_at=utcnow()))
+            db.commit()
+            return board.id, update, result
+
+    try:
+        board_id, update, result = await run_in_threadpool(bring_in)
+    except canvas_file.CanvasError as exc:
+        raise error(exc.code, exc.text, exc.status) from exc
+    except boards.BoardError as exc:
+        raise _fail(exc) from exc
+    await live.push(board_id, update, account.name)
+    logger.info("Board made from a canvas board=%s space=%s items=%s lines=%s files=%s by=%s", board_id, space_id,
+                result.items, result.lines, result.files, account.name)
+    with SessionLocal() as db:
+        board = _board(db, account, board_id, READ)
+        return {"board": _view(db, account, board), **_imported(result)}
+
+
+@router.post("/boards/{board_id}/import", summary="Cards and arrows of a JSON Canvas (.canvas or .zip) onto the board")
+async def import_canvas(
+    board_id: BoardId,
+    request: Request,
+    account: Account,
+    x: Annotated[float, Query(ge=-1e7, le=1e7)] = 0,
+    y: Annotated[float, Query(ge=-1e7, le=1e7)] = 0,
+) -> dict[str, Any]:
+    with SessionLocal() as db:
+        _board(db, account, board_id, WRITE)
+    body = await _canvas_body(request)
 
     def bring_in() -> tuple[bytes, canvas_file.Imported]:
         with SessionLocal() as db:
             board = _board(db, account, board_id, WRITE)
-            return canvas_file.import_into(db, account, board, bytes(body), (x, y))
+            return canvas_file.import_into(db, account, board, body, (x, y))
 
     try:
         update, result = await run_in_threadpool(bring_in)
@@ -306,8 +366,7 @@ async def import_canvas(
     await live.push(board_id, update, account.name)
     logger.info("Canvas imported board=%s items=%s lines=%s files=%s missing=%s by=%s", board_id, result.items,
                 result.lines, result.files, len(result.missing), account.name)
-    return {"items": result.items, "lines": result.lines, "files": result.files, "missing": result.missing[:50],
-            "skipped": result.skipped}
+    return _imported(result)
 
 
 @router.get("/search", summary="Boards whose name or words contain all the words asked for")

@@ -11,7 +11,8 @@
   "theme": {
     "dark": "Dark",
     "light": "Light",
-    "group": "Appearance"
+    "group": "Appearance",
+    "system": "As the system"
   },
   "search": {
     "button": "Search boards",
@@ -33,57 +34,7 @@
     "operator": "Operator",
     "mine": "My account",
     "language": "Language",
-    "signOut": "Sign out",
-    "profile": "Profile",
-    "security": "Security",
-    "connections": "Connections",
-    "picture": "Change picture",
-    "displayName": "Display name",
-    "email": "Email",
-    "password": "Password",
-    "changePassword": "Change password",
-    "twoFactorHint": "A code from an authenticator app at every sign-in, with recovery codes.",
-    "twoFactorSetup": "Set up second factor",
-    "apiTokens": "API tokens",
-    "apiHint": "For dashboards and automations, with level, spaces and expiry. The operator switches them on.",
-    "newToken": "New token",
-    "pictureRemove": "Remove picture",
-    "displayNameHint": "What others see. You sign in as {{name}}.",
-    "currentPassword": "Current password",
-    "newPassword": "New password",
-    "passwordChanged": "Password changed. Other browsers are signed out.",
-    "viaProvider": "This account signs in through the provider; its password lives there.",
-    "twoFactorProvider": "Accounts from the provider bring its second factor.",
-    "twoFactorOff": "Off.",
-    "twoFactorOn_one": "On. One recovery code left.",
-    "twoFactorOn_other": "On. {{count}} recovery codes left.",
-    "twoFactorConfirm": "Switch on",
-    "twoFactorDisable": "Switch off",
-    "twoFactorRenew": "New recovery codes",
-    "twoFactorDisableText": "Your password, and signing in needs only the password again.",
-    "twoFactorRenewText": "Your password, and the old recovery codes stop working.",
-    "scan": "Scan the code with your authenticator app, then type the six digits it shows.",
-    "qr": "QR code for the authenticator app",
-    "codesTitle": "Your recovery codes",
-    "codesLead": "Each works once when the phone is gone. Keep them on paper or in a password manager; they are shown only now.",
-    "codesDone": "I have kept them",
-    "sessions": "Signed in elsewhere",
-    "sessionsHint": "A lost phone or a borrowed computer: end every sign-in but this one.",
-    "signOutOthers": "Sign out everywhere else",
-    "othersSignedOut": "Every other browser is signed out.",
-    "profileText": "How others see you.",
-    "oidc": {
-      "title": "Sign-in with {{name}}",
-      "lead": "Link your account to the provider, then both ways work.",
-      "only": "This account signs in through the provider only.",
-      "linked": "Linked. You can sign in with your password or through the provider.",
-      "linkedNow": "Linked.",
-      "unlink": "Remove the link",
-      "unlinked": "Link removed.",
-      "text": "Your password to confirm, then off to the provider and back.",
-      "link": "Link with the provider"
-    },
-    "shapes": "Shapes"
+    "signOut": "Sign out"
   },
   "board": {
     "new": "New board",
@@ -112,7 +63,8 @@
     "live": "Live",
     "offline": "Offline: changes follow when the connection is back",
     "gone": "No access any more",
-    "noSpace": "A board lives in a space. Make one first; you can invite others into it later."
+    "noSpace": "A board lives in a space. Make one first; you can invite others into it later.",
+    "fromFile": "From a file …"
   },
   "boards": {
     "all": "All boards",
@@ -127,21 +79,26 @@
     "button_one": "One member",
     "button_other": "{{count}} members",
     "title": "Members of {{space}}",
-    "you": "you",
-    "role": "Role",
-    "read": "Read",
-    "write": "Write",
-    "manage": "Manage",
-    "invite": "Invite by name",
-    "invitePlaceholder": "Account name",
-    "send": "Invite",
-    "sent": "If {{name}} exists, the invitation is waiting under News.",
-    "link": "Make an invitation link ({{role}})",
-    "leave": "Leave the space",
-    "remove": "Take out of the space",
-    "onlyManagers": "Only managers of the space change members.",
-    "openInvites_one": "One invitation is open.",
-    "openInvites_other": "{{count}} invitations are open."
+    "resetOnly": "You do not read this space. As the operator you can change rights, not give yourself one.",
+    "you": "(you)",
+    "roleOf": "Right of {{name}}",
+    "leave": "Leave",
+    "remove": "Remove {{name}}",
+    "removeShort": "Remove",
+    "none": "No members yet.",
+    "addName": "Name of an account",
+    "role": "Right",
+    "add": "Add",
+    "inviteLink": {
+      "title": "Invite",
+      "text": "A link to pass on. Whoever follows it makes an account, or joins with the one they have."
+    },
+    "lastManagerRole": "You are the only one who may manage this space. If you give that up, only the operator can manage it afterwards, and you cannot invite anybody any more.",
+    "lastManagerLeave": "You are the only one who may manage this space. If you leave, only the operator can manage it afterwards.",
+    "changeAnyway": "Give it up anyway",
+    "leaveAnyway": "Leave anyway",
+    "inviteName": "Invite",
+    "invitedName": "If there is an account “{{name}}”, it finds the invitation under “New” and accepts or declines it."
   },
   "sidebar": {
     "label": "Boards and spaces",
@@ -568,7 +525,6 @@
     "accounts": "Accounts",
     "accountsHint": "Accounts come by invitation only.",
     "member": "Member",
-    "invite": "Invite someone",
     "signin": "Sign-in",
     "oidc": "OpenID Connect",
     "oidcHint": "For example authentik, set up as in nexlore and nextrmnl.",
@@ -639,7 +595,6 @@
     "resetTwoFactor": "Take second factor",
     "signOutEverywhere": "Sign out everywhere",
     "deleteAccount": "Delete",
-    "inviteHint": "A link to copy, valid for 7 days, for one new account.",
     "passwordGiven": "The new password, to pass on once:",
     "confirm": {
       "role": {
@@ -738,7 +693,9 @@
     "files": "Files",
     "filesHint": "Photos and files on boards: how large they may be and what is taken out when uploading.",
     "smtpPort": "Port",
-    "detail": "Detail"
+    "detail": "Detail",
+    "inviteTitle": "Invite into nexcanvas",
+    "inviteText": "Without a space: the new account makes its own spaces or is added to others later."
   },
   "errors": {
     "avatar_not_a_picture": "That is not a picture nexcanvas takes (JPEG, PNG, WebP, GIF, HEIC or AVIF).",
@@ -1156,5 +1113,103 @@
     "count_other": "{{count}} shapes",
     "allOn": "All on",
     "allOff": "All off"
+  },
+  "me": {
+    "title": "My account",
+    "tabs": {
+      "profile": "Profile",
+      "security": "Security",
+      "shapes": "Shapes"
+    },
+    "profile": {
+      "displayName": "Display name",
+      "displayHint": "How others see you. Empty shows your user name {{name}}; you still sign in with it.",
+      "displaySave": "Save",
+      "displaySaved": "Display name saved.",
+      "name": "Name",
+      "role": "Role",
+      "email": "Email",
+      "upload": "Upload a picture",
+      "change": "Another picture",
+      "remove": "Remove",
+      "saved": "Picture saved.",
+      "removed": "Picture removed.",
+      "hint": "A photo from your phone or camera. It is cut to a square, and nothing of the file but the picture is kept: no place, no device."
+    },
+    "password": {
+      "title": "Password",
+      "current": "Current password",
+      "new": "New password",
+      "submit": "Change password",
+      "done": "Password changed. Other browsers have to sign in again.",
+      "again": "Password again",
+      "mismatch": "The two passwords are not the same."
+    },
+    "oidc": {
+      "title": "Sign-in provider",
+      "only": "This account signs in through the provider.",
+      "linked": "Linked: you can sign in with the provider as well as with your password.",
+      "unlink": "Unlink",
+      "unlinked": "No longer linked.",
+      "text": "Link your account to the provider, then you can sign in with either. Your password confirms it is you.",
+      "link": "Link with the provider"
+    },
+    "sessions": {
+      "title": "Other browsers",
+      "text": "Signs you out everywhere except here, for example after losing a phone.",
+      "submit": "Sign out everywhere else",
+      "done": "Every other browser is signed out."
+    },
+    "role": {
+      "operator": "Operator",
+      "member": "Member"
+    },
+    "linked": "Your account is linked to the provider."
+  },
+  "twofactor": {
+    "title": "Second factor",
+    "lead": "Besides the password, a code from an app on your phone (any authenticator app that takes a QR code). Recovery codes on paper get you in when the phone is gone.",
+    "provider": "You sign in through the provider; its second factor applies.",
+    "off": "Off.",
+    "on_one": "On. {{count}} recovery code left.",
+    "on_other": "On. {{count}} recovery codes left.",
+    "enable": "Set up",
+    "scan": "Scan this code with the app, or type the key below into it. Then give the code the app shows, and your password.",
+    "qr": "QR code for the authenticator app",
+    "secret": "Key to type in:",
+    "code": "Code from the app",
+    "codeHint": "Six digits. Or one of your recovery codes.",
+    "passwordHint": "Proves it is you at the keyboard.",
+    "confirm": "Turn on",
+    "codesTitle": "Your recovery codes",
+    "codesLead": "Each one signs you in once, when the phone is not at hand. They are shown only now: copy them or save them as a file, and keep them apart from the phone.",
+    "codesCopy": "Copy",
+    "codesDownload": "Save as file",
+    "codesDone": "I have them",
+    "renew": "New recovery codes",
+    "renewText": "The old recovery codes stop working. Give your password to make new ones.",
+    "disable": "Turn off",
+    "disableText": "From then on the password alone signs you in. Give it to turn the second factor off.",
+    "lowCodes": "Few recovery codes left. Make new ones while you can still sign in.",
+    "loginTitle": "Second factor",
+    "loginText": "The code from your app, or a recovery code.",
+    "back": "Start over with the password",
+    "requiredTitle": "Set up a second factor",
+    "requiredText": "The operator requires a second factor for every account that signs in with a password. Set it up to go on."
+  },
+  "invite": {
+    "valid": "Valid for",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "email": "Mail address (optional)",
+    "noMail": "Without a mail server nexcanvas sends nothing: copy the link and pass it on yourself.",
+    "send": "Send the link by mail",
+    "create": "Create invitation link",
+    "copy": "Copy",
+    "sent": "Sent to {{email}}.",
+    "once": "The link works once. It is shown only now.",
+    "until": "until {{when}}",
+    "withdraw": "Withdraw",
+    "noEmail": "no address"
   }
 }

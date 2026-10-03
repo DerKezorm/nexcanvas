@@ -11,7 +11,8 @@
   "theme": {
     "dark": "Dunkel",
     "light": "Hell",
-    "group": "Darstellung"
+    "group": "Darstellung",
+    "system": "Wie das System"
   },
   "search": {
     "button": "Boards suchen",
@@ -33,57 +34,7 @@
     "operator": "Betreiber",
     "mine": "Mein Konto",
     "language": "Sprache",
-    "signOut": "Abmelden",
-    "profile": "Profil",
-    "security": "Sicherheit",
-    "connections": "Verbindungen",
-    "picture": "Bild ändern",
-    "displayName": "Anzeigename",
-    "email": "E-Mail",
-    "password": "Passwort",
-    "changePassword": "Passwort ändern",
-    "twoFactorHint": "Bei jeder Anmeldung ein Code aus einer Authenticator-App, dazu Wiederherstellungscodes.",
-    "twoFactorSetup": "Zweiten Faktor einrichten",
-    "apiTokens": "API-Token",
-    "apiHint": "Für Dashboards und Automatisierungen, mit Stufe, Bereichen und Ablauf. Der Betreiber schaltet sie frei.",
-    "newToken": "Neuer Token",
-    "pictureRemove": "Bild entfernen",
-    "displayNameHint": "Was andere sehen. Anmelden tust du dich als {{name}}.",
-    "currentPassword": "Bisheriges Passwort",
-    "newPassword": "Neues Passwort",
-    "passwordChanged": "Passwort geändert. Andere Browser sind abgemeldet.",
-    "viaProvider": "Dieses Konto meldet sich über den Anbieter an; das Passwort liegt dort.",
-    "twoFactorProvider": "Konten vom Anbieter bringen dessen zweiten Faktor mit.",
-    "twoFactorOff": "Aus.",
-    "twoFactorOn_one": "An. Noch ein Wiederherstellungscode übrig.",
-    "twoFactorOn_other": "An. Noch {{count}} Wiederherstellungscodes übrig.",
-    "twoFactorConfirm": "Einschalten",
-    "twoFactorDisable": "Ausschalten",
-    "twoFactorRenew": "Neue Wiederherstellungscodes",
-    "twoFactorDisableText": "Dein Passwort, und die Anmeldung braucht wieder nur das Passwort.",
-    "twoFactorRenewText": "Dein Passwort, und die alten Wiederherstellungscodes gelten nicht mehr.",
-    "scan": "Den Code mit deiner Authenticator-App scannen, dann die sechs Ziffern eingeben, die sie zeigt.",
-    "qr": "QR-Code für die Authenticator-App",
-    "codesTitle": "Deine Wiederherstellungscodes",
-    "codesLead": "Jeder gilt einmal, wenn das Handy weg ist. Auf Papier oder im Passwortmanager aufheben; sie werden nur jetzt gezeigt.",
-    "codesDone": "Ich habe sie aufgehoben",
-    "sessions": "Anderswo angemeldet",
-    "sessionsHint": "Ein verlorenes Handy oder ein geliehener Rechner: jede Anmeldung außer dieser beenden.",
-    "signOutOthers": "Überall sonst abmelden",
-    "othersSignedOut": "Alle anderen Browser sind abgemeldet.",
-    "profileText": "Wie andere dich sehen.",
-    "oidc": {
-      "title": "Anmeldung über {{name}}",
-      "lead": "Dein Konto mit dem Anbieter verknüpfen, dann geht beides.",
-      "only": "Dieses Konto meldet sich nur über den Anbieter an.",
-      "linked": "Verknüpft. Du kannst dich mit Passwort oder über den Anbieter anmelden.",
-      "linkedNow": "Verknüpft.",
-      "unlink": "Verknüpfung lösen",
-      "unlinked": "Verknüpfung gelöst.",
-      "text": "Dein Passwort zur Bestätigung, dann geht es zum Anbieter und zurück.",
-      "link": "Mit dem Anbieter verknüpfen"
-    },
-    "shapes": "Formen"
+    "signOut": "Abmelden"
   },
   "board": {
     "new": "Neues Board",
@@ -112,7 +63,8 @@
     "live": "Live",
     "offline": "Offline: Änderungen folgen, sobald die Verbindung zurück ist",
     "gone": "Kein Zugriff mehr",
-    "noSpace": "Ein Board liegt in einem Bereich. Leg zuerst einen an; andere lädst du später dazu ein."
+    "noSpace": "Ein Board liegt in einem Bereich. Leg zuerst einen an; andere lädst du später dazu ein.",
+    "fromFile": "Aus Datei …"
   },
   "boards": {
     "all": "Alle Boards",
@@ -127,21 +79,26 @@
     "button_one": "Ein Mitglied",
     "button_other": "{{count}} Mitglieder",
     "title": "Mitglieder von {{space}}",
-    "you": "du",
-    "role": "Rolle",
-    "read": "Lesen",
-    "write": "Schreiben",
-    "manage": "Verwalten",
-    "invite": "Per Name einladen",
-    "invitePlaceholder": "Kontoname",
-    "send": "Einladen",
-    "sent": "Gibt es {{name}}, wartet die Einladung dort unter Neuigkeiten.",
-    "link": "Einladungslink erstellen ({{role}})",
-    "leave": "Bereich verlassen",
-    "remove": "Aus dem Bereich nehmen",
-    "onlyManagers": "Mitglieder ändern nur, die den Bereich verwalten.",
-    "openInvites_one": "Eine Einladung ist offen.",
-    "openInvites_other": "{{count}} Einladungen sind offen."
+    "resetOnly": "Du liest diesen Bereich nicht. Als Betreiber kannst du Rechte ändern, dir selbst aber keines geben.",
+    "you": "(du)",
+    "roleOf": "Recht von {{name}}",
+    "leave": "Verlassen",
+    "remove": "{{name}} entfernen",
+    "removeShort": "Entfernen",
+    "none": "Noch keine Mitglieder.",
+    "addName": "Name eines Kontos",
+    "role": "Recht",
+    "add": "Hinzufügen",
+    "inviteLink": {
+      "title": "Einladen",
+      "text": "Ein Link zum Weitergeben. Wer ihm folgt, legt ein Konto an oder tritt mit seinem vorhandenen bei."
+    },
+    "lastManagerRole": "Du bist die einzige Person, die diesen Bereich verwalten darf. Gibst du das ab, kann ihn danach nur noch der Betreiber verwalten, und du kannst niemanden mehr einladen.",
+    "lastManagerLeave": "Du bist die einzige Person, die diesen Bereich verwalten darf. Gehst du, kann ihn danach nur noch der Betreiber verwalten.",
+    "changeAnyway": "Trotzdem abgeben",
+    "leaveAnyway": "Trotzdem gehen",
+    "inviteName": "Einladen",
+    "invitedName": "Gibt es ein Konto „{{name}}“, findet es die Einladung unter „Neu“ und nimmt sie an oder lehnt sie ab."
   },
   "sidebar": {
     "label": "Boards und Bereiche",
@@ -568,7 +525,6 @@
     "accounts": "Konten",
     "accountsHint": "Konten kommen nur per Einladung.",
     "member": "Mitglied",
-    "invite": "Jemanden einladen",
     "signin": "Anmeldung",
     "oidc": "OpenID Connect",
     "oidcHint": "Zum Beispiel authentik, eingerichtet wie in nexlore und nextrmnl.",
@@ -639,7 +595,6 @@
     "resetTwoFactor": "Zweiten Faktor entfernen",
     "signOutEverywhere": "Überall abmelden",
     "deleteAccount": "Löschen",
-    "inviteHint": "Ein Link zum Kopieren, 7 Tage gültig, für ein neues Konto.",
     "passwordGiven": "Das neue Passwort, einmal weiterzugeben:",
     "confirm": {
       "role": {
@@ -738,7 +693,9 @@
     "files": "Dateien",
     "filesHint": "Fotos und Dateien auf Boards: wie groß sie sein dürfen und was beim Hochladen herausfällt.",
     "smtpPort": "Port",
-    "detail": "Ausführlichkeit"
+    "detail": "Ausführlichkeit",
+    "inviteTitle": "Zu nexcanvas einladen",
+    "inviteText": "Ohne Bereich: Das neue Konto legt eigene Bereiche an oder wird später zu anderen hinzugefügt."
   },
   "errors": {
     "avatar_not_a_picture": "Das ist kein Bild, das nexcanvas annimmt (JPEG, PNG, WebP, GIF, HEIC oder AVIF).",
@@ -1156,5 +1113,103 @@
     "count_other": "{{count}} Formen",
     "allOn": "Alle an",
     "allOff": "Alle aus"
+  },
+  "me": {
+    "title": "Mein Konto",
+    "tabs": {
+      "profile": "Profil",
+      "security": "Sicherheit",
+      "shapes": "Formen"
+    },
+    "profile": {
+      "displayName": "Anzeigename",
+      "displayHint": "So sehen dich andere. Leer zeigt deinen Benutzernamen {{name}}; mit ihm meldest du dich weiter an.",
+      "displaySave": "Speichern",
+      "displaySaved": "Anzeigename gespeichert.",
+      "name": "Name",
+      "role": "Rolle",
+      "email": "E-Mail",
+      "upload": "Bild hochladen",
+      "change": "Anderes Bild",
+      "remove": "Entfernen",
+      "saved": "Bild gespeichert.",
+      "removed": "Bild entfernt.",
+      "hint": "Ein Foto vom Handy oder von der Kamera. Es wird quadratisch zugeschnitten, und von der Datei bleibt nur das Bild: kein Ort, kein Gerät."
+    },
+    "password": {
+      "title": "Passwort",
+      "current": "Jetziges Passwort",
+      "new": "Neues Passwort",
+      "submit": "Passwort ändern",
+      "done": "Passwort geändert. Andere Browser müssen sich neu anmelden.",
+      "again": "Passwort noch einmal",
+      "mismatch": "Die beiden Passwörter sind nicht gleich."
+    },
+    "oidc": {
+      "title": "Anmeldeanbieter",
+      "only": "Dieses Konto meldet sich über den Anbieter an.",
+      "linked": "Verknüpft: Du kannst dich über den Anbieter und mit deinem Passwort anmelden.",
+      "unlink": "Verknüpfung lösen",
+      "unlinked": "Nicht mehr verknüpft.",
+      "text": "Verknüpfe dein Konto mit dem Anbieter, dann geht beides. Dein Passwort bestätigt, dass du es bist.",
+      "link": "Mit dem Anbieter verknüpfen"
+    },
+    "sessions": {
+      "title": "Andere Browser",
+      "text": "Meldet dich überall ab außer hier, etwa nach einem verlorenen Handy.",
+      "submit": "Überall sonst abmelden",
+      "done": "Alle anderen Browser sind abgemeldet."
+    },
+    "role": {
+      "operator": "Betreiber",
+      "member": "Mitglied"
+    },
+    "linked": "Dein Konto ist mit dem Anbieter verknüpft."
+  },
+  "twofactor": {
+    "title": "Zweiter Faktor",
+    "lead": "Neben dem Passwort ein Code aus einer App auf dem Handy (jede Authenticator-App, die einen QR-Code nimmt). Wiederherstellungscodes auf Papier bringen dich hinein, wenn das Handy weg ist.",
+    "provider": "Du meldest dich über den Anbieter an; dort gilt sein zweiter Faktor.",
+    "off": "Aus.",
+    "on_one": "An. Noch {{count}} Wiederherstellungscode.",
+    "on_other": "An. Noch {{count}} Wiederherstellungscodes.",
+    "enable": "Einrichten",
+    "scan": "Scanne diesen Code mit der App oder tippe den Schlüssel darunter ein. Dann gib den Code ein, den die App zeigt, und dein Passwort.",
+    "qr": "QR-Code für die Authenticator-App",
+    "secret": "Schlüssel zum Eintippen:",
+    "code": "Code aus der App",
+    "codeHint": "Sechs Ziffern. Oder einer deiner Wiederherstellungscodes.",
+    "passwordHint": "Zeigt, dass du selbst an der Tastatur sitzt.",
+    "confirm": "Einschalten",
+    "codesTitle": "Deine Wiederherstellungscodes",
+    "codesLead": "Jeder meldet dich einmal an, wenn das Handy nicht zur Hand ist. Sie werden nur jetzt gezeigt: Kopiere sie oder speichere sie als Datei und bewahre sie getrennt vom Handy auf.",
+    "codesCopy": "Kopieren",
+    "codesDownload": "Als Datei speichern",
+    "codesDone": "Ich habe sie",
+    "renew": "Neue Wiederherstellungscodes",
+    "renewText": "Die alten Wiederherstellungscodes gelten dann nicht mehr. Gib dein Passwort ein, um neue zu erzeugen.",
+    "disable": "Ausschalten",
+    "disableText": "Danach meldet dich das Passwort allein an. Gib es ein, um den zweiten Faktor auszuschalten.",
+    "lowCodes": "Nur noch wenige Wiederherstellungscodes. Erzeuge neue, solange du dich noch anmelden kannst.",
+    "loginTitle": "Zweiter Faktor",
+    "loginText": "Der Code aus deiner App oder ein Wiederherstellungscode.",
+    "back": "Mit dem Passwort neu anfangen",
+    "requiredTitle": "Zweiten Faktor einrichten",
+    "requiredText": "Der Betreiber verlangt einen zweiten Faktor für jedes Konto, das sich mit Passwort anmeldet. Richte ihn ein, um weiterzumachen."
+  },
+  "invite": {
+    "valid": "Gültig für",
+    "days_one": "{{count}} Tag",
+    "days_other": "{{count}} Tage",
+    "email": "Mailadresse (freiwillig)",
+    "noMail": "Ohne Mailserver verschickt nexcanvas nichts: Kopiere den Link und gib ihn selbst weiter.",
+    "send": "Link per Mail schicken",
+    "create": "Einladungslink erstellen",
+    "copy": "Kopieren",
+    "sent": "An {{email}} geschickt.",
+    "once": "Der Link gilt einmal. Er wird nur jetzt gezeigt.",
+    "until": "bis {{when}}",
+    "withdraw": "Zurückziehen",
+    "noEmail": "keine Adresse"
   }
 }

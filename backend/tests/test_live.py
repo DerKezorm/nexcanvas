@@ -298,3 +298,32 @@ def test_bringing_a_version_back_brings_its_background_back(client: TestClient, 
         assert board is not None
         assert boards.snapshot_of(boards.load(db, board))["background"] == {"pattern": "lines", "color": "paper"}
 
+
+
+def test_what_was_deleted_stays_deleted_after_everyone_left(client: TestClient, operator: Account,
+                                                            space: int) -> None:
+    board_id = make_board(client, space, content={"items": [
+        {"id": "start-note", "kind": "note", "x": 0, "y": 0, "w": 100, "h": 100, "color": "blue", "text": "weg"},
+    ], "lines": []})
+    anna = make_account("anna")
+    join(client, space, "anna", "write")
+    with client.websocket_connect(f"/api/boards/{board_id}/live", headers={"cookie": cookie_of(operator)}) as one,             client.websocket_connect(f"/api/boards/{board_id}/live", headers={"cookie": cookie_of(anna)}) as two:
+        browser, other = Browser(one), Browser(two)
+        browser.sync()
+        other.sync()
+        # A deletion alone leaves the document's state vector as it was; it is new all the same.
+        before = browser.doc.get_state()
+        del browser.items["start-note"]
+        del browser.texts["start-note"]
+        one.send_bytes(create_update_message(browser.doc.get_update(before)))
+        # Kept first (without it the other browser would wait for ever), then passed on.
+        wait_for(lambda: stored_updates(board_id) == 1)
+        other.receive_update()
+        assert other.items.to_py() == {}
+        assert client.get(f"/api/boards/{board_id}").json()["picture"]["items"] == []
+    wait_for(lambda: stored_updates(board_id) == 0)
+    assert client.get(f"/api/boards/{board_id}").json()["picture"]["items"] == []
+    with SessionLocal() as db:
+        board = db.get(Board, board_id)
+        assert board is not None
+        assert boards.snapshot_of(boards.load(db, board))["items"] == []

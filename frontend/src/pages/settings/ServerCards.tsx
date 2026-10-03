@@ -55,17 +55,25 @@ export function useServerSettings() {
 }
 
 type AccountRow = Me & { spaces: number; locked: boolean; created_at: string; last_seen_at: string | null }
+type OpenInvite = { id: number; email: string; expires_at: string }
+const DAYS = ['1', '7', '30'] as const
 
 export function AccountsCard() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { me } = useAuth()
   const [list, setList] = useState<AccountRow[]>([])
-  const [link, setLink] = useState<string | null>(null)
+  // Inviting into nexcanvas without a space, as nexlore's: how long, to which address, and the open invitations.
+  const [days, setDays] = useState<(typeof DAYS)[number]>('7')
+  const [email, setEmail] = useState('')
+  const [send, setSend] = useState(false)
+  const [made, setMade] = useState<{ link: string; sent: boolean; email: string } | null>(null)
+  const [invites, setInvites] = useState<OpenInvite[]>([])
   const [asking, setAsking] = useState<{ kind: 'role' | 'delete' | 'password' | 'reset' | 'signout'; account: AccountRow } | null>(null)
   const [newPassword, setNewPassword] = useState('')
   const { busy, problem, done, run } = useAction()
   const load = useCallback(() => {
     api<AccountRow[]>('/api/accounts').then(setList, () => undefined)
+    api<OpenInvite[]>('/api/invites').then(setInvites, () => undefined)
   }, [])
   useEffect(load, [load])
   return (
@@ -78,7 +86,7 @@ export function AccountsCard() {
               <div className="truncate text-sm font-medium text-mist-100">
                 {row.display_name || row.name}
                 {row.display_name && <span className="ml-1 text-xs font-normal text-mist-500">@{row.name}</span>}
-                {row.id === me?.id && <span className="ml-1.5 text-xs font-normal text-mist-500">({t('members.you')})</span>}
+                {row.id === me?.id && <span className="ml-1.5 text-xs font-normal text-mist-500">{t('members.you')}</span>}
               </div>
               <div className="truncate text-xs text-mist-500">
                 {row.role === 'operator' ? t('account.operator') : t('server.member')} · {t(`server.signInBy.${row.sign_in}`)} · {t('server.inSpaces', { count: row.spaces })}
@@ -112,13 +120,64 @@ export function AccountsCard() {
           </li>
         ))}
       </ul>
-      <div className="flex flex-wrap items-center gap-3">
-        <Button accent busy={busy} onClick={() => void run(async () => setLink((await api<{ link: string }>('/api/invites', { method: 'POST', body: { days: 7 } })).link))}>
-          {t('server.invite')}
-        </Button>
-        <span className="text-xs text-mist-500">{t('server.inviteHint')}</span>
+      <div>
+        <h3 className="mt-2 text-sm font-semibold text-mist-100">{t('server.inviteTitle')}</h3>
+        <p className="text-xs text-mist-500">{t('server.inviteText')}</p>
+        <form
+          className="mt-2 grid gap-2 sm:grid-cols-3"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void run(async () => {
+              setMade(await api<{ link: string; sent: boolean; email: string }>('/api/invites', { method: 'POST', body: { days: Number(days), email: email.trim(), send } }))
+              load()
+            })
+          }}
+        >
+          <Select label={t('invite.valid')} value={days} options={DAYS.map((value) => ({ value, label: t('invite.days', { count: Number(value) }) }))} onChange={setDays} />
+          <Input label={t('invite.email')} value={email} onChange={setEmail} type="email" className="sm:col-span-2" hint={me?.mail ? undefined : t('invite.noMail')} />
+          {me?.mail && (
+            <label className="flex items-center gap-2 text-xs text-mist-400 sm:col-span-3">
+              <input type="checkbox" checked={send} onChange={(event) => setSend(event.target.checked)} className="accent-accent-500" />
+              {t('invite.send')}
+            </label>
+          )}
+          <div className="sm:col-span-3">
+            <Button type="submit" accent busy={busy}>
+              {t('invite.create')}
+            </Button>
+          </div>
+        </form>
+        {made && (
+          <div className="mt-3 space-y-1">
+            <CopyLink value={made.link} label={t('invite.copy')} />
+            <p className="text-xs text-mist-500">{made.sent ? t('invite.sent', { email: made.email }) : t('invite.once')}</p>
+          </div>
+        )}
+        {invites.length > 0 && (
+          <ul className="mt-3 divide-y divide-ink-700 rounded-xl border border-ink-700 text-xs" data-testid="open-invites">
+            {invites.map((invite) => (
+              <li key={invite.id} className="flex items-center gap-3 px-4 py-2 text-mist-300">
+                <span className="flex-1">
+                  {invite.email || t('invite.noEmail')} · {t('invite.until', { when: new Date(invite.expires_at).toLocaleDateString(i18n.language) })}
+                </span>
+                <Button
+                  small
+                  danger
+                  busy={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      await api(`/api/invites/${invite.id}`, { method: 'DELETE' })
+                      load()
+                    })
+                  }
+                >
+                  {t('invite.withdraw')}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-      {link && <CopyLink value={link} label={t('server.invite')} />}
       <Feedback problem={problem} done={done} />
       {asking && (
         <Confirm

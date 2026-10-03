@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { FileUp } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 
-import { ApiError } from '../api/client'
+import { ApiError, boardsApi } from '../api/client'
 import { useBoards } from '../board/store'
 import { errorText } from '../lib/errors'
 import { catalogDoc } from '../board/templates'
@@ -9,7 +11,10 @@ import type { Doc } from '../board/types'
 import { Dialog } from './Dialog'
 import { TemplatePicker, useOwnTemplates, type Start } from './Templates'
 
-/** Name, space and a starting point. The space decides who sees the board, as in nexlore. */
+/**
+ * Name, space and a starting point. The space decides who sees the board, as in nexlore. A board can also come from a
+ * file (JSON Canvas, as nexcanvas exports it, or from nexlore and Obsidian): it lands in the space chosen.
+ */
 export function NewBoardDialog({
   space,
   template = 'blank',
@@ -40,6 +45,8 @@ export function NewBoardDialog({
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const name = title.trim() || t('board.untitled')
+  const navigate = useNavigate()
+  const file = useRef<HTMLInputElement>(null)
   if (writable.length === 0) {
     return (
       <Dialog title={t('board.new')} onClose={onClose}>
@@ -93,7 +100,34 @@ export function NewBoardDialog({
           <TemplatePicker value={start} onChange={setStart} own={own.list} />
         </fieldset>
         {problem && <p className="text-sm text-bad-500">{errorText(problem)}</p>}
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button type="button" onClick={() => file.current?.click()} className="nc-btn nc-btn-ghost mr-auto" disabled={!where || busy} data-testid="board-from-file">
+            <FileUp className="h-4 w-4" strokeWidth={1.8} />
+            {t('board.fromFile')}
+          </button>
+          <input
+            ref={file}
+            type="file"
+            accept=".canvas,.zip,application/json,application/zip"
+            hidden
+            aria-label={t('board.fromFile')}
+            onChange={async (e) => {
+              const chosen = e.target.files?.[0]
+              e.target.value = ''
+              if (!chosen) return
+              setBusy(true)
+              setProblem(null)
+              try {
+                const made = await boardsApi.fromFile(where, chosen, title.trim())
+                await boards.refresh().catch(() => undefined)
+                onClose()
+                navigate(`/b/${made.board.id}`)
+              } catch (error) {
+                setProblem(error instanceof ApiError ? error.code : 'internal_error')
+                setBusy(false)
+              }
+            }}
+          />
           <button type="button" onClick={onClose} className="nc-btn nc-btn-ghost">
             {t('common.cancel')}
           </button>

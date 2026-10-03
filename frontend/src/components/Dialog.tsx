@@ -3,7 +3,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 /** A dialog over the page: Escape and the scrim close it, focus starts inside and comes back afterwards. */
-export function Dialog({ title, onClose, children, wide = false }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
+export function Dialog({ title, onClose, children, wide = false, medium = false }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean; medium?: boolean }) {
   const { t } = useTranslation()
   const panel = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -24,7 +24,7 @@ export function Dialog({ title, onClose, children, wide = false }: { title: stri
   }, [onClose])
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-scrim p-4" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={panel} role="dialog" aria-modal="true" aria-label={title} className={'w-full rounded-2xl border border-ink-700 bg-ink-900 shadow-2xl shadow-black/50 ' + (wide ? 'max-w-2xl' : 'max-w-md')}>
+      <div ref={panel} role="dialog" aria-modal="true" aria-label={title} className={'w-full rounded-2xl border border-ink-700 bg-ink-900 shadow-2xl shadow-black/50 ' + (wide ? 'max-w-2xl' : medium ? 'max-w-xl' : 'max-w-md')}>
         <div className="flex items-center justify-between border-b border-ink-700/70 px-5 py-3.5">
           <h2 className="text-base font-semibold text-mist-100">{title}</h2>
           <button type="button" data-close onClick={onClose} aria-label={t('common.close')} className="rounded-full p-1.5 text-mist-500 hover:bg-ink-800 hover:text-mist-100">

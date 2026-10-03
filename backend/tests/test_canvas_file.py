@@ -96,7 +96,9 @@ def test_without_files_it_is_a_plain_canvas_file(client: TestClient, operator: A
     assert answer.headers["content-type"] == "application/json"
     assert "Leer%20%20oder.canvas" in answer.headers["content-disposition"]
     assert json.loads(answer.content)["edges"] == []
-    assert answer.text.split("\n")[3:] == ["\t],", '\t"edges":[]', "}"]
+    assert answer.text.split("\n")[3:5] == ["\t],", '\t"edges":[],']
+    # Only nexcanvas reads the block at the end; the board's name travels in it.
+    assert json.loads(answer.content)["nexcanvas"]["title"] == "Leer: oder?"
 
 
 def test_what_went_out_comes_back_whole_into_another_space(client: TestClient, operator: Account, space: int) -> None:
@@ -228,3 +230,96 @@ def test_what_is_no_canvas_is_refused_by_name(client: TestClient, operator: Acco
         archive.writestr("readme.txt", "no canvas here")
     assert client.post(url, content=buffer.getvalue()).json()["detail"]["code"] == "invalid_canvas"
     assert picture(client, made["id"])["items"] == []
+
+
+ROUTER = {
+    "id": "router", "name": {"en": "Router"}, "vw": 24, "vh": 24, "keep": True,
+    "elements": [{"t": "rect", "x": 2, "y": 14, "width": 20, "height": 8, "rx": 2, "f": "fill", "s": "line"},
+                 {"t": "path", "d": "M6 18h.01", "f": "none", "s": "ink"}],
+    "fill": "#3b82f6",
+}
+
+
+def carried() -> dict:
+    """A board with a background of its own and a shape it carries (an icon), as another nexcanvas would export it."""
+    return {
+        "items": [
+            {"id": "note0001", "kind": "note", "x": 0, "y": 0, "w": 180, "h": 180, "color": "yellow", "text": "Hallo"},
+            {"id": "shape001", "kind": "shape", "x": 300, "y": 0, "w": 64, "h": 64, "shape": "rect",
+             "lib": "icons-devices/router", "fill": "#3b82f6", "stroke": "none", "text": ""},
+        ],
+        "lines": [],
+        "background": {"pattern": "grid", "color": "paper"},
+        "defs": {"icons-devices/router": ROUTER},
+    }
+
+
+def test_a_board_goes_to_another_nexcanvas_as_a_file_and_comes_back_whole(client: TestClient, operator: Account,
+                                                                         space: int) -> None:
+    made = board(client, space, "Heimnetz: Plan", carried())
+    exported = client.get(f"/api/boards/{made['id']}/export").content
+    other = client.post("/api/spaces", json={"name": "Elsewhere"}).json()["id"]
+    answer = client.post("/api/boards/from-file", params={"space_id": other, "name": "anything.canvas"},
+                         content=exported)
+    assert answer.status_code == 201, answer.text
+    body = answer.json()
+    assert body["items"] == 2 and body["missing"] == []
+    # The name it had, not the name of the file; in the space asked for.
+    assert body["board"]["title"] == "Heimnetz: Plan" and body["board"]["space_id"] == other
+    renamed = client.post("/api/boards/from-file", params={"space_id": other, "title": "Mein Netz"}, content=exported)
+    assert renamed.json()["board"]["title"] == "Mein Netz"
+    after = picture(client, body["board"]["id"])
+    assert after["background"] == {"pattern": "grid", "color": "paper"}
+    # The icon comes with its drawing, so it draws there even without the icon packages.
+    assert after["defs"]["icons-devices/router"]["elements"][1]["s"] == "ink"
+    shape = next(item for item in after["items"] if item["kind"] == "shape")
+    assert shape["lib"] == "icons-devices/router"
+
+
+def test_a_board_from_a_file_is_named_after_the_file_when_it_carries_no_name(client: TestClient, operator: Account,
+                                                                              space: int) -> None:
+    canvas = {"nodes": [{"id": "a", "type": "text", "text": "Hallo", "x": 0, "y": 0, "width": 250, "height": 60}],
+              "edges": []}
+    named = client.post("/api/boards/from-file", params={"space_id": space, "name": "Projekt.canvas"},
+                        content=json.dumps(canvas).encode())
+    assert named.status_code == 201 and named.json()["board"]["title"] == "Projekt"
+    unnamed = client.post("/api/boards/from-file", params={"space_id": space}, content=json.dumps(canvas).encode())
+    assert unnamed.json()["board"]["title"] == "Imported board"
+    # A path the browser sent along stays out of the name.
+    pathed = client.post("/api/boards/from-file", params={"space_id": space, "name": "C:\\Users\\x\\Reise.canvas"},
+                         content=json.dumps(canvas).encode())
+    assert pathed.json()["board"]["title"] == "Reise"
+
+
+def test_what_is_no_canvas_leaves_no_empty_board_behind(client: TestClient, operator: Account, space: int) -> None:
+    before = len(client.get("/api/boards", params={"space": space}).json())
+    for content in (b"\x89PNG not a canvas", b'{"nodes": [], "edges": []}'):
+        answer = client.post("/api/boards/from-file", params={"space_id": space, "name": "x.canvas"}, content=content)
+        assert answer.status_code == 422
+    assert client.post("/api/boards/from-file", params={"space_id": space}, content=b"").json()["detail"]["code"] == "empty"
+    assert len(client.get("/api/boards", params={"space": space}).json()) == before
+
+
+def test_only_who_may_write_in_the_space_makes_a_board_from_a_file(client: TestClient, operator: Account,
+                                                                  space: int) -> None:
+    canvas = json.dumps({"nodes": [{"id": "a", "type": "text", "text": "x", "x": 0, "y": 0, "width": 9, "height": 9}],
+                         "edges": []}).encode()
+    rita, anna = make_account("rita"), make_account("anna")
+    join(client, space, "rita", "read")
+    with new_client(rita) as reader, new_client(anna) as stranger:
+        assert reader.post("/api/boards/from-file", params={"space_id": space}, content=canvas).status_code == 403
+        assert stranger.post("/api/boards/from-file", params={"space_id": space}, content=canvas).status_code == 404
+    assert client.get("/api/boards", params={"space": space}).json() == []
+
+
+def test_brought_onto_a_board_with_a_background_of_its_own_it_keeps_its_own(client: TestClient, operator: Account,
+                                                                            space: int) -> None:
+    exported = client.get(f"/api/boards/{board(client, space, 'Out', carried())['id']}/export").content
+    target = board(client, space, "In", {"items": [], "lines": [], "background": {"pattern": "dots", "color": "cream"}})
+    assert client.post(f"/api/boards/{target['id']}/import", content=exported).status_code == 200
+    after = picture(client, target["id"])
+    assert after["background"] == {"pattern": "dots", "color": "cream"}
+    assert "icons-devices/router" in after["defs"]
+    plain = board(client, space, "Plain")
+    client.post(f"/api/boards/{plain['id']}/import", content=exported)
+    assert picture(client, plain["id"])["background"] == {"pattern": "grid", "color": "paper"}

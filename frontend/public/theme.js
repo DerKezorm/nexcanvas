@@ -1,7 +1,13 @@
 // Before the first paint: otherwise the dark side briefly flashes when "light" is set.
 // Own file instead of an inline script, because the server's Content Security Policy only allows its own files.
 try {
-  if (localStorage.getItem('nexcanvas.theme') === 'light') {
+  var mode = localStorage.getItem('nexcanvas.theme')
+  var light =
+    // Nobody chose yet (the sign-in page of a new browser), or the system was chosen: as the system is set.
+    mode === 'system' || mode === null
+      ? window.matchMedia('(prefers-color-scheme: light)').matches
+      : mode === 'light'
+  if (light) {
     document.documentElement.setAttribute('data-theme', 'light')
     document.querySelector('meta[name="theme-color"]').content = '#f5f5f8'
   }

@@ -202,6 +202,7 @@ def export(db: Session, board: Board, picture: dict[str, Any]) -> tuple[bytes, s
     rows = db.scalars(select(Media).where(Media.space_id == board.space_id, Media.id.in_(wanted))) if wanted else []
     media = {row.id: row for row in rows if media_store.path_of(row.id).is_file()}
     canvas, paths = to_canvas(picture, media)
+    canvas.setdefault("nexcanvas", {"version": 1, "items": [], "lines": []})["title"] = board.title
     text = write(canvas)
     stem = file_stem(board.title)
     if not paths:
@@ -320,6 +321,17 @@ def _clean_extra(raw: Any, allowed_kind: str | None = None) -> dict[str, Any] | 
     except (TypeError, ValueError):
         return None
     return {key: value for key, value in raw.items() if key not in ("id", "text", "media", "z")}
+
+
+def title_of(data: bytes) -> str | None:
+    """The board's name a file of nexcanvas carries, or None (a canvas from elsewhere, or a broken file)."""
+    try:
+        canvas, _ = _read_canvas(data)
+    except CanvasError:
+        return None
+    hidden = canvas.get("nexcanvas")
+    title = hidden.get("title") if isinstance(hidden, dict) else None
+    return title.strip()[:200] or None if isinstance(title, str) else None
 
 
 def import_into(
@@ -492,6 +504,16 @@ def import_into(
                     end["x"] = round(end["x"] + dx, 1)
                     end["y"] = round(end["y"] + dy, 1)
             line_map[line["id"]] = {key: val for key, val in line.items() if key != "id"}
+        # What only nexcanvas reads: the shapes of packages the board carried (else they come without a drawing), and
+        # its background, when the board it comes onto has none of its own.
+        defs = doc.get("defs", type=Map)
+        for key, shape in boards.clean_defs(hidden.get("defs")).items():
+            if key not in defs:
+                defs[key] = shape
+        meta = doc.get("meta", type=Map)
+        background = boards.clean_background(hidden.get("background"))
+        if background and meta.get("background") is None:
+            meta["background"] = background
     update = doc.get_update(before)
     if len(doc.get_update()) > boards.MAX_STATE:
         raise CanvasError("too_large", "With this the board would be too large.", 413)

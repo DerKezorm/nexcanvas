@@ -8,8 +8,9 @@ import { ICON_PACKAGES, loadIconPackages } from '../board/library/icons'
 import { ShapeTile } from '../board/library/LibShape'
 import { named, type ShapePackage } from '../board/library/types'
 import { useBoards } from '../board/store'
-import { Button, Card, Feedback, SubHead } from '../pages/settings/ui'
+import { Button, Feedback, SubHead } from '../pages/settings/ui'
 import { useAuth } from '../state/auth'
+import { Section } from './Section'
 
 /** Four shapes spread over the package, as its picture. */
 function sample(pkg: ShapePackage) {
@@ -120,11 +121,14 @@ export function LibraryChoice({ me }: { me: Me }) {
   )
 
   return (
-    <Card icon={Shapes} title={t('libraryChoice.title')} text={t('libraryChoice.text')} id="library-choice">
-      <Feedback problem={problem} />
-      {group(t('libraryChoice.shipped'), t('libraryChoice.shippedText'), BUILTIN)}
-      {group(t('libraryChoice.icons'), t('libraryChoice.iconsText'), iconPackages)}
-      {installed.length > 0 && group(t('libraryChoice.installed'), t('libraryChoice.installedText'), installed)}
-    </Card>
+    <Section icon={Shapes} title={t('libraryChoice.title')} id="library-choice">
+      <div className="space-y-4">
+        <p className="text-sm text-mist-400">{t('libraryChoice.text')}</p>
+        <Feedback problem={problem} />
+        {group(t('libraryChoice.shipped'), t('libraryChoice.shippedText'), BUILTIN)}
+        {group(t('libraryChoice.icons'), t('libraryChoice.iconsText'), iconPackages)}
+        {installed.length > 0 && group(t('libraryChoice.installed'), t('libraryChoice.installedText'), installed)}
+      </div>
+    </Section>
   )
 }

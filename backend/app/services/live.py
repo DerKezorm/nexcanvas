@@ -245,11 +245,14 @@ async def _on_sync(room: Room, peer: Peer, message: bytes) -> None:
         raise _TooLarge
     async with room.lock:
         before = room.doc.get_state()
+        before_whole = room.doc.get_update()
         room.doc.apply_update(update)
-        if room.doc.get_state() == before:
-            # Nothing new (the browser sent what the room had): neither stored nor passed on.
+        whole = room.doc.get_update()
+        # Nothing new (the browser sent what the room had): neither stored nor passed on. The state vector alone does
+        # not tell: a deletion leaves it as it was, only the whole document shows it.
+        if room.doc.get_state() == before and whole == before_whole:
             return
-        if len(room.doc.get_update()) > boards.MAX_STATE:
+        if len(whole) > boards.MAX_STATE:
             raise _TooLarge
         with SessionLocal() as db:
             room.waiting = boards.store_update(db, room.board_id, update, peer.name)
