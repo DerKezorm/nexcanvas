@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { ApiError } from '../../api/client'
 import { Dialog } from '../../components/Dialog'
 import { errorText } from '../../lib/errors'
+import { copyText } from '../../lib/copy'
 
 /** A card with its symbol in a small box, a title and a line of explanation. */
 export function Card({ icon: Icon, title, text, children, id }: { icon: LucideIcon; title: string; text?: string; children: ReactNode; id?: string }) {
@@ -197,7 +198,7 @@ export function CopyLink({ value, label }: { value: string; label: string }) {
       <input readOnly value={value} aria-label={label} onFocus={(event) => event.target.select()} className="min-w-0 flex-1 bg-transparent px-2 font-mono text-xs text-mist-100 outline-none" />
       <button
         type="button"
-        onClick={() => void navigator.clipboard?.writeText(value).then(() => setCopied(true), () => undefined)}
+        onClick={() => void copyText(value).then(setCopied)}
         className="shrink-0 rounded-full bg-accent-500 px-3 py-1 text-xs font-semibold text-on-accent hover:bg-accent-400"
       >
         {copied ? '✓' : t('common.copy')}

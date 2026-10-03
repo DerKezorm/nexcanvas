@@ -18,6 +18,7 @@ import { Managed } from '../components/Suite'
 import { errorText } from '../lib/errors'
 import { useAuth } from '../state/auth'
 import { saveAsFile, TabRow, type Tab } from './settings/ui'
+import { copyText } from '../lib/copy'
 
 type Part = 'profile' | 'security' | 'connections' | 'shapes'
 const PARTS: Part[] = ['profile', 'security', 'connections', 'shapes']
@@ -316,7 +317,7 @@ function SecondFactor({ me }: { me: Me }) {
             ))}
           </ol>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className={QUIET} onClick={() => void navigator.clipboard?.writeText(codesText).then(() => setCopied(true), () => undefined)}>
+            <button type="button" className={QUIET} onClick={() => void copyText(codesText).then(setCopied)}>
               {copied ? t('common.copied') : t('twofactor.codesCopy')}
             </button>
             <button type="button" className={QUIET} onClick={() => saveAsFile(`nexcanvas-recovery-codes-${me.name}.txt`, new Blob([codesText + '\n'], { type: 'text/plain' }))}>

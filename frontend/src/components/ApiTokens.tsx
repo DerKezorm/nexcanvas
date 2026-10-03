@@ -16,6 +16,7 @@ import { ApiError, apiTokensApi, type ApiToken } from '../api/client'
 import { useBoards } from '../board/store'
 import { errorText } from '../lib/errors'
 import { useAuth } from '../state/auth'
+import { copyText } from '../lib/copy'
 
 /** Days until a token runs out; null: never (the default). */
 const LIFETIMES: (number | null)[] = [30, 90, 365, null]
@@ -97,7 +98,7 @@ export function ApiTokens() {
   const header = (secret: string) => `Authorization: Bearer ${secret}`
   const curl = (secret: string) => `curl -H "Authorization: Bearer ${secret}" ${window.location.origin}/api/v1/me`
   const copy = (what: string, text: string) =>
-    void navigator.clipboard?.writeText(text).then(
+    void copyText(text).then(
       () => setCopied(what),
       () => undefined,
     )

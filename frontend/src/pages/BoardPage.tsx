@@ -38,6 +38,7 @@ import { useAuth } from '../state/auth'
 import { Dialog } from '../components/Dialog'
 import { Popover } from '../components/Popover'
 import { SaveTemplateDialog } from '../components/Templates'
+import { copyText } from '../lib/copy'
 
 const uid = () => Math.random().toString(36).slice(2, 10)
 
@@ -1239,7 +1240,7 @@ function Editor({ board }: { board: Board }) {
         const ids = new Set(selected)
         const d = doc.ref.current
         clipboard.current = { items: d.items.filter((i) => ids.has(i.id)), lines: d.lines.filter((l) => ids.has(l.id) || (l.a.item && ids.has(l.a.item) && l.b.item && ids.has(l.b.item))) }
-        void navigator.clipboard?.writeText('nexcanvas:' + JSON.stringify(clipboard.current)).catch(() => undefined)
+        void copyText('nexcanvas:' + JSON.stringify(clipboard.current)).catch(() => undefined)
         return
       }
       if (mod && (e.key === '0' || k === '0')) {

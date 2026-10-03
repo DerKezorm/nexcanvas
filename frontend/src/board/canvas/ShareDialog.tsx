@@ -10,6 +10,7 @@ import { errorText } from '../../lib/errors'
 import { useAuth } from '../../state/auth'
 import { useBoards } from '../store'
 import type { Board } from '../types'
+import { copyText } from '../../lib/copy'
 
 type ShareState = { link: string; expires_at: string | null; password: boolean }
 
@@ -23,7 +24,7 @@ function CopyField({ value }: { value: string }) {
         type="button"
         className="nc-btn nc-btn-ghost shrink-0"
         onClick={() => {
-          void navigator.clipboard?.writeText(value).catch(() => undefined)
+          void copyText(value).catch(() => undefined)
           setDone(true)
           setTimeout(() => setDone(false), 1500)
         }}
