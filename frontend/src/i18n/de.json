@@ -1272,7 +1272,7 @@
     "namePlaceholder": "Zum Beispiel Gestaltung",
     "members": "Mitglieder",
     "leadMark": "Leitung",
-    "leadHint": "Als Leitung änderst du die Mitglieder. Zur Wahl stehen alle, mit denen du einen Bereich oder ein Team teilst.",
+    "leadHint": "Als Leitung änderst du die Mitglieder. Name und Farbe ändert der Betreiber.",
     "delete": "Team löschen",
     "deleteSure": "Wirklich löschen",
     "create": "Team anlegen",

@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.models import Account
 
-from .conftest import join, make_account, sign_in
+from .conftest import make_account, sign_in
 
 
 def person(name: str) -> TestClient:
@@ -36,22 +36,17 @@ def test_a_display_name_is_not_too_long_and_has_no_control_characters(client: Te
     assert client.get("/api/auth/me").json()["display_name"] == "x" * 80
 
 
-def test_display_names_reach_whoever_shares_a_space_and_nobody_else(client: TestClient, account: Account) -> None:
+def test_display_names_reach_everybody_on_the_server(client: TestClient, account: Account) -> None:
     anna, bob, carl = person("anna"), person("bob"), person("carl")
-    garden = anna.post("/api/spaces", json={"name": "Garden"})
-    assert garden.status_code == 201
-    join(anna, garden.json()["id"], "bob", "read")
     for who, shown in ((anna, "Anna Berg"), (bob, "Bob Stein"), (carl, "Carl Weiss")):
         assert who.put("/api/me/profile", json={"display_name": shown}).status_code == 200
     asked = {"name": ["anna", "bob", "carl", "nobody"]}
-    # Bob shares Garden with Anna: her name, his own; not Carl's, and an unknown name is no different.
-    assert bob.get("/api/people", params=asked).json() == {"anna": "Anna Berg", "bob": "Bob Stein"}
+    everybody = {"anna": "Anna Berg", "bob": "Bob Stein", "carl": "Carl Weiss"}
+    # Colleagues know each other, without sharing a space; an unknown name is simply missing.
+    assert carl.get("/api/people", params=asked).json() == everybody
+    assert client.get("/api/people", params=asked).json() == everybody
     # Names are asked as written after @, in any case.
     assert bob.get("/api/people", params={"name": ["Anna"]}).json() == {"anna": "Anna Berg"}
-    # Carl shares nothing: only his own.
-    assert carl.get("/api/people", params=asked).json() == {"carl": "Carl Weiss"}
-    # The operator sees every account, as with profile pictures.
-    assert client.get("/api/people", params=asked).json() == {"anna": "Anna Berg", "bob": "Bob Stein", "carl": "Carl Weiss"}
     # An account without a display name comes back as nothing: the name is what shows.
     assert anna.put("/api/me/profile", json={"display_name": ""}).status_code == 200
     assert bob.get("/api/people", params={"name": ["anna"]}).json() == {}

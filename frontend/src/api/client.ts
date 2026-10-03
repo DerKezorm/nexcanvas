@@ -175,7 +175,7 @@ export type SpaceInfo = {
 
 export type TeamGrantInfo = { id: number; name: string; color: string; role: Role }
 
-/** A team: who works together. `members` are those the own account may see; `size` counts them all. */
+/** A team: who works together. */
 export type Team = { id: number; name: string; color: string; lead: number | null; source: 'local' | 'admin'; members: number[]; size: number }
 
 export type Person = { id: number; name: string; display_name: string; avatar: string | null }

@@ -23,38 +23,27 @@ def _board(client: TestClient, space: int) -> str:
     return str(answer.json()["id"])
 
 
-def test_the_operator_makes_a_team_and_its_members_see_each_other(client: TestClient, operator: Account) -> None:
+def test_the_operator_makes_a_team_and_everybody_sees_everybody(client: TestClient, operator: Account) -> None:
     anna = make_account("anna")
     make_account("ben")
     team = _team(client, members=[anna.id, operator.id], lead=anna.id)
     assert team["members"] == sorted([anna.id, operator.id]) and team["lead"] == anna.id and team["source"] == "local"
+    assert team["size"] == 2
     with new_client(anna) as browser:
         seen = browser.get("/api/directory").json()
         assert [t["name"] for t in seen["teams"]] == ["Design"]
-        assert {p["name"] for p in seen["people"]} == {"anna", "tester"}, "ben shares nothing with anna"
+        assert {p["name"] for p in seen["people"]} == {"anna", "ben", "tester"}, "colleagues know each other"
         assert browser.post("/api/teams", json={"name": "Mine"}).status_code == 403
-    assert {p["name"] for p in client.get("/api/directory").json()["people"]} == {"anna", "ben", "tester"}
 
 
-def test_a_team_shows_only_the_members_one_may_see_but_counts_them_all(client: TestClient, operator: Account) -> None:
-    anna, ben = make_account("anna"), make_account("ben")
-    _team(client, members=[ben.id, operator.id], lead=ben.id)
-    with new_client(anna) as browser:
-        team = browser.get("/api/directory").json()["teams"][0]
-        assert team["members"] == [] and team["size"] == 2 and team["lead"] is None
-
-
-def test_the_lead_changes_members_only_and_only_with_people_they_see(client: TestClient, operator: Account,
-                                                                     space: int) -> None:
+def test_the_lead_changes_members_only(client: TestClient, operator: Account) -> None:
     anna, ben = make_account("anna"), make_account("ben")
     team = _team(client, members=[anna.id], lead=anna.id)
     with new_client(anna) as browser:
         answer = browser.patch(f"/api/teams/{team['id']}", json={"members": [anna.id, ben.id]})
-        assert answer.status_code == 422 and answer.json()["detail"]["code"] == "unknown_account"
-        join(client, space, "anna", "read")
-        join(client, space, "ben", "read")
-        answer = browser.patch(f"/api/teams/{team['id']}", json={"members": [anna.id, ben.id]})
         assert answer.status_code == 200 and answer.json()["members"] == sorted([anna.id, ben.id])
+        answer = browser.patch(f"/api/teams/{team['id']}", json={"members": [anna.id, 999_999]})
+        assert answer.status_code == 422 and answer.json()["detail"]["code"] == "unknown_account"
         assert browser.patch(f"/api/teams/{team['id']}", json={"name": "Renamed"}).status_code == 403
     with new_client(ben) as browser:
         assert browser.patch(f"/api/teams/{team['id']}", json={"members": [ben.id]}).status_code == 403
@@ -133,19 +122,9 @@ def test_deleting_a_team_takes_its_rights_along(client: TestClient, operator: Ac
     assert client.get("/api/spaces").json()[0]["teams"] == []
 
 
-def test_a_shared_team_or_a_space_through_a_team_lets_people_see_each_other(client: TestClient,
-                                                                            operator: Account, space: int) -> None:
-    anna, ben, cleo = make_account("anna"), make_account("ben"), make_account("cleo")
+def test_everybody_sees_everybodys_picture(client: TestClient, operator: Account) -> None:
+    anna, ben = make_account("anna"), make_account("ben")
     with SessionLocal() as db:
-        assert not avatars.may_see(db, db.get(Account, anna.id), ben.id)
-    _team(client, name="Pair", members=[anna.id, ben.id])
-    team = _team(client, name="Shop", members=[cleo.id])
-    join(client, space, "anna", "read")
-    client.put(f"/api/spaces/{space}/teams/{team['id']}", json={"role": "read"})
-    with SessionLocal() as db:
-        row = db.get(Account, anna.id)
-        assert avatars.may_see(db, row, ben.id), "a shared team"
-        assert avatars.may_see(db, row, cleo.id), "a space cleo has through her team"
-        assert not avatars.may_see(db, row, 999_999)
-        assert avatars.may_see(db, db.get(Account, cleo.id), anna.id)
-        assert not avatars.may_see(db, db.get(Account, cleo.id), ben.id)
+        assert avatars.may_see(db, db.get(Account, anna.id), ben.id)
+    with new_client(anna) as browser:
+        assert browser.get(f"/api/avatars/{ben.id}").status_code == 404, "no picture yet, but no secret either"

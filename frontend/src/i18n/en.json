@@ -1272,7 +1272,7 @@
     "namePlaceholder": "For example Design",
     "members": "Members",
     "leadMark": "Lead",
-    "leadHint": "As the lead you change the members. You can choose everybody you share a space or a team with.",
+    "leadHint": "As the lead you change the members. The operator changes name and colour.",
     "delete": "Delete team",
     "deleteSure": "Really delete",
     "create": "Create team",

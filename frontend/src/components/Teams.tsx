@@ -1,7 +1,7 @@
 /**
  * Teams: who works together, the same in every app of the family (nextasks has them too). The operator makes them;
  * the lead of a team changes its members. A space gives a team a right, and then everybody in it has that right.
- * One sees only the people one shares a space or a team with; the operator sees everybody.
+ * Everybody on the server sees everybody, as in nextasks.
  */
 import { Mail, Plus, Trash2, UsersRound } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'

@@ -1,6 +1,5 @@
-"""People and teams as the pages need them. The same in every app of the family (nextasks has it too), with one rule
-of nexcanvas: a person sees only who shares a space or a team with them (``avatars.visible_ids``); the operator sees
-everybody.
+"""People and teams as the pages need them, the same in every app of the family (nextasks has it too): everybody on the
+server sees everybody.
 
 Teams are made and deleted by the operator; the members of a local team change by the operator or the team's lead.
 """
@@ -19,7 +18,7 @@ from ..deps import Account, DbSession, OperatorAccount
 from ..errors import error
 from ..models import OPERATOR, Team
 from ..models import Account as AccountRow
-from ..services import avatars, teams
+from ..services import teams
 
 logger = logging.getLogger("nexcanvas.teams")
 
@@ -55,16 +54,13 @@ def person_view(row: AccountRow) -> dict[str, Any]:
     }
 
 
-@router.get("/directory", summary="The people the own account may see, and every team")
+@router.get("/directory", summary="Everybody on the server and every team")
 def directory(account: Account, db: DbSession) -> dict[str, Any]:
-    visible = avatars.visible_ids(db, account)
-    query = select(AccountRow).order_by(AccountRow.display_name, AccountRow.name)
-    if visible is not None:
-        query = query.where(AccountRow.id.in_(visible))
+    people = db.scalars(select(AccountRow).order_by(AccountRow.display_name, AccountRow.name))
     return {
         "me": account.id,
-        "people": [person_view(row) for row in db.scalars(query)],
-        "teams": [teams.view(db, team, visible) for team in db.scalars(select(Team).order_by(Team.name))],
+        "people": [person_view(row) for row in people],
+        "teams": [teams.view(db, team) for team in db.scalars(select(Team).order_by(Team.name))],
     }
 
 
@@ -98,15 +94,9 @@ def change_team(team_id: TeamId, payload: TeamChange, account: Account, db: DbSe
     if not teams.may_change(account, team):
         raise error("forbidden", "Only the operator or the team's lead changes a team.", 403)
     lead_only = account.role != OPERATOR
-    visible = avatars.visible_ids(db, account)
     try:
         if lead_only and (payload.name is not None or payload.color is not None or "lead" in payload.model_fields_set):
             raise teams.TeamError("forbidden", "The lead changes the members only.", 403)
-        if payload.members is not None and visible is not None:
-            # A lead adds only people they may see: an id beyond them answers like one that does not exist.
-            current = set(teams.members(db, team.id))
-            if any(person not in visible and person not in current for person in payload.members):
-                raise teams.TeamError("unknown_account", "Not every account exists.")
         if payload.name is not None:
             team.name = teams.clean_name(payload.name)
         if payload.color is not None:
@@ -119,7 +109,7 @@ def change_team(team_id: TeamId, payload: TeamChange, account: Account, db: DbSe
     except teams.TeamError as exc:
         db.rollback()
         raise _fail(exc) from exc
-    return teams.view(db, team, avatars.visible_ids(db, account))
+    return teams.view(db, team)
 
 
 @router.delete("/teams/{team_id}", status_code=204, summary="Delete a team (operator); its rights in spaces go with it")

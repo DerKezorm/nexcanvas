@@ -61,20 +61,15 @@ def may_change(account: Account, team: Team) -> bool:
     return account.role == OPERATOR or (team.lead_id == account.id and team.source == TEAM_LOCAL)
 
 
-def view(db: Session, team: Team, visible: set[int] | None = None) -> dict:
-    """A team as the pages see it. ``visible``: the accounts the viewer may see (None: all). Members the viewer may
-    not see are left out of the list but counted in ``size``, so a space's manager knows how big a team is without
-    learning who is in it."""
+def view(db: Session, team: Team) -> dict:
     everybody = members(db, team.id)
-    shown = everybody if visible is None else [person for person in everybody if person in visible]
-    lead = team.lead_id if visible is None or team.lead_id in visible else None
     return {
         "id": team.id,
         "name": team.name,
         "color": team.color,
-        "lead": lead,
+        "lead": team.lead_id,
         "source": team.source,
-        "members": shown,
+        "members": everybody,
         "size": len(everybody),
     }
 

@@ -12,7 +12,7 @@ from PIL import Image
 from app.main import app
 from app.services import avatars
 
-from .conftest import join, make_account, sign_in
+from .conftest import make_account, sign_in
 
 
 def person(name: str) -> TestClient:
@@ -81,24 +81,19 @@ def test_only_pictures_come_in(client: TestClient, account: object) -> None:
     assert anna.put("/api/auth/avatar", content=photo(kind="WEBP")).status_code == 200
 
 
-def test_seen_by_the_account_the_operator_and_those_who_share_a_space_nobody_else(
-    client: TestClient, account: object
-) -> None:
+def test_seen_by_everybody_on_the_server(client: TestClient, account: object) -> None:
+    """Colleagues know each other, as in nextasks: no space needs to be shared."""
     anna, bob, carl = person("anna"), person("bob"), person("carl")
     assert anna.put("/api/auth/avatar", content=photo()).status_code == 200
     address = f"/api/avatars/{me(anna)['id']}"
     assert client.get(address).status_code == 200  # the operator
-    # bob shares nothing with anna yet: the same answer as for an account without a picture.
-    assert bob.get(address).status_code == 404
-    assert bob.get(address).json() == bob.get(f"/api/avatars/{me(carl)['id']}").json()
-    garden = anna.post("/api/spaces", json={"name": "Garden"})
-    assert garden.status_code == 201
-    join(anna, garden.json()["id"], "bob", "read")
     assert bob.get(address).status_code == 200
-    assert carl.get(address).status_code == 404
+    # Carl has no picture: 404, as for an account that does not exist.
+    assert anna.get(f"/api/avatars/{me(carl)['id']}").status_code == 404
+    assert anna.get("/api/avatars/999999").status_code == 404
     # Removed: gone for everyone.
     assert anna.delete("/api/auth/avatar").json()["avatar"] is None
-    assert anna.get(address).status_code == 404
+    assert bob.get(address).status_code == 404
 
 
 @pytest.mark.parametrize("size", [(300, 900), (900, 300)])
