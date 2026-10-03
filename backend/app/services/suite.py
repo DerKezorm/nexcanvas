@@ -420,7 +420,10 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
             "suite_mail": True,
         })
     else:
-        settings_service.save(db, {"suite_mail": False})
+        # nexsuite has no mail server: then neither has the app (the own one is kept for a disconnect). The mail
+        # server is nexsuite's to set either way, never half here, half there.
+        settings_service.save(db, {"smtp_host": "", "smtp_user": "", "smtp_password_enc": "", "smtp_from": "",
+                                   "suite_mail": True})
     settings_service.save(db, {"suite_emergency": list(seen.get("emergency") or [])})
     db.commit()
     for account_id in signed_out:

@@ -246,6 +246,16 @@ def _row_space(space_id: int) -> Space:
 def test_what_nexsuite_keeps_cannot_be_changed_here(client: TestClient, operator: Account, world: dict,
                                                     fake: FakeSuite) -> None:
     connect(client, world, operator)
+    with SessionLocal() as db:  # a space the app keeps itself (connecting hands the existing ones to nexsuite)
+        row = Space(name="Only here")
+        db.add(row)
+        db.flush()
+        db.add(Membership(space_id=row.id, account_id=operator.id, role="manage"))
+        db.commit()
+        own = row.id
+    listing = client.get(f"/api/spaces/{own}/members").json()
+    assert listing["suite"] is True and listing["managed"] is False, "a space of the app's own: rights stay here"
+    assert client.get(f"/api/spaces/{world['studio']}/members").json()["managed"] is True
     for answer in (
         client.post("/api/teams", json={"name": "New"}),
         client.patch(f"/api/teams/{world['team']}", json={"name": "Renamed"}),
@@ -253,6 +263,7 @@ def test_what_nexsuite_keeps_cannot_be_changed_here(client: TestClient, operator
         client.patch(f"/api/spaces/{world['studio']}", json={"name": "Renamed"}),
         client.put(f"/api/spaces/{world['studio']}/members/ben", json={"role": "read"}),
         client.post("/api/invites", json={"days": 7}),
+        client.post(f"/api/spaces/{own}/invites", json={"role": "read", "days": 7}),
         client.put("/api/me/profile", json={"display_name": "Me"}),
         client.put("/api/settings", json={"password_login": True}),
         client.delete("/api/oidc/config"),
@@ -351,3 +362,15 @@ def test_a_blocked_account_has_no_session_whatever_blocked_it(client: TestClient
             row.blocked_at = utcnow()
             db.commit()
         assert browser.get("/api/spaces").status_code == 401
+
+
+def test_without_a_mail_server_in_nexsuite_the_app_has_none_and_gets_its_own_back(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite) -> None:
+    client.put("/api/settings", json={"smtp_host": "own.example.com", "smtp_from": "boards@example.com"})
+    connect(client, world, operator)
+    assert _setting("smtp_host") == "" and _setting("suite_mail") is True
+    assert client.get("/api/auth/me").json()["suite_mail"] is True
+    refused = client.put("/api/settings", json={"smtp_host": "other.example.com"})
+    assert refused.status_code == 409 and _setting("smtp_host") == ""
+    assert client.post("/api/suite/disconnect", json={"current_password": PASSWORD}).status_code == 200
+    assert _setting("smtp_host") == "own.example.com" and _setting("smtp_from") == "boards@example.com"

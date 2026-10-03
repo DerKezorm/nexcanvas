@@ -244,7 +244,9 @@ export const spacesApi = {
   change: (id: number, change: { name?: string; color?: string }) => api<SpaceInfo>(`/api/spaces/${id}`, { method: 'PATCH', body: change }),
   trash: (id: number) => api<void>(`/api/spaces/${id}`, { method: 'DELETE' }),
   members: (id: number) =>
-    api<{ space: string; members: { name: string; role: Role; you: boolean }[]; invites: Invite[]; role: Role | null }>(`/api/spaces/${id}/members`),
+    api<{ space: string; members: { name: string; role: Role; you: boolean }[]; invites: Invite[]; role: Role | null; suite?: boolean; managed?: boolean }>(
+      `/api/spaces/${id}/members`,
+    ),
   setMember: (id: number, name: string, role: Role) =>
     api<{ name: string; role: Role; invited?: boolean }>(`/api/spaces/${id}/members/${encodeURIComponent(name)}`, { method: 'PUT', body: { role } }),
   removeMember: (id: number, name: string) => api<void>(`/api/spaces/${id}/members/${encodeURIComponent(name)}`, { method: 'DELETE' }),

@@ -129,6 +129,10 @@ def members(space_id: SpaceId, account: Account, db: DbSession) -> dict[str, Any
         ],
         "invites": [_invite_view(invite, db) for invite in invites if not accounts.expired(invite)],
         "role": rights.role_in(db, account, space.id),
+        # Connected to nexsuite: the accounts come from there (no invitation links), and so do the rights of a space
+        # nexsuite gives this app.
+        "suite": suite.connected(db),
+        "managed": bool(space.external_id) and suite.connected(db),
     }
 
 
@@ -326,6 +330,7 @@ def _create(db: DbSession, request: Request, by: AccountRow, space: Space | None
 
 @router.post("/spaces/{space_id}/invites", status_code=201, summary="Invite into the space; the link is shown once")
 def invite_to_space(space_id: SpaceId, payload: InviteIn, request: Request, account: Account, db: DbSession) -> dict:
+    suite.refuse_if_managed(db)
     suite.refuse_if_space_managed(db, space_id)
     space = _space(db, account, space_id)
     if payload.role not in SPACE_ROLES:

@@ -1,4 +1,4 @@
-import { Link2 } from 'lucide-react'
+import { Link2, Lock } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -58,6 +58,8 @@ export function MembersDialog({ space, onClose }: { space: Space; onClose: () =>
   }, [load])
 
   const manages = data?.role === 'manage'
+  /** A space nexsuite gives this app: its rights are kept there, here they are only shown. */
+  const locked = Boolean(data?.managed)
   const managers = data?.members.filter((member) => member.role === 'manage').length ?? 0
   const known = (name: string) => space.members.find((m) => m.name === name)
 
@@ -82,7 +84,12 @@ export function MembersDialog({ space, onClose }: { space: Space; onClose: () =>
 
   return (
     <Dialog title={t('members.title', { space: space.name })} onClose={onClose} medium>
-      {!manages && data && <p className="-mt-2 mb-3 text-xs text-mist-500">{t('members.resetOnly')}</p>}
+      {locked && (
+        <p className="-mt-2 mb-3 flex items-center gap-2 rounded-xl border border-accent-500/30 bg-accent-500/8 px-3 py-2 text-xs text-mist-200" data-testid="space-managed">
+          <Lock className="h-3.5 w-3.5 shrink-0 text-accent-400" aria-hidden /> {t('suite.managedSpace')}
+        </p>
+      )}
+      {!locked && !manages && data && <p className="-mt-2 mb-3 text-xs text-mist-500">{t('members.resetOnly')}</p>}
 
       <ul className="divide-y divide-ink-700 rounded-xl border border-ink-700">
         {data?.members.map((member) => {
@@ -95,6 +102,10 @@ export function MembersDialog({ space, onClose }: { space: Space; onClose: () =>
                 {shown?.display_name && <span className="ml-1.5 text-xs font-normal text-mist-500">@{member.name}</span>}
                 {member.you && <span className="ml-2 text-xs font-normal text-mist-500">{t('members.you')}</span>}
               </span>
+              {locked ? (
+                <span className="text-xs text-mist-400">{t(`roles.${member.role}`)}</span>
+              ) : (
+                <>
               <label className="sr-only" htmlFor={`role-${member.name}`}>
                 {t('members.roleOf', { name: member.name })}
               </label>
@@ -134,6 +145,8 @@ export function MembersDialog({ space, onClose }: { space: Space; onClose: () =>
               >
                 {member.you ? t('members.leave') : t('members.removeShort')}
               </Button>
+                </>
+              )}
             </li>
           )
         })}
@@ -153,6 +166,7 @@ export function MembersDialog({ space, onClose }: { space: Space; onClose: () =>
         </div>
       )}
 
+      {!locked && (
       <form
         className="mt-4 flex flex-wrap items-end gap-2"
         onSubmit={(event) => {
@@ -174,13 +188,14 @@ export function MembersDialog({ space, onClose }: { space: Space; onClose: () =>
           {manages ? t('members.inviteName') : t('members.add')}
         </Button>
       </form>
+      )}
       {invitedName && (
         <p role="status" className="mt-2 text-xs text-mist-400">
           {t('members.invitedName', { name: invitedName })}
         </p>
       )}
 
-      {manages && (
+      {manages && !data?.suite && (
         <div className="mt-6 border-t border-ink-700 pt-4">
           <h3 className="text-sm font-semibold text-mist-100">{t('members.inviteLink.title')}</h3>
           <p className="mt-0.5 text-xs text-mist-500">{t('members.inviteLink.text')}</p>

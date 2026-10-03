@@ -1299,7 +1299,7 @@
     "managed": "This is kept in nexsuite now.",
     "managedAccounts": "Accounts come from nexsuite. New people, blocking and roles there.",
     "managedSignIn": "People sign in through nexsuite. Whether nexsuite checks itself or asks authentik is set there. Your own password stays as the emergency way in.",
-    "managedMail": "The mail server comes from nexsuite. Your own setting is kept in case you disconnect.",
+    "managedMail": "The mail server comes from nexsuite. With none set up there, nexcanvas sends no mail. Your own setting is kept in case you disconnect.",
     "managedTeams": "Teams come from nexsuite and apply in every connected app.",
     "managedProfile": "Name and address come from nexsuite. Change them there.",
     "mailTitle": "Mail",
@@ -1357,6 +1357,7 @@
     "loginText": "This nexcanvas hangs on nexsuite. Sign in there.",
     "loginButton": "Sign in with nexsuite",
     "emergencyLink": "Emergency access for the operator",
-    "emergencyLoginText": "Only for the operator, when nexsuite cannot be reached. The sign-in shows in nexsuite's log."
+    "emergencyLoginText": "Only for the operator, when nexsuite cannot be reached. The sign-in shows in nexsuite's log.",
+    "managedSpace": "The rights of this space come from nexsuite. They are changed there."
   }
 }
