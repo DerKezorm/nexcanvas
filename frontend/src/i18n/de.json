@@ -1359,6 +1359,7 @@
     "emergencyLink": "Notzugang für den Betreiber",
     "emergencyLoginText": "Nur für den Betreiber, wenn nexsuite nicht erreichbar ist. Die Anmeldung erscheint im Protokoll von nexsuite.",
     "managedSpace": "Die Rechte dieses Bereichs kommen aus nexsuite. Ändern lassen sie sich dort.",
-    "managedTwoFactor": "Der zweite Faktor wird in nexsuite eingerichtet (oder in authentik, wenn nexsuite darüber anmeldet) und gilt für alle verbundenen Apps."
+    "managedTwoFactor": "Der zweite Faktor wird in nexsuite eingerichtet (oder in authentik, wenn nexsuite darüber anmeldet) und gilt für alle verbundenen Apps.",
+    "emergencyAccount": "Dies ist das Notkonto von nexcanvas. Passwort und zweiter Faktor hier gelten nur für den Notzugang, wenn nexsuite nicht erreichbar ist (Anmelden unter /notzugang). Sonst meldest du dich wie alle über nexsuite an."
   }
 }

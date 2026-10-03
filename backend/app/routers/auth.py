@@ -313,6 +313,9 @@ def me(account: Account, db: DbSession) -> dict[str, Any]:
         "preferences": preferences_of(account.preferences),
         "suite": suite.state(db),
         "suite_mail": bool(settings_service.get(db, "suite_mail")),
+        # Connected: this account is the emergency account (its password and second factor are for that only).
+        "suite_emergency": suite.connected(db)
+        and account.id == int(settings_service.get(db, "suite_emergency_account") or 0),
     }
 
 

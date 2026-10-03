@@ -149,6 +149,8 @@ export type Me = {
   /** Connected to nexsuite: accounts, teams, rights, sign-in (and mail) are kept there. */
   suite?: '' | 'connecting' | 'connected'
   suite_mail?: boolean
+  /** Connected: this account is the app's emergency account. */
+  suite_emergency?: boolean
 }
 
 export type Preferences = {

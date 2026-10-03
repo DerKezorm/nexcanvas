@@ -289,7 +289,8 @@ def test_only_the_emergency_account_signs_in_with_a_password(client: TestClient,
                                                              fake: FakeSuite) -> None:
     connect(client, world, operator)
     with new_client() as stranger:
-        assert stranger.post("/api/auth/login", json={"name": "ben", "password": PASSWORD}).status_code == 403
+        # Ben signs in through nexsuite now: his old password is refused like a wrong one.
+        assert stranger.post("/api/auth/login", json={"name": "ben", "password": PASSWORD}).status_code == 401
         assert stranger.post("/api/auth/login", json={"name": "tester", "password": PASSWORD}).status_code == 200
 
 
@@ -321,9 +322,14 @@ def test_disconnecting_restores_the_own_sign_in_and_keeps_everything(client: Tes
     fake.people["60"] = {"id": "60", "name": "fritz", "display_name": "Fritz", "email": "", "operator": False,
                          "blocked": False}
     client.post("/api/suite/sync")
+    # Connected: everybody signs in through nexsuite, only the emergency account (the operator) here.
+    assert _row("anna").sign_in == "oidc" and _row("tester").sign_in == "password"
+    assert client.get("/api/auth/me").json()["suite_emergency"] is True
     assert client.post("/api/suite/disconnect", json={"current_password": "wrong"}).status_code == 401
     answer = client.post("/api/suite/disconnect", json={"current_password": PASSWORD})
     assert answer.status_code == 200 and "fritz" in answer.json()["without_password"]
+    assert _row("anna").sign_in == "password", "the own password holds again"
+    assert client.get("/api/auth/me").json()["suite_emergency"] is False
     assert ("POST", "/leave") in fake.calls
     assert _setting("suite_state") == "" and _setting("oidc_issuer") == "" and _setting("password_login") is True
     with SessionLocal() as db:

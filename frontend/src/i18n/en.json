@@ -1359,6 +1359,7 @@
     "emergencyLink": "Emergency access for the operator",
     "emergencyLoginText": "Only for the operator, when nexsuite cannot be reached. The sign-in shows in nexsuite's log.",
     "managedSpace": "The rights of this space come from nexsuite. They are changed there.",
-    "managedTwoFactor": "The second factor is set up in nexsuite (or in authentik when nexsuite signs in through it) and holds for every connected app."
+    "managedTwoFactor": "The second factor is set up in nexsuite (or in authentik when nexsuite signs in through it) and holds for every connected app.",
+    "emergencyAccount": "This is the emergency account of nexcanvas. Password and second factor here are only for the emergency access when nexsuite cannot be reached (sign in at /notzugang). Otherwise you sign in through nexsuite like everybody."
   }
 }

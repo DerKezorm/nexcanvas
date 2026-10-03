@@ -40,6 +40,7 @@ from ..models import (
     MEMBER,
     OPERATOR,
     SIGN_IN_OIDC,
+    SIGN_IN_PASSWORD,
     SPACE_ROLES,
     TEAM_ADMIN,
     TEAM_LOCAL,
@@ -395,6 +396,10 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
             db.flush()
         row.display_name = str(person.get("display_name") or "")[:80]
         row.email = str(person.get("email") or "")[:255]
+        if row.id != keeper:
+            # Signs in through nexsuite (password and second factor are set there); the own password stays kept
+            # for a disconnect. Only the emergency account keeps signing in here.
+            row.sign_in = SIGN_IN_OIDC
         _take_picture(db, row, pid, person.get("avatar"), token)
         if row.id != keeper:
             row.role = OPERATOR if person.get("operator") else MEMBER
@@ -552,6 +557,8 @@ def disconnect(db: Session, *, tell: bool = True) -> list[str]:
     without = []
     for row in db.scalars(select(Account).where(Account.oidc_subject != "")):
         row.oidc_subject = ""
+        if row.password_hash:
+            row.sign_in = SIGN_IN_PASSWORD
         if not row.password_hash and row.blocked_at is None:
             without.append(row.name)
     db.commit()

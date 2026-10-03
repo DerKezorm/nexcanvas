@@ -173,6 +173,7 @@ export function AccountPage() {
 
         {part === 'security' && (
           <>
+            {me.suite_emergency && <Managed text={t('suite.emergencyAccount')} />}
             {me.sign_in === 'password' && (
               <Section icon={KeyRound} title={t('me.password.title')}>
                 <form
