@@ -28,7 +28,7 @@
     "loading": "Lädt …"
   },
   "account": {
-    "menu": "Kontomenü",
+    "menu": "Kontomenü von {{name}}",
     "operator": "Betreiber",
     "mine": "Mein Konto",
     "language": "Sprache",
@@ -69,7 +69,19 @@
     "sessions": "Anderswo angemeldet",
     "sessionsHint": "Ein verlorenes Handy oder ein geliehener Rechner: jede Anmeldung außer dieser beenden.",
     "signOutOthers": "Überall sonst abmelden",
-    "othersSignedOut": "Alle anderen Browser sind abgemeldet."
+    "othersSignedOut": "Alle anderen Browser sind abgemeldet.",
+    "profileText": "Wie andere dich sehen.",
+    "oidc": {
+      "title": "Anmeldung über {{name}}",
+      "lead": "Dein Konto mit dem Anbieter verknüpfen, dann geht beides.",
+      "only": "Dieses Konto meldet sich nur über den Anbieter an.",
+      "linked": "Verknüpft. Du kannst dich mit Passwort oder über den Anbieter anmelden.",
+      "linkedNow": "Verknüpft.",
+      "unlink": "Verknüpfung lösen",
+      "unlinked": "Verknüpfung gelöst.",
+      "text": "Dein Passwort zur Bestätigung, dann geht es zum Anbieter und zurück.",
+      "link": "Mit dem Anbieter verknüpfen"
+    }
   },
   "board": {
     "new": "Neues Board",
@@ -348,7 +360,48 @@
     "ownPassword": "Dein eigenes Passwort",
     "snapHint": "Alt beim Ziehen bewirkt das Gegenteil.",
     "spacesBin": "Bereiche im Papierkorb",
-    "spacesBinHint": "Ihre Boards kommen mit zurück. Nach 30 Tagen sind sie endgültig weg."
+    "spacesBinHint": "Ihre Boards kommen mit zurück. Nach 30 Tagen sind sie endgültig weg.",
+    "tabs": {
+      "general": "Allgemein",
+      "looks": "Aussehen",
+      "spaces": "Bereiche",
+      "server": "Server"
+    },
+    "parts": {
+      "accounts": "Konten",
+      "signin": "Anmeldung",
+      "shares": "Öffentliche Seiten",
+      "files": "Dateien",
+      "backups": "Sicherung",
+      "languages": "Sprachen",
+      "log": "Log"
+    },
+    "start": {
+      "title": "Startseite",
+      "text": "Was nach der Anmeldung zuerst erscheint."
+    },
+    "board": {
+      "title": "Auf dem Board",
+      "text": "Wie sich Ziehen und Werkzeuge verhalten. Gilt für dein Konto, auf jedem Gerät."
+    },
+    "toolBackHint": "Aus: Das Werkzeug bleibt gewählt, bis du ein anderes nimmst.",
+    "gridHint": "Ein ruhiges Punktraster hinter allem, das beim Verschieben mitläuft.",
+    "language": {
+      "title": "Sprache",
+      "text": "Englisch und Deutsch bringt nexcanvas mit. Weitere lädst du unter Server, Sprachen hoch; was einer Datei fehlt, erscheint auf Englisch.",
+      "textMember": "Englisch und Deutsch bringt nexcanvas mit; weitere Sprachen kann der Betreiber ergänzen.",
+      "choose": "Sprache der Oberfläche",
+      "added": "vom Betreiber ergänzt",
+      "template": "Vorlage herunterladen",
+      "templateHint": "Die englischen Texte als Datei zum Übersetzen. Unter Server, Sprachen mit einem Code wie es oder pt-BR hochladen."
+    },
+    "looks": {
+      "title": "Hell oder dunkel",
+      "text": "Gilt in diesem Browser, wie der Schalter oben rechts.",
+      "board": "Das Board",
+      "boardText": "Wie die Fläche hinter deinen Boards aussieht."
+    },
+    "spacesMine": "Deine Bereiche"
   },
   "server": {
     "accounts": "Konten",
@@ -356,12 +409,12 @@
     "member": "Mitglied",
     "invite": "Jemanden einladen",
     "signin": "Anmeldung",
-    "oidc": "Anmeldung über OIDC",
+    "oidc": "OpenID Connect",
     "oidcHint": "Zum Beispiel authentik, eingerichtet wie in nexlore und nextrmnl.",
-    "oidcIssuer": "Adresse des Anbieters",
+    "oidcIssuer": "Aussteller (Issuer)",
     "oidcOnly": "Anmeldung mit Passwort aus",
     "twoFactor": "Zweiter Faktor",
-    "twoFactorRequired": "Pflicht für jedes Konto mit Passwort",
+    "twoFactorRequired": "Zweiten Faktor verlangen",
     "public": "Öffentliche Seiten",
     "publicHint": "Ab Werk aus. Wenn an, dürfen Verwalter eines Bereichs ein Board als Leseseite veröffentlichen.",
     "publicAllowed": "Öffentliche Seiten erlauben",
@@ -389,8 +442,6 @@
       "detailed": "Ausführlich (1 Stunde)",
       "trace": "Alles (1 Stunde)"
     },
-    "uploads": "Hochladen",
-    "uploadsHint": "Fotos und Dateien auf Boards.",
     "uploadMax": "Größte Datei (MB)",
     "uploadCeiling": "Höchstens {{mb}} MB (NEXCANVAS_UPLOAD_MAX_MB).",
     "stripLocation": "Ort und Gerät aus Fotos entfernen",
@@ -406,13 +457,13 @@
     "send": "Senden",
     "mailSent": "Die Testmail ist raus.",
     "secretKept": "Bleibt; nur zum Ändern tippen.",
-    "passwordLogin": "Mitglieder melden sich mit Passwort an",
-    "passwordLoginHint": "Der Betreiber darf es immer: der Weg hinein, wenn der Anbieter ausfällt.",
-    "twoFactorRequiredHint": "Bis ein Konto einen hat, erreicht es nur seine Kontoseite. Erst den eigenen einschalten.",
+    "passwordLogin": "Anmeldung mit Passwort",
+    "passwordLoginHint": "Aus: Mitglieder kommen nur über den Anbieter herein. Du als Betreiber kannst dein Passwort immer nutzen.",
+    "twoFactorRequiredHint": "Jedes Konto, das sich mit Passwort anmeldet, muss ihn einrichten, bevor es weiterkommt. Konten vom Anbieter bringen dessen eigenen mit. Erst den eigenen einschalten.",
     "oidcName": "Name auf dem Knopf",
-    "redirect": "Rücksprungadresse",
+    "redirect": "Weiterleitungsadresse für den Anbieter",
     "redirectHint": "Beim Anbieter eintragen.",
-    "oidcAutoCreate": "Unbekannte Identitäten bekommen ein Konto",
+    "oidcAutoCreate": "Neue Personen bekommen ein Konto",
     "oidcAutoCreateHint": "Aus: nur eingeladene oder verknüpfte Konten kommen hinein.",
     "oidcRemove": "Anbieter entfernen",
     "publicUrl": "Öffentliche Adresse",
@@ -496,14 +547,37 @@
     "logClear": "Log leeren",
     "logClearText": "Jede Zeile geht. Neue kommen wie bisher.",
     "logUntil": "Um {{time}} zurück auf normal.",
-    "about": "Über",
-    "aboutText": "nexcanvas {{version}}, AGPL-3.0. Ein Whiteboard für den eigenen Server.",
-    "updateCheck": "Einmal am Tag nach neuen Fassungen sehen",
-    "updateCheckHint": "Nur die Frage geht an GitHub, nichts über deine Boards.",
-    "updateNewer": "Fassung {{version}} ist erschienen.",
-    "updateNone": "Das ist die neueste Fassung.",
-    "updateUnknown": "Noch nicht gefragt.",
-    "updateNow": "Jetzt nachsehen"
+    "signinText": "Wie man hereinkommt.",
+    "signInBy": {
+      "password": "Passwort",
+      "oidc": "Anbieter"
+    },
+    "allSpaces": {
+      "title": "Alle Bereiche",
+      "text": "Jeder Bereich mit seinen Verwaltern, ohne Inhalt. Hier setzt du Rechte zurück; jedes Mitglied erfährt davon.",
+      "none": "Noch keine Bereiche.",
+      "yours": "ohne Mitglieder, gehört dir",
+      "members_one": "ein Mitglied, verwaltet von {{managers}}",
+      "members_other": "{{count}} Mitglieder, verwaltet von {{managers}}",
+      "rights": "Rechte"
+    },
+    "oidcOn": "Eingerichtet mit {{issuer}}.",
+    "oidcOff": "Nicht eingerichtet.",
+    "clientId": "Client-ID",
+    "clientSecret": "Client-Geheimnis",
+    "authentik": {
+      "title": "authentik in einem Schritt",
+      "text": "Mit einem API-Token, das Anwendungen anlegen darf, richtet nexcanvas Anbieter und Anwendung in authentik selbst ein. Das Token wird nur dafür benutzt und nicht gespeichert.",
+      "url": "Adresse von authentik",
+      "token": "API-Token",
+      "run": "Einrichten",
+      "blueprint": "Stattdessen Blueprint herunterladen"
+    },
+    "publicAllowedHint": "Verwalter eines Bereichs dürfen dann ein Board als Leseseite veröffentlichen. Abgeschaltet antwortet jeder Link, als hätte es ihn nie gegeben.",
+    "files": "Dateien",
+    "filesHint": "Fotos und Dateien auf Boards: wie groß sie sein dürfen und was beim Hochladen herausfällt.",
+    "smtpPort": "Port",
+    "detail": "Ausführlichkeit"
   },
   "errors": {
     "avatar_not_a_picture": "Das ist kein Bild, das nexcanvas annimmt (JPEG, PNG, WebP, GIF, HEIC oder AVIF).",
@@ -770,5 +844,46 @@
     "centerY": "Mittig ausrichten (senkrecht)",
     "bottom": "Unten ausrichten",
     "spreadY": "Senkrecht gleichmäßig verteilen"
+  },
+  "about": {
+    "menu": "Über nexcanvas",
+    "subtitle": "Ein Whiteboard für den eigenen Server, live gemeinsam.",
+    "version": "Fassung",
+    "newer": "Fassung {{version}} ist erschienen",
+    "licence": "Lizenz",
+    "source": "Quelltext",
+    "releases": "Veröffentlichungen",
+    "releasesLink": "Alle Fassungen und was sich geändert hat",
+    "project": "Projektseite",
+    "report": "Einen Fehler gefunden?",
+    "reportLink": "Auf GitHub melden",
+    "builtWith": "Gebaut mit",
+    "updates": {
+      "title": "Aktualisierungen",
+      "text": "Ob es eine neuere Fassung von nexcanvas gibt.",
+      "daily": "Einmal am Tag nachsehen",
+      "dailyHint": "Fragt GitHub nach der neuesten Veröffentlichung. Aus: nur, wenn du den Knopf drückst.",
+      "now": "Jetzt nachsehen",
+      "current": "Das ist die neueste Fassung.",
+      "none": "Noch keine Veröffentlichung gefunden.",
+      "notYet": "Noch nicht nachgesehen.",
+      "off": "Das tägliche Nachsehen ist aus.",
+      "toRelease": "Was neu ist",
+      "checkedAt": "zuletzt nachgesehen {{when}}",
+      "whatGoesOut": "Hinaus geht nur die Frage: eine Anfrage an api.github.com nach der neuesten Veröffentlichung von nexcanvas, ohne Namen, Boards oder Einstellungen. Es ist der einzige Ruf, den nexcanvas von sich aus macht."
+    }
+  },
+  "notices": {
+    "invite": "{{actor}} lädt dich in „{{space}}“ ein ({{role}})",
+    "operator_added": "Der Betreiber {{actor}} hat {{subject}} in „{{space}}“ aufgenommen ({{role}})",
+    "operator_role": "Der Betreiber {{actor}} hat das Recht von {{subject}} in „{{space}}“ geändert ({{role}})",
+    "operator_removed": "Der Betreiber {{actor}} hat {{subject}} aus „{{space}}“ genommen",
+    "accept": "Annehmen",
+    "decline": "Ablehnen",
+    "seen": "Gesehen",
+    "menu_one": "Eine Nachricht für dich",
+    "menu_other": "{{count}} Nachrichten für dich",
+    "section_one": "Neu für dich",
+    "section_other": "Neu für dich ({{count}})"
   }
 }

@@ -28,6 +28,8 @@ export function MembersDialog({ space, onClose }: { space: Space; onClose: () =>
   const [copied, setCopied] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const manage = listing?.role === 'manage'
+  // The operator resets rights in a space it does not manage (every member is told); inviting stays the managers'.
+  const steer = manage || me?.role === 'operator'
 
   const load = useCallback(() => {
     spacesApi.members(space.id).then(setListing, (error) => setProblem(error instanceof ApiError ? error.code : 'internal_error'))
@@ -54,7 +56,7 @@ export function MembersDialog({ space, onClose }: { space: Space; onClose: () =>
                 <div className="truncate text-xs text-mist-600">{m.name}</div>
               </div>
               <select
-                disabled={!manage || m.you}
+                disabled={!steer || m.you}
                 value={m.role}
                 onChange={async (e) => {
                   try {
@@ -72,7 +74,7 @@ export function MembersDialog({ space, onClose }: { space: Space; onClose: () =>
                 <option value="write">{t('roles.write')}</option>
                 <option value="manage">{t('roles.manage')}</option>
               </select>
-              {(manage || m.you) && (
+              {(steer || m.you) && (
                 <button
                   type="button"
                   title={m.you ? t('members.leave') : t('members.remove')}
@@ -168,7 +170,7 @@ export function MembersDialog({ space, onClose }: { space: Space; onClose: () =>
         </form>
       )}
       {!listing && !problem && <p className="text-sm text-mist-600">{t('common.loading')}</p>}
-      {me && listing && !manage && <p className="mt-3 text-xs text-mist-600">{t('members.onlyManagers')}</p>}
+      {me && listing && !steer && <p className="mt-3 text-xs text-mist-600">{t('members.onlyManagers')}</p>}
     </Dialog>
   )
 }

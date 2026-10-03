@@ -1,16 +1,18 @@
 /**
- * The operator's part of the settings, as in nexlore: accounts, sign-in (password, second factor, OIDC), public
- * pages, uploads, mail, backups, languages, the log and updates. Everything here is the server's; it applies to all.
+ * The operator's part of the settings, as in nexlore: accounts (with every space and the invitation mail), sign-in
+ * (password, second factor, public address, OIDC and authentik), public pages, files, backups, languages and the
+ * log. Everything here is the server's; it applies to all.
  */
-import { Check, Copy, Download, RotateCcw, ShieldCheck, Trash2, Upload } from 'lucide-react'
+import { Box, Download, Files, Globe, History, Info, Mail, RotateCcw, ShieldCheck, Trash2, Upload, Users } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, type Me } from '../../api/client'
+import { api, type Me, type SpaceInfo } from '../../api/client'
 import { Avatar } from '../../components/Avatar'
+import { MembersDialog } from '../../components/MembersDialog'
 import { forgetAddedLanguages, templateFile } from '../../i18n'
 import { useAuth } from '../../state/auth'
-import { Button, Card, Confirm, Feedback, Row, saveAsFile, Switch, useAction } from './ui'
+import { Button, Card, Confirm, CopyLink, Feedback, Input, saveAsFile, Select, SubHead, Toggle, useAction } from './ui'
 
 export type ServerSettings = {
   public_url: string
@@ -32,7 +34,8 @@ export type ServerSettings = {
   update_check: boolean
 }
 
-type Save = (change: Partial<ServerSettings> & { smtp_password?: string }, done?: string) => Promise<void>
+type Change = Partial<ServerSettings> & { smtp_password?: string }
+type Server = ReturnType<typeof useServerSettings>
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useServerSettings() {
@@ -41,20 +44,14 @@ export function useServerSettings() {
   useEffect(() => {
     api<ServerSettings>('/api/settings').then(setSettings, () => undefined)
   }, [])
-  const save: Save = (change, done) => action.run(async () => setSettings(await api<ServerSettings>('/api/settings', { method: 'PUT', body: change })), done)
+  /** The switch moves at once; the server's answer confirms it, a refusal puts it back. */
+  const save = async (change: Change, done?: string) => {
+    const before = settings
+    if (settings) setSettings({ ...settings, ...change })
+    const ok = await action.run(async () => setSettings(await api<ServerSettings>('/api/settings', { method: 'PUT', body: change })), done)
+    if (!ok) setSettings(before)
+  }
   return { settings, save, ...action }
-}
-
-function CopyLink({ value }: { value: string }) {
-  const [done, setDone] = useState(false)
-  return (
-    <div className="flex gap-2">
-      <input readOnly value={value} className="nc-field font-mono text-xs" onFocus={(e) => e.target.select()} />
-      <button type="button" className="nc-btn nc-btn-ghost shrink-0" onClick={() => void navigator.clipboard?.writeText(value).then(() => setDone(true), () => undefined)}>
-        {done ? <Check className="h-4 w-4 text-ok-500" /> : <Copy className="h-4 w-4" />}
-      </button>
-    </div>
-  )
 }
 
 type AccountRow = Me & { spaces: number; locked: boolean; created_at: string; last_seen_at: string | null }
@@ -72,55 +69,56 @@ export function AccountsCard() {
   }, [])
   useEffect(load, [load])
   return (
-    <Card title={t('server.accounts')} text={t('server.accountsHint')}>
-      <ul className="divide-y divide-ink-700/70">
+    <Card id="accounts" icon={Users} title={t('server.accounts')} text={t('server.accountsHint')}>
+      <ul className="divide-y divide-ink-700 rounded-xl border border-ink-700">
         {list.map((row) => (
-          <li key={row.id} className="flex flex-wrap items-center gap-3 py-2.5">
+          <li key={row.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
             <Avatar person={row} className="h-8 w-8 text-sm" />
             <div className="min-w-0 flex-1">
-              <div className="truncate text-sm text-mist-100">
+              <div className="truncate text-sm font-medium text-mist-100">
                 {row.display_name || row.name}
-                {row.id === me?.id && <span className="ml-1.5 text-xs text-mist-600">({t('members.you')})</span>}
+                {row.display_name && <span className="ml-1 text-xs font-normal text-mist-500">@{row.name}</span>}
+                {row.id === me?.id && <span className="ml-1.5 text-xs font-normal text-mist-500">({t('members.you')})</span>}
               </div>
-              <div className="truncate text-xs text-mist-600">
-                {row.name} · {row.role === 'operator' ? t('account.operator') : t('server.member')} · {t('server.inSpaces', { count: row.spaces })}
+              <div className="truncate text-xs text-mist-500">
+                {row.role === 'operator' ? t('account.operator') : t('server.member')} · {t(`server.signInBy.${row.sign_in}`)} · {t('server.inSpaces', { count: row.spaces })}
                 {row.two_factor ? ' · ' + t('server.withTwoFactor') : ''}
                 {row.locked ? ' · ' + t('server.locked') : ''}
               </div>
             </div>
             {row.id !== me?.id && (
               <div className="flex flex-wrap gap-1.5">
-                <button type="button" className="rounded-full border border-ink-700 px-2.5 py-1 text-xs text-mist-300 hover:bg-ink-800" onClick={() => setAsking({ kind: 'role', account: row })}>
+                <Button small onClick={() => setAsking({ kind: 'role', account: row })}>
                   {row.role === 'operator' ? t('server.makeMember') : t('server.makeOperator')}
-                </button>
+                </Button>
                 {row.sign_in === 'password' && (
-                  <button type="button" className="rounded-full border border-ink-700 px-2.5 py-1 text-xs text-mist-300 hover:bg-ink-800" onClick={() => setAsking({ kind: 'password', account: row })}>
+                  <Button small onClick={() => setAsking({ kind: 'password', account: row })}>
                     {t('server.newPassword')}
-                  </button>
+                  </Button>
                 )}
                 {row.two_factor && (
-                  <button type="button" className="rounded-full border border-ink-700 px-2.5 py-1 text-xs text-mist-300 hover:bg-ink-800" onClick={() => setAsking({ kind: 'reset', account: row })}>
+                  <Button small onClick={() => setAsking({ kind: 'reset', account: row })}>
                     {t('server.resetTwoFactor')}
-                  </button>
+                  </Button>
                 )}
-                <button type="button" className="rounded-full border border-ink-700 px-2.5 py-1 text-xs text-mist-300 hover:bg-ink-800" onClick={() => setAsking({ kind: 'signout', account: row })}>
+                <Button small onClick={() => setAsking({ kind: 'signout', account: row })}>
                   {t('server.signOutEverywhere')}
-                </button>
-                <button type="button" className="rounded-full border border-bad-500/40 px-2.5 py-1 text-xs text-bad-500 hover:bg-bad-500/10" onClick={() => setAsking({ kind: 'delete', account: row })}>
+                </Button>
+                <Button small danger onClick={() => setAsking({ kind: 'delete', account: row })}>
                   {t('server.deleteAccount')}
-                </button>
+                </Button>
               </div>
             )}
           </li>
         ))}
       </ul>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3">
         <Button accent busy={busy} onClick={() => void run(async () => setLink((await api<{ link: string }>('/api/invites', { method: 'POST', body: { days: 7 } })).link))}>
           {t('server.invite')}
         </Button>
-        <span className="text-xs text-mist-600">{t('server.inviteHint')}</span>
+        <span className="text-xs text-mist-500">{t('server.inviteHint')}</span>
       </div>
-      {link && <CopyLink value={link} />}
+      {link && <CopyLink value={link} label={t('server.invite')} />}
       <Feedback problem={problem} done={done} />
       {asking && (
         <Confirm
@@ -137,7 +135,7 @@ export function AccountsCard() {
             if (asking.kind === 'reset') await api(`/api/accounts/${id}/totp/reset`, { method: 'POST', body: { current_password: password } })
             if (asking.kind === 'signout') await api(`/api/accounts/${id}/sign-out`, { method: 'POST' })
             if (asking.kind === 'password') {
-              const fresh = newPassword || Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join('')
+              const fresh = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join('')
               await api(`/api/accounts/${id}/password`, { method: 'PUT', body: { password: fresh, current_password: password } })
               setNewPassword(fresh)
               setAsking(null)
@@ -157,164 +155,263 @@ export function AccountsCard() {
   )
 }
 
-type Oidc = { configured: boolean; issuer: string; client_id: string; provider_name: string; auto_create: boolean; redirect_uri: string }
+type AdminSpace = { id: number; name: string; members: number; managers: string[]; role: SpaceInfo['role'] }
 
-export function SignInCard({ server }: { server: ReturnType<typeof useServerSettings> }) {
+/** Every space with who manages it, without its contents: the operator resets rights here, as in nexlore. */
+export function AllSpacesCard() {
   const { t } = useTranslation()
-  const [oidc, setOidc] = useState<Oidc | null>(null)
-  const [secret, setSecret] = useState('')
-  const action = useAction()
+  const [spaces, setSpaces] = useState<AdminSpace[]>([])
+  const [open, setOpen] = useState<AdminSpace | null>(null)
+  const { problem, run } = useAction()
+  const load = useCallback(() => run(async () => setSpaces(await api<AdminSpace[]>('/api/admin/spaces'))), [run])
   useEffect(() => {
-    api<Oidc>('/api/oidc/config').then(setOidc, () => undefined)
-  }, [])
-  const s = server.settings
-  if (!s) return null
+    void load()
+  }, [load])
   return (
-    <>
-      <Card title={t('server.signin')}>
-        <Switch label={t('server.passwordLogin')} hint={t('server.passwordLoginHint')} on={s.password_login} onChange={(on) => void server.save({ password_login: on })} />
-        <Switch label={t('server.twoFactorRequired')} hint={t('server.twoFactorRequiredHint')} on={s.two_factor_required} onChange={(on) => void server.save({ two_factor_required: on })} />
-        <Feedback problem={server.problem} done={server.done} />
-      </Card>
-      {oidc && (
-        <Card title={t('server.oidc')} text={t('server.oidcHint')}>
-          <form
-            className="space-y-3"
-            onSubmit={(e) => {
-              e.preventDefault()
-              void action.run(async () => {
-                setOidc(await api<Oidc>('/api/oidc/config', { method: 'PUT', body: { issuer: oidc.issuer, client_id: oidc.client_id, client_secret: secret, provider_name: oidc.provider_name, auto_create: oidc.auto_create } }))
-                setSecret('')
-              }, t('settings.saved'))
-            }}
-          >
-            <Row label={t('server.oidcName')}>
-              <input className="nc-field" value={oidc.provider_name} onChange={(e) => setOidc({ ...oidc, provider_name: e.target.value })} placeholder="authentik" />
-            </Row>
-            <Row label={t('server.oidcIssuer')}>
-              <input className="nc-field" value={oidc.issuer} onChange={(e) => setOidc({ ...oidc, issuer: e.target.value })} placeholder="https://auth.example.com/application/o/nexcanvas/" />
-            </Row>
-            <Row label="Client ID">
-              <input className="nc-field" value={oidc.client_id} onChange={(e) => setOidc({ ...oidc, client_id: e.target.value })} />
-            </Row>
-            <Row label="Client Secret" hint={oidc.configured ? t('server.secretKept') : undefined}>
-              <input className="nc-field" type="password" value={secret} onChange={(e) => setSecret(e.target.value)} autoComplete="new-password" />
-            </Row>
-            <Row label={t('server.redirect')} hint={t('server.redirectHint')}>
-              <CopyLink value={oidc.redirect_uri} />
-            </Row>
-            <Switch label={t('server.oidcAutoCreate')} hint={t('server.oidcAutoCreateHint')} on={oidc.auto_create} onChange={(on) => setOidc({ ...oidc, auto_create: on })} />
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" accent busy={action.busy}>
-                {t('common.save')}
+    <Card id="all-spaces" icon={Box} title={t('server.allSpaces.title')} text={t('server.allSpaces.text')}>
+      <ul className="divide-y divide-ink-700 rounded-xl border border-ink-700">
+        {spaces.length === 0 && <li className="px-4 py-3 text-sm text-mist-500">{t('server.allSpaces.none')}</li>}
+        {spaces.map((space) => (
+          <li key={space.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
+            <span className="font-medium text-mist-100">{space.name}</span>
+            <span className="text-xs text-mist-500">
+              {space.members === 0 ? t('server.allSpaces.yours') : t('server.allSpaces.members', { count: space.members, managers: space.managers.join(', ') || '–' })}
+            </span>
+            <span className="ml-auto">
+              <Button small onClick={() => setOpen(space)}>
+                {t('server.allSpaces.rights')}
               </Button>
-              {oidc.configured && (
-                <Button
-                  danger
-                  busy={action.busy}
-                  onClick={() =>
-                    void action.run(async () => {
-                      await api('/api/oidc/config', { method: 'DELETE' })
-                      setOidc(await api<Oidc>('/api/oidc/config'))
-                    })
-                  }
-                >
-                  {t('server.oidcRemove')}
-                </Button>
-              )}
-            </div>
-            <Feedback problem={action.problem} done={action.done} />
-          </form>
-        </Card>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <Feedback problem={problem} />
+      {open && (
+        <MembersDialog
+          space={{ id: open.id, name: open.name, color: '', role: open.role, boards: 0, members: [] }}
+          onClose={() => {
+            setOpen(null)
+            void load()
+          }}
+        />
       )}
-    </>
+    </Card>
   )
 }
 
-export function PublicCard({ server }: { server: ReturnType<typeof useServerSettings> }) {
+type Oidc = { configured: boolean; issuer: string; client_id: string; provider_name: string; auto_create: boolean; redirect_uri: string }
+type Steps = { steps: { key: string; ok: boolean; detail: string }[] }
+
+export function SignInCard({ server }: { server: Server }) {
   const { t } = useTranslation()
-  const s = server.settings
+  const [oidc, setOidc] = useState<Oidc | null>(null)
+  const [form, setForm] = useState({ issuer: '', client_id: '', client_secret: '', provider_name: '', auto_create: false })
   const [address, setAddress] = useState<string | null>(null)
+  const [authentik, setAuthentik] = useState({ url: '', token: '' })
+  const [steps, setSteps] = useState<Steps | null>(null)
+  const { busy, problem, done, run } = useAction()
+
+  const loadOidc = useCallback(async () => {
+    const config = await api<Oidc>('/api/oidc/config')
+    setOidc(config)
+    setForm({ issuer: config.issuer, client_id: config.client_id, client_secret: '', provider_name: config.provider_name, auto_create: config.auto_create })
+  }, [])
+  useEffect(() => {
+    void run(loadOidc)
+  }, [run, loadOidc])
+
+  const s = server.settings
   if (!s) return null
   return (
-    <Card title={t('server.public')} text={t('server.publicHint')}>
-      <Switch label={t('server.publicAllowed')} on={s.shares_allowed} onChange={(on) => void server.save({ shares_allowed: on })} />
-      <Row label={t('server.publicUrl')} hint={t('server.publicUrlHint')}>
-        <div className="flex gap-2">
-          <input className="nc-field" value={address ?? s.public_url} onChange={(e) => setAddress(e.target.value)} placeholder="https://boards.example.com" />
-          <Button onClick={() => void server.save({ public_url: (address ?? s.public_url).trim() }, t('settings.saved'))}>{t('common.save')}</Button>
+    <Card id="sign-in" icon={ShieldCheck} title={t('server.signin')} text={t('server.signinText')}>
+      <Toggle label={t('server.passwordLogin')} hint={t('server.passwordLoginHint')} checked={s.password_login} onChange={(password_login) => void server.save({ password_login })} />
+      <Toggle label={t('server.twoFactorRequired')} hint={t('server.twoFactorRequiredHint')} checked={s.two_factor_required} onChange={(two_factor_required) => void server.save({ two_factor_required })} />
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void server.save({ public_url: (address ?? s.public_url).trim() }, t('settings.saved'))
+        }}
+      >
+        <Input label={t('server.publicUrl')} value={address ?? s.public_url} onChange={setAddress} placeholder="https://boards.example.com" hint={t('server.publicUrlHint')} className="min-w-60 flex-1" />
+        <Button type="submit" busy={server.busy}>
+          {t('common.save')}
+        </Button>
+      </form>
+      <Feedback problem={server.problem} done={server.done} />
+
+      <SubHead title={t('server.oidc')} text={oidc?.configured ? t('server.oidcOn', { issuer: oidc.issuer }) : t('server.oidcOff')} />
+      {oidc && (
+        <div className="space-y-1">
+          <span className="text-xs font-medium text-mist-400">{t('server.redirect')}</span>
+          <CopyLink value={oidc.redirect_uri} label={t('server.redirect')} />
+          <span className="block text-xs text-mist-500">{t('server.redirectHint')}</span>
         </div>
-      </Row>
+      )}
+      <form
+        className="grid gap-2 sm:grid-cols-2"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void run(async () => {
+            setOidc(await api<Oidc>('/api/oidc/config', { method: 'PUT', body: form }))
+            setForm((current) => ({ ...current, client_secret: '' }))
+          }, t('settings.saved'))
+        }}
+      >
+        <Input label={t('server.oidcIssuer')} value={form.issuer} onChange={(issuer) => setForm({ ...form, issuer })} placeholder="https://auth.example.com/application/o/nexcanvas/" className="sm:col-span-2" />
+        <Input label={t('server.clientId')} value={form.client_id} onChange={(client_id) => setForm({ ...form, client_id })} />
+        <Input label={t('server.clientSecret')} value={form.client_secret} onChange={(client_secret) => setForm({ ...form, client_secret })} type="password" autoComplete="new-password" placeholder={oidc?.configured ? t('server.secretKept') : ''} />
+        <Input label={t('server.oidcName')} value={form.provider_name} onChange={(provider_name) => setForm({ ...form, provider_name })} placeholder="authentik" />
+        <div className="sm:col-span-2">
+          <Toggle label={t('server.oidcAutoCreate')} hint={t('server.oidcAutoCreateHint')} checked={form.auto_create} onChange={(auto_create) => setForm({ ...form, auto_create })} />
+        </div>
+        <div className="flex gap-2 sm:col-span-2">
+          <Button type="submit" accent busy={busy}>
+            {t('common.save')}
+          </Button>
+          {oidc?.configured && (
+            <Button
+              danger
+              busy={busy}
+              onClick={() =>
+                void run(async () => {
+                  await api('/api/oidc/config', { method: 'DELETE' })
+                  await loadOidc()
+                })
+              }
+            >
+              {t('server.oidcRemove')}
+            </Button>
+          )}
+        </div>
+      </form>
+
+      <SubHead title={t('server.authentik.title')} text={t('server.authentik.text')} />
+      <form
+        className="grid gap-2 sm:grid-cols-2"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void run(async () => {
+            setSteps(await api<Steps>('/api/oidc/authentik/setup', { method: 'POST', body: authentik }))
+            setAuthentik({ ...authentik, token: '' })
+            await loadOidc()
+          })
+        }}
+      >
+        <Input label={t('server.authentik.url')} value={authentik.url} onChange={(url) => setAuthentik({ ...authentik, url })} placeholder="https://auth.example.com" />
+        <Input label={t('server.authentik.token')} value={authentik.token} onChange={(token) => setAuthentik({ ...authentik, token })} type="password" autoComplete="new-password" />
+        <div className="flex flex-wrap gap-2 sm:col-span-2">
+          <Button type="submit" busy={busy} disabled={!authentik.url.trim() || !authentik.token.trim()}>
+            {t('server.authentik.run')}
+          </Button>
+          <a href="/api/oidc/authentik/blueprint" className="inline-flex items-center gap-1.5 rounded-full border border-ink-700 px-3.5 py-1.5 text-sm text-mist-300 hover:bg-ink-850">
+            <Download className="h-4 w-4" strokeWidth={1.8} />
+            {t('server.authentik.blueprint')}
+          </a>
+        </div>
+      </form>
+      {steps && (
+        <ol className="space-y-1 text-xs" data-testid="authentik-steps">
+          {steps.steps.map((step) => (
+            <li key={step.key} className={step.ok ? 'text-ok-500' : 'text-bad-500'}>
+              {step.ok ? '✓' : '✗'} {step.detail}
+            </li>
+          ))}
+        </ol>
+      )}
+      <Feedback problem={problem} done={done} />
+    </Card>
+  )
+}
+
+export function SharesCard({ server }: { server: Server }) {
+  const { t } = useTranslation()
+  const s = server.settings
+  if (!s) return null
+  return (
+    <Card id="shares" icon={Globe} title={t('server.public')} text={t('server.publicHint')}>
+      <Toggle label={t('server.publicAllowed')} hint={t('server.publicAllowedHint')} checked={s.shares_allowed} onChange={(shares_allowed) => void server.save({ shares_allowed })} />
       <Feedback problem={server.problem} done={server.done} />
     </Card>
   )
 }
 
-export function UploadsCard({ server }: { server: ReturnType<typeof useServerSettings> }) {
+export function FilesCard({ server }: { server: Server }) {
   const { t } = useTranslation()
   const s = server.settings
   const [limit, setLimit] = useState<string | null>(null)
   if (!s) return null
   return (
-    <Card title={t('server.uploads')} text={t('server.uploadsHint')}>
-      <Row label={t('server.uploadMax')} hint={t('server.uploadCeiling', { mb: s.upload_ceiling_mb })}>
-        <div className="flex gap-2">
-          <input className="nc-field w-28" type="number" min={1} max={s.upload_ceiling_mb} value={limit ?? String(s.upload_max_mb)} onChange={(e) => setLimit(e.target.value)} />
-          <Button onClick={() => void server.save({ upload_max_mb: Math.max(1, Number(limit ?? s.upload_max_mb)) }, t('settings.saved'))}>{t('common.save')}</Button>
-        </div>
-      </Row>
-      <Switch label={t('server.stripLocation')} hint={t('server.stripLocationHint')} on={s.strip_location} onChange={(on) => void server.save({ strip_location: on })} />
+    <Card id="files" icon={Files} title={t('server.files')} text={t('server.filesHint')}>
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void server.save({ upload_max_mb: Math.max(1, Math.min(s.upload_ceiling_mb, Number(limit ?? s.upload_max_mb) || 1)) }, t('settings.saved'))
+        }}
+      >
+        <Input label={t('server.uploadMax')} type="number" min={1} max={s.upload_ceiling_mb} value={limit ?? String(s.upload_max_mb)} onChange={setLimit} hint={t('server.uploadCeiling', { mb: s.upload_ceiling_mb })} className="w-56" />
+        <Button type="submit" busy={server.busy}>
+          {t('common.save')}
+        </Button>
+      </form>
+      <Toggle label={t('server.stripLocation')} hint={t('server.stripLocationHint')} checked={s.strip_location} onChange={(strip_location) => void server.save({ strip_location })} />
       <Feedback problem={server.problem} done={server.done} />
     </Card>
   )
 }
 
-export function MailCard({ server }: { server: ReturnType<typeof useServerSettings> }) {
+export function MailCard({ server }: { server: Server }) {
   const { t } = useTranslation()
   const s = server.settings
-  const [draft, setDraft] = useState<Partial<ServerSettings> & { smtp_password?: string }>({})
+  const [draft, setDraft] = useState<Change>({})
   const [to, setTo] = useState('')
   const test = useAction()
   if (!s) return null
   const value = { ...s, ...draft }
   return (
-    <Card title={t('server.mail')} text={t('server.mailHint')}>
-      <Row label={t('server.smtpHost')}>
-        <div className="flex gap-2">
-          <input className="nc-field" value={value.smtp_host} onChange={(e) => setDraft({ ...draft, smtp_host: e.target.value })} placeholder="smtp.example.com" />
-          <input className="nc-field w-24" type="number" value={value.smtp_port} onChange={(e) => setDraft({ ...draft, smtp_port: Number(e.target.value) })} />
-        </div>
-      </Row>
-      <Row label={t('server.smtpSecurity')}>
-        <select className="nc-field" value={value.smtp_security} onChange={(e) => setDraft({ ...draft, smtp_security: e.target.value as ServerSettings['smtp_security'] })}>
-          <option value="starttls">STARTTLS</option>
-          <option value="tls">TLS</option>
-          <option value="none">{t('server.none')}</option>
-        </select>
-      </Row>
-      <Row label={t('server.smtpUser')}>
-        <input className="nc-field" value={value.smtp_user} onChange={(e) => setDraft({ ...draft, smtp_user: e.target.value })} autoComplete="off" />
-      </Row>
-      <Row label={t('auth.password')} hint={s.smtp_password_set ? t('server.secretKept') : undefined}>
-        <input className="nc-field" type="password" value={draft.smtp_password ?? ''} onChange={(e) => setDraft({ ...draft, smtp_password: e.target.value })} autoComplete="new-password" />
-      </Row>
-      <Row label={t('server.smtpFrom')}>
-        <input className="nc-field" value={value.smtp_from} onChange={(e) => setDraft({ ...draft, smtp_from: e.target.value })} placeholder="boards@example.com" />
-      </Row>
-      <div className="flex flex-wrap gap-2">
-        <Button accent busy={server.busy} onClick={() => void server.save(draft, t('settings.saved')).then(() => setDraft({}))}>
-          {t('common.save')}
-        </Button>
-      </div>
-      <Feedback problem={server.problem} done={server.done} />
-      <Row label={t('server.mailTest')}>
-        <div className="flex gap-2">
-          <input className="nc-field" value={to} onChange={(e) => setTo(e.target.value)} placeholder="you@example.com" />
-          <Button busy={test.busy} onClick={() => void test.run(() => api('/api/settings/mail-test', { method: 'POST', body: { to } }), t('server.mailSent'))}>
-            {t('server.send')}
+    <Card id="mail" icon={Mail} title={t('server.mail')} text={t('server.mailHint')}>
+      <form
+        className="grid gap-2 sm:grid-cols-2"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void server.save(draft, t('settings.saved')).then(() => setDraft({}))
+        }}
+      >
+        <Input label={t('server.smtpHost')} value={value.smtp_host} onChange={(smtp_host) => setDraft({ ...draft, smtp_host })} placeholder="smtp.example.com" />
+        <Input label={t('server.smtpPort')} type="number" value={String(value.smtp_port)} onChange={(port) => setDraft({ ...draft, smtp_port: Number(port) })} />
+        <Select
+          label={t('server.smtpSecurity')}
+          value={value.smtp_security}
+          onChange={(smtp_security) => setDraft({ ...draft, smtp_security })}
+          options={[
+            { value: 'starttls', label: 'STARTTLS' },
+            { value: 'tls', label: 'TLS' },
+            { value: 'none', label: t('server.none') },
+          ]}
+        />
+        <Input label={t('server.smtpUser')} value={value.smtp_user} onChange={(smtp_user) => setDraft({ ...draft, smtp_user })} />
+        <Input label={t('auth.password')} type="password" autoComplete="new-password" value={draft.smtp_password ?? ''} onChange={(smtp_password) => setDraft({ ...draft, smtp_password })} placeholder={s.smtp_password_set ? t('server.secretKept') : ''} />
+        <Input label={t('server.smtpFrom')} value={value.smtp_from} onChange={(smtp_from) => setDraft({ ...draft, smtp_from })} placeholder="boards@example.com" />
+        <div className="sm:col-span-2">
+          <Button type="submit" accent busy={server.busy}>
+            {t('common.save')}
           </Button>
         </div>
-      </Row>
+      </form>
+      <Feedback problem={server.problem} done={server.done} />
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void test.run(() => api('/api/settings/mail-test', { method: 'POST', body: { to } }), t('server.mailSent'))
+        }}
+      >
+        <Input label={t('server.mailTest')} value={to} onChange={setTo} placeholder="you@example.com" className="min-w-60 flex-1" />
+        <Button type="submit" busy={test.busy} disabled={!to.trim()}>
+          {t('server.send')}
+        </Button>
+      </form>
       <Feedback problem={test.problem} done={test.done} />
     </Card>
   )
@@ -323,12 +420,13 @@ export function MailCard({ server }: { server: ReturnType<typeof useServerSettin
 type Backup = { name: string; size: number; created: string; kind: string; note: string; boards: number; files: number; version: string }
 type Brief = { usable: boolean; boards: number; files: number; would_add: number; would_change: number; would_remove: number; damaged: string[]; created: string }
 
-export function BackupsCard({ server }: { server: ReturnType<typeof useServerSettings> }) {
+export function BackupsCard({ server }: { server: Server }) {
   const { t, i18n } = useTranslation()
   const { me } = useAuth()
   const [list, setList] = useState<Backup[]>([])
   const [brief, setBrief] = useState<(Brief & { name: string }) | null>(null)
   const [asking, setAsking] = useState<{ kind: 'restore' | 'download' | 'delete'; name: string } | null>(null)
+  const [keep, setKeep] = useState<string | null>(null)
   const [restarting, setRestarting] = useState(false)
   const action = useAction()
   const load = useCallback(() => {
@@ -338,57 +436,80 @@ export function BackupsCard({ server }: { server: ReturnType<typeof useServerSet
   const s = server.settings
   if (!s) return null
   const size = (bytes: number) => (bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`)
+  const icon = 'rounded-lg p-1.5 text-mist-500 hover:bg-ink-800 hover:text-mist-100'
   return (
-    <Card title={t('server.backups')} text={t('server.backupsHint')}>
-      <Row label={t('server.schedule')}>
-        <select className="nc-field" value={s.backup_schedule} onChange={(e) => void server.save({ backup_schedule: e.target.value as ServerSettings['backup_schedule'] })}>
-          <option value="off">{t('server.off')}</option>
-          <option value="daily">{t('server.daily')}</option>
-          <option value="weekly">{t('server.weekly')}</option>
-        </select>
-      </Row>
-      <Row label={t('server.keep')}>
-        <input className="nc-field w-24" type="number" min={1} max={100} defaultValue={s.backup_keep} onBlur={(e) => void server.save({ backup_keep: Math.max(1, Math.min(100, Number(e.target.value) || 7)) })} />
-      </Row>
-      <div className="flex flex-wrap gap-2">
-        <Button accent busy={action.busy} onClick={() => void action.run(async () => {
-          await api('/api/backups', { method: 'POST', body: { note: '' } })
-          load()
-        }, t('server.backupMade'))}>
-          {t('server.backupNow')}
-        </Button>
+    <Card id="backups" icon={History} title={t('server.backups')} text={t('server.backupsHint')}>
+      <div className="flex flex-wrap items-end gap-2">
+        <Select
+          label={t('server.schedule')}
+          value={s.backup_schedule}
+          onChange={(backup_schedule) => void server.save({ backup_schedule })}
+          options={[
+            { value: 'off', label: t('server.off') },
+            { value: 'daily', label: t('server.daily') },
+            { value: 'weekly', label: t('server.weekly') },
+          ]}
+          className="w-48"
+        />
+        <form
+          className="flex items-end gap-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void server.save({ backup_keep: Math.max(1, Math.min(100, Number(keep ?? s.backup_keep) || 7)) }, t('settings.saved'))
+          }}
+        >
+          <Input label={t('server.keep')} type="number" min={1} max={100} value={keep ?? String(s.backup_keep)} onChange={setKeep} className="w-28" />
+          <Button type="submit" busy={server.busy}>
+            {t('common.save')}
+          </Button>
+        </form>
+        <span className="ml-auto">
+          <Button
+            accent
+            busy={action.busy}
+            onClick={() =>
+              void action.run(async () => {
+                await api('/api/backups', { method: 'POST', body: { note: '' } })
+                load()
+              }, t('server.backupMade'))
+            }
+          >
+            {t('server.backupNow')}
+          </Button>
+        </span>
       </div>
-      <ul className="divide-y divide-ink-700/70 rounded-xl border border-ink-700 text-sm">
-        {list.length === 0 && <li className="px-3 py-2.5 text-mist-600">{t('server.noBackups')}</li>}
+      <Feedback problem={server.problem} done={server.done} />
+      <ul className="divide-y divide-ink-700 rounded-xl border border-ink-700 text-sm">
+        {list.length === 0 && <li className="px-4 py-3 text-mist-500">{t('server.noBackups')}</li>}
         {list.map((entry) => (
-          <li key={entry.name} className="flex flex-wrap items-center gap-2 px-3 py-2">
+          <li key={entry.name} className="flex flex-wrap items-center gap-2 px-4 py-2.5">
             <div className="min-w-0 flex-1">
-              <div className="text-mist-200">{new Date(entry.created).toLocaleString(i18n.language)}</div>
-              <div className="text-xs text-mist-600">
+              <div className="text-mist-100">{new Date(entry.created).toLocaleString(i18n.language)}</div>
+              <div className="text-xs text-mist-500">
                 {t(`server.kinds.${entry.kind}`)} · {t('server.backupContent', { boards: entry.boards, files: entry.files })} · {size(entry.size)} · {entry.version}
               </div>
             </div>
-            <button type="button" className="rounded p-1.5 text-mist-500 hover:bg-ink-800 hover:text-mist-100" title={t('server.check')} aria-label={t('server.check')} onClick={() => void action.run(async () => setBrief({ ...(await api<Brief>(`/api/backups/${entry.name}/check`, { method: 'POST' })), name: entry.name }))}>
-              <ShieldCheck className="h-4 w-4" />
+            <button type="button" className={icon} title={t('server.check')} aria-label={t('server.check')} onClick={() => void action.run(async () => setBrief({ ...(await api<Brief>(`/api/backups/${entry.name}/check`, { method: 'POST' })), name: entry.name }))}>
+              <ShieldCheck className="h-4 w-4" strokeWidth={1.8} />
             </button>
-            <button type="button" className="rounded p-1.5 text-mist-500 hover:bg-ink-800 hover:text-mist-100" title={t('server.download')} aria-label={t('server.download')} onClick={() => setAsking({ kind: 'download', name: entry.name })}>
-              <Download className="h-4 w-4" />
+            <button type="button" className={icon} title={t('server.download')} aria-label={t('server.download')} onClick={() => setAsking({ kind: 'download', name: entry.name })}>
+              <Download className="h-4 w-4" strokeWidth={1.8} />
             </button>
-            <button type="button" className="rounded p-1.5 text-mist-500 hover:bg-ink-800 hover:text-mist-100" title={t('server.restore')} aria-label={t('server.restore')} onClick={() => setAsking({ kind: 'restore', name: entry.name })}>
-              <RotateCcw className="h-4 w-4" />
+            <button type="button" className={icon} title={t('server.restore')} aria-label={t('server.restore')} onClick={() => setAsking({ kind: 'restore', name: entry.name })}>
+              <RotateCcw className="h-4 w-4" strokeWidth={1.8} />
             </button>
-            <button type="button" className="rounded p-1.5 text-mist-500 hover:bg-ink-800 hover:text-bad-500" title={t('server.deleteBackup')} aria-label={t('server.deleteBackup')} onClick={() => setAsking({ kind: 'delete', name: entry.name })}>
-              <Trash2 className="h-4 w-4" />
+            <button type="button" className="rounded-lg p-1.5 text-mist-500 hover:bg-ink-800 hover:text-bad-500" title={t('server.deleteBackup')} aria-label={t('server.deleteBackup')} onClick={() => setAsking({ kind: 'delete', name: entry.name })}>
+              <Trash2 className="h-4 w-4" strokeWidth={1.8} />
             </button>
           </li>
         ))}
       </ul>
       {brief && (
-        <div className={'rounded-xl border px-3 py-2.5 text-sm ' + (brief.usable ? 'border-ok-500/40 bg-ok-500/10 text-mist-200' : 'border-bad-500/40 bg-bad-500/10 text-bad-500')}>
+        <div className={'rounded-xl border px-4 py-3 text-sm ' + (brief.usable ? 'border-ok-500/40 bg-ok-500/10 text-mist-200' : 'border-bad-500/40 bg-bad-500/10 text-bad-500')}>
           {brief.usable ? t('server.checkOk', { boards: brief.boards, files: brief.files, add: brief.would_add, remove: brief.would_remove }) : t('server.checkBad')}
         </div>
       )}
-      {restarting && <p className="rounded-xl border border-warn-500/40 bg-warn-500/10 px-3 py-2 text-sm text-warn-500">{t('server.restarting')}</p>}
+      {restarting && <p className="rounded-xl border border-warn-500/40 bg-warn-500/10 px-4 py-3 text-sm text-warn-500">{t('server.restarting')}</p>}
       <Feedback problem={action.problem} done={action.done} />
       {asking && (
         <Confirm
@@ -432,33 +553,40 @@ export function LanguagesCard() {
     api<Locale[]>('/api/locales').then(setList, () => undefined)
   }, [])
   useEffect(load, [load])
-  const template = () => saveAsFile('nexcanvas-language-template.json', templateFile())
+  const chip = 'flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs'
   return (
-    <Card title={t('server.languages')} text={t('server.languagesHint')}>
+    <Card id="languages" icon={Globe} title={t('server.languages')} text={t('server.languagesHint')}>
       <div className="flex flex-wrap gap-2">
-        <span className="rounded-full border border-ink-700 px-3 py-1 text-xs text-mist-300">Deutsch · {t('server.builtIn')}</span>
-        <span className="rounded-full border border-ink-700 px-3 py-1 text-xs text-mist-300">English · {t('server.builtIn')}</span>
+        <span className={chip + ' border-ink-700 text-mist-300'}>Deutsch · {t('server.builtIn')}</span>
+        <span className={chip + ' border-ink-700 text-mist-300'}>English · {t('server.builtIn')}</span>
         {list.map((entry) => (
-          <span key={entry.code} className="flex items-center gap-1.5 rounded-full border border-accent-500/40 px-3 py-1 text-xs text-mist-200">
+          <span key={entry.code} className={chip + ' border-accent-500/40 text-mist-200'}>
             {entry.name} ({entry.code}) · {t('server.texts', { count: entry.keys })}
-            <button type="button" aria-label={t('server.remove')} className="text-mist-500 hover:text-bad-500" onClick={() => void action.run(async () => {
-              await api(`/api/locales/${entry.code}`, { method: 'DELETE' })
-              forgetAddedLanguages()
-              load()
-            })}>
+            <button
+              type="button"
+              aria-label={t('server.remove')}
+              className="text-mist-500 hover:text-bad-500"
+              onClick={() =>
+                void action.run(async () => {
+                  await api(`/api/locales/${entry.code}`, { method: 'DELETE' })
+                  forgetAddedLanguages()
+                  load()
+                })
+              }
+            >
               <Trash2 className="h-3 w-3" />
             </button>
           </span>
         ))}
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={template}>
-          <Download className="h-4 w-4" />
+      <div className="flex flex-wrap items-end gap-2">
+        <Button onClick={() => saveAsFile('nexcanvas-language-template.json', templateFile())}>
+          <Download className="h-4 w-4" strokeWidth={1.8} />
           {t('server.template')}
         </Button>
-        <input className="nc-field w-24" value={code} onChange={(e) => setCode(e.target.value.trim())} placeholder="es" aria-label={t('server.languageCode')} />
+        <Input label={t('server.languageCode')} value={code} onChange={(value) => setCode(value.trim())} placeholder="es" className="w-28" />
         <Button disabled={!code} busy={action.busy} onClick={() => file.current?.click()}>
-          <Upload className="h-4 w-4" />
+          <Upload className="h-4 w-4" strokeWidth={1.8} />
           {t('server.upload')}
         </Button>
         <input
@@ -506,15 +634,21 @@ export function LogCard() {
   }, [])
   const tone = (line: LogLine) => (line.level === 'ERROR' || line.level === 'CRITICAL' ? 'text-bad-500' : line.level === 'WARNING' ? 'text-warn-500' : 'text-mist-300')
   return (
-    <Card title={t('server.log')} text={t('server.logHint')}>
-      <div className="flex flex-wrap items-end gap-3">
-        <select className="nc-field w-36" value={level} onChange={(e) => setLevel(e.target.value)} aria-label={t('server.level')}>
-          <option value="">{t('server.allLevels')}</option>
-          <option value="INFO">INFO</option>
-          <option value="WARNING">WARNING</option>
-          <option value="ERROR">ERROR</option>
-        </select>
-        <input className="nc-field min-w-40 flex-1" value={words} onChange={(e) => setWords(e.target.value)} placeholder={t('server.logSearch')} />
+    <Card id="log" icon={Info} title={t('server.log')} text={t('server.logHint')}>
+      <div className="flex flex-wrap items-end gap-2">
+        <Select
+          label={t('server.level')}
+          value={level}
+          onChange={setLevel}
+          options={[
+            { value: '', label: t('server.allLevels') },
+            { value: 'INFO', label: 'INFO' },
+            { value: 'WARNING', label: 'WARNING' },
+            { value: 'ERROR', label: 'ERROR' },
+          ]}
+          className="w-40"
+        />
+        <Input label={t('server.logSearch')} value={words} onChange={setWords} className="min-w-40 flex-1" />
         <Button onClick={load}>{t('server.refresh')}</Button>
       </div>
       <div className="nc-scroll max-h-[28rem] overflow-auto rounded-xl border border-ink-700 bg-ink-950 p-3 font-mono text-[11px] leading-5" role="log">
@@ -525,24 +659,26 @@ export function LogCard() {
           </div>
         ))}
       </div>
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end gap-2">
         {mode && (
-          <select
-            className="nc-field w-56"
-            value={mode.mode}
-            disabled={mode.fixed_by_env}
-            aria-label={t('server.level')}
-            onChange={(e) => void action.run(async () => setMode(await api<LogMode>('/api/logs/level', { method: 'PUT', body: { mode: e.target.value, minutes: e.target.value === 'detailed' || e.target.value === 'trace' ? 60 : 0 } })))}
-          >
-            {mode.modes.map((value) => (
-              <option key={value} value={value}>
-                {t(`server.levels.${value}`)}
-              </option>
-            ))}
-          </select>
+          <label className="block text-sm">
+            <span className="text-xs font-medium text-mist-400">{t('server.detail')}</span>
+            <select
+              className="mt-1 h-9 w-56 rounded-lg border border-ink-700 bg-ink-850 px-2 text-sm text-mist-100"
+              value={mode.mode}
+              disabled={mode.fixed_by_env}
+              onChange={(e) => void action.run(async () => setMode(await api<LogMode>('/api/logs/level', { method: 'PUT', body: { mode: e.target.value, minutes: e.target.value === 'detailed' || e.target.value === 'trace' ? 60 : 0 } })))}
+            >
+              {mode.modes.map((value) => (
+                <option key={value} value={value}>
+                  {t(`server.levels.${value}`)}
+                </option>
+              ))}
+            </select>
+          </label>
         )}
-        <a href="/api/logs/download" className="nc-btn nc-btn-ghost">
-          <Download className="h-4 w-4" />
+        <a href="/api/logs/download" className="inline-flex items-center gap-1.5 rounded-full border border-ink-700 px-3.5 py-1.5 text-sm text-mist-300 hover:bg-ink-850">
+          <Download className="h-4 w-4" strokeWidth={1.8} />
           {t('server.download')}
         </a>
         <Button danger onClick={() => setClearing(true)}>
@@ -565,36 +701,6 @@ export function LogCard() {
           }}
         />
       )}
-    </Card>
-  )
-}
-
-type Updates = { update_check: boolean; checked: boolean; latest: string | null; newer: boolean; release_url: string | null }
-
-export function AboutCard() {
-  const { t } = useTranslation()
-  const { me } = useAuth()
-  const [updates, setUpdates] = useState<Updates | null>(null)
-  const action = useAction()
-  useEffect(() => {
-    api<Updates>('/api/about/updates').then(setUpdates, () => undefined)
-  }, [])
-  return (
-    <Card title={t('server.about')} text={t('server.aboutText', { version: me?.version ?? '' })}>
-      {updates && (
-        <>
-          <Switch label={t('server.updateCheck')} hint={t('server.updateCheckHint')} on={updates.update_check} onChange={(on) => void action.run(async () => setUpdates(await api<Updates>('/api/about/updates', { method: 'PUT', body: { update_check: on } })))} />
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            <span className="text-mist-400">
-              {updates.newer ? t('server.updateNewer', { version: updates.latest }) : updates.checked ? t('server.updateNone') : t('server.updateUnknown')}
-            </span>
-            <Button busy={action.busy} onClick={() => void action.run(async () => setUpdates(await api<Updates>('/api/about/updates/check', { method: 'POST' })))}>
-              {t('server.updateNow')}
-            </Button>
-          </div>
-        </>
-      )}
-      <Feedback problem={action.problem} done={action.done} />
     </Card>
   )
 }

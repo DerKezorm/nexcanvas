@@ -8,6 +8,7 @@ import { BoardPage } from './pages/BoardPage'
 import { BoardsPage } from './pages/BoardsPage'
 import { FilesPage } from './pages/FilesPage'
 import { PublicPage } from './pages/PublicPage'
+import { AboutPage } from './pages/AboutPage'
 import { AccountPage, SettingsPage } from './pages/SettingsPage'
 import { TemplatesPage } from './pages/TemplatesPage'
 import { useAuth } from './state/auth'
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="files" element={<FilesPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="account" element={<AccountPage />} />
+        <Route path="about" element={<AboutPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

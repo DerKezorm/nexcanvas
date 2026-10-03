@@ -4,7 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { useBoards } from '../board/store'
+import { useNotices } from '../lib/notices'
 import { useShell } from './AppShell'
+import { NoticeList } from './Notices'
 
 function Section({ title, children, open, onToggle, action }: { title: string; children: ReactNode; open: boolean; onToggle: () => void; action?: ReactNode }) {
   return (
@@ -33,11 +35,20 @@ export function Sidebar() {
   const live = boards.boards.filter((b) => !b.deleted)
   const recent = [...live].sort((a, b) => b.opened - a.opened).slice(0, 3)
   const favorites = live.filter((b) => b.favorite)
+  const notices = useNotices()
 
   const row = 'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-mist-400 hover:bg-ink-850 hover:text-mist-100'
 
   return (
     <aside className="nc-scroll hidden w-72 shrink-0 flex-col overflow-y-auto border-r border-ink-700/80 bg-ink-950/60 md:flex" aria-label={t('sidebar.label')}>
+      {notices.length > 0 && (
+        <section className="border-b border-ink-700/60 px-2.5 py-2.5" data-testid="sidebar-notices">
+          <div className="px-1.5 py-1 text-[11px] font-semibold tracking-wider text-accent-400 uppercase">{t('notices.section', { count: notices.length })}</div>
+          <div className="mt-1">
+            <NoticeList notices={notices} />
+          </div>
+        </section>
+      )}
       <Section title={t('sidebar.recent')} open={open.recent} onToggle={() => setOpen((o) => ({ ...o, recent: !o.recent }))}>
         {recent.map((b) => (
           <Link key={b.id} to={`/b/${b.id}`} className={row}>

@@ -27,7 +27,8 @@ logger = logging.getLogger("nexcanvas.updates")
 REPO = "DerKezorm/nexcanvas"
 REPO_URL = f"https://github.com/{REPO}"
 RELEASES_URL = f"{REPO_URL}/releases"
-PROJECT_URL = "https://www.nexcanvas.de"
+#: The project page; empty until there is one (the about page leaves the row out then).
+PROJECT_URL = ""
 API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
 
 #: Once a day at most; GitHub allows 60 questions an hour without signing in.

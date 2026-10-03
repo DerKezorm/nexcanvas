@@ -28,7 +28,7 @@
     "loading": "Loading …"
   },
   "account": {
-    "menu": "Account menu",
+    "menu": "Account menu of {{name}}",
     "operator": "Operator",
     "mine": "My account",
     "language": "Language",
@@ -69,7 +69,19 @@
     "sessions": "Signed in elsewhere",
     "sessionsHint": "A lost phone or a borrowed computer: end every sign-in but this one.",
     "signOutOthers": "Sign out everywhere else",
-    "othersSignedOut": "Every other browser is signed out."
+    "othersSignedOut": "Every other browser is signed out.",
+    "profileText": "How others see you.",
+    "oidc": {
+      "title": "Sign-in with {{name}}",
+      "lead": "Link your account to the provider, then both ways work.",
+      "only": "This account signs in through the provider only.",
+      "linked": "Linked. You can sign in with your password or through the provider.",
+      "linkedNow": "Linked.",
+      "unlink": "Remove the link",
+      "unlinked": "Link removed.",
+      "text": "Your password to confirm, then off to the provider and back.",
+      "link": "Link with the provider"
+    }
   },
   "board": {
     "new": "New board",
@@ -348,7 +360,48 @@
     "ownPassword": "Your own password",
     "snapHint": "Alt while dragging does the opposite.",
     "spacesBin": "Spaces in the bin",
-    "spacesBinHint": "Their boards come back with them. After 30 days they go for good."
+    "spacesBinHint": "Their boards come back with them. After 30 days they go for good.",
+    "tabs": {
+      "general": "General",
+      "looks": "Look",
+      "spaces": "Spaces",
+      "server": "Server"
+    },
+    "parts": {
+      "accounts": "Accounts",
+      "signin": "Sign-in",
+      "shares": "Public pages",
+      "files": "Files",
+      "backups": "Backups",
+      "languages": "Languages",
+      "log": "Log"
+    },
+    "start": {
+      "title": "Start page",
+      "text": "What shows first after signing in."
+    },
+    "board": {
+      "title": "On the board",
+      "text": "How dragging and tools behave. For your account, on every device."
+    },
+    "toolBackHint": "Off: the tool stays chosen until you take another one.",
+    "gridHint": "A quiet grid of dots behind everything, moving along when you pan.",
+    "language": {
+      "title": "Language",
+      "text": "nexcanvas brings English and German. Upload more under Server, Languages; whatever a file lacks shows in English.",
+      "textMember": "nexcanvas brings English and German; the operator can add more languages.",
+      "choose": "Language of the interface",
+      "added": "added by the operator",
+      "template": "Download template",
+      "templateHint": "The English texts as a file to translate. Upload it under Server, Languages with a code such as es or pt-BR."
+    },
+    "looks": {
+      "title": "Light or dark",
+      "text": "In this browser, like the switch top right.",
+      "board": "The board",
+      "boardText": "How the surface behind your boards looks."
+    },
+    "spacesMine": "Your spaces"
   },
   "server": {
     "accounts": "Accounts",
@@ -356,12 +409,12 @@
     "member": "Member",
     "invite": "Invite someone",
     "signin": "Sign-in",
-    "oidc": "Sign in with OIDC",
+    "oidc": "OpenID Connect",
     "oidcHint": "For example authentik, set up as in nexlore and nextrmnl.",
-    "oidcIssuer": "Issuer address",
+    "oidcIssuer": "Issuer",
     "oidcOnly": "Sign-in with password off",
     "twoFactor": "Second factor",
-    "twoFactorRequired": "Required for every account with a password",
+    "twoFactorRequired": "Require a second factor",
     "public": "Public pages",
     "publicHint": "Off by default. When on, people who manage a space may publish a board as a read-only page.",
     "publicAllowed": "Allow public pages",
@@ -389,8 +442,6 @@
       "detailed": "Detailed (1 hour)",
       "trace": "Everything (1 hour)"
     },
-    "uploads": "Uploads",
-    "uploadsHint": "Photos and files on boards.",
     "uploadMax": "Largest file (MB)",
     "uploadCeiling": "At most {{mb}} MB (NEXCANVAS_UPLOAD_MAX_MB).",
     "stripLocation": "Take place and device out of photos",
@@ -406,13 +457,13 @@
     "send": "Send",
     "mailSent": "The test mail went out.",
     "secretKept": "Kept; type only to change it.",
-    "passwordLogin": "Members sign in with a password",
-    "passwordLoginHint": "The operator always may: the way in when the provider is down.",
-    "twoFactorRequiredHint": "Until an account has one, it reaches only its account page. Switch on your own first.",
+    "passwordLogin": "Sign-in with password",
+    "passwordLoginHint": "Off: members get in through the provider only. You as the operator can always use your password.",
+    "twoFactorRequiredHint": "Every account that signs in with a password must set one up before it gets further. Accounts from the provider bring its own. Switch on your own first.",
     "oidcName": "Name on the button",
-    "redirect": "Return address",
+    "redirect": "Redirect address for the provider",
     "redirectHint": "Enter it at the provider.",
-    "oidcAutoCreate": "Unknown identities get an account",
+    "oidcAutoCreate": "New people get an account",
     "oidcAutoCreateHint": "Off: only invited or linked accounts get in.",
     "oidcRemove": "Remove provider",
     "publicUrl": "Public address",
@@ -496,14 +547,37 @@
     "logClear": "Clear log",
     "logClearText": "Every line goes. New ones come as before.",
     "logUntil": "Back to normal at {{time}}.",
-    "about": "About",
-    "aboutText": "nexcanvas {{version}}, AGPL-3.0. A whiteboard for your own server.",
-    "updateCheck": "Look for new versions once a day",
-    "updateCheckHint": "Only the question goes to GitHub, nothing about your boards.",
-    "updateNewer": "Version {{version}} is out.",
-    "updateNone": "This is the newest version.",
-    "updateUnknown": "Not asked yet.",
-    "updateNow": "Look now"
+    "signinText": "How people get in.",
+    "signInBy": {
+      "password": "password",
+      "oidc": "provider"
+    },
+    "allSpaces": {
+      "title": "All spaces",
+      "text": "Every space with its managers, without its contents. Reset rights here; every member is told.",
+      "none": "No spaces yet.",
+      "yours": "no members, yours",
+      "members_one": "one member, managed by {{managers}}",
+      "members_other": "{{count}} members, managed by {{managers}}",
+      "rights": "Rights"
+    },
+    "oidcOn": "Set up with {{issuer}}.",
+    "oidcOff": "Not set up.",
+    "clientId": "Client ID",
+    "clientSecret": "Client secret",
+    "authentik": {
+      "title": "authentik in one step",
+      "text": "With an API token that may create applications, nexcanvas sets up provider and application in authentik itself. The token is used for that only and never stored.",
+      "url": "Address of authentik",
+      "token": "API token",
+      "run": "Set up",
+      "blueprint": "Download blueprint instead"
+    },
+    "publicAllowedHint": "Managers of a space may then publish a board as a reading page. Switched off, every link answers as if it never existed.",
+    "files": "Files",
+    "filesHint": "Photos and files on boards: how large they may be and what is taken out when uploading.",
+    "smtpPort": "Port",
+    "detail": "Detail"
   },
   "errors": {
     "avatar_not_a_picture": "That is not a picture nexcanvas takes (JPEG, PNG, WebP, GIF, HEIC or AVIF).",
@@ -770,5 +844,46 @@
     "centerY": "Line up on the middle (up and down)",
     "bottom": "Line up at the bottom",
     "spreadY": "Spread evenly up and down"
+  },
+  "about": {
+    "menu": "About nexcanvas",
+    "subtitle": "A whiteboard for your own server, live together.",
+    "version": "Version",
+    "newer": "Version {{version}} is out",
+    "licence": "Licence",
+    "source": "Source code",
+    "releases": "Releases",
+    "releasesLink": "All versions and what changed",
+    "project": "Project page",
+    "report": "Found a problem?",
+    "reportLink": "Report it on GitHub",
+    "builtWith": "Built with",
+    "updates": {
+      "title": "Updates",
+      "text": "Whether a newer version of nexcanvas is out.",
+      "daily": "Check once a day",
+      "dailyHint": "Asks GitHub for the newest release. Off: only when you press the button.",
+      "now": "Check now",
+      "current": "This is the newest version.",
+      "none": "No release found yet.",
+      "notYet": "Not checked yet.",
+      "off": "The daily check is off.",
+      "toRelease": "What is new",
+      "checkedAt": "last checked {{when}}",
+      "whatGoesOut": "Only the question goes out: a request to api.github.com for the newest release of nexcanvas, with no names, boards or settings. It is the only call nexcanvas makes on its own."
+    }
+  },
+  "notices": {
+    "invite": "{{actor}} invites you to “{{space}}” ({{role}})",
+    "operator_added": "The operator {{actor}} added {{subject}} to “{{space}}” ({{role}})",
+    "operator_role": "The operator {{actor}} changed the right of {{subject}} in “{{space}}” ({{role}})",
+    "operator_removed": "The operator {{actor}} took {{subject}} out of “{{space}}”",
+    "accept": "Accept",
+    "decline": "Decline",
+    "seen": "Seen",
+    "menu_one": "One message for you",
+    "menu_other": "{{count}} messages for you",
+    "section_one": "New for you",
+    "section_other": "New for you ({{count}})"
   }
 }
