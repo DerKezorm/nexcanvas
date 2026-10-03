@@ -276,3 +276,24 @@ def test_a_media_row_without_its_file_answers_not_found(client: TestClient, oper
     with SessionLocal() as db:
         assert db.get(Media, stored["id"]) is not None
     assert client.get(f"/api/media/{stored['id']}").status_code == 404
+
+
+def test_a_board_keeps_its_background_through_copies_and_versions(client: TestClient, operator: Account,
+                                                                 space: int) -> None:
+    made = board(client, space, content={"items": [], "lines": [], "background": {"pattern": "grid", "color": "#FFF8E7"}})
+    assert client.get(f"/api/boards/{made['id']}").json()["picture"]["background"] == {"pattern": "grid", "color": "#fff8e7"}
+    copy = client.post(f"/api/boards/{made['id']}/copy", json={"title": "Copy"}).json()
+    assert copy["picture"]["background"] == {"pattern": "grid", "color": "#fff8e7"}
+
+
+@pytest.mark.parametrize("background", [
+    {"pattern": "plaid", "color": "auto"},
+    {"pattern": "dots", "color": "url(javascript:alert(1))"},
+    {"pattern": "dots", "color": "#12345"},
+    {"pattern": "dots"},
+    "dots",
+])
+def test_a_background_the_page_does_not_know_is_left_out(client: TestClient, operator: Account, space: int,
+                                                         background: object) -> None:
+    made = board(client, space, content={"items": [], "lines": [], "background": background})
+    assert "background" not in client.get(f"/api/boards/{made['id']}").json()["picture"]

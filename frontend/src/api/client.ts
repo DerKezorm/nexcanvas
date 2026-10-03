@@ -174,7 +174,7 @@ export type BoardInfo = {
   opened_at: string | null
   public: boolean
   role: Role | null
-  picture?: { items: Record<string, unknown>[]; lines: Record<string, unknown>[] }
+  picture?: { items: Record<string, unknown>[]; lines: Record<string, unknown>[]; background?: { pattern: string; color: string } }
 }
 
 export type MediaInfo = {

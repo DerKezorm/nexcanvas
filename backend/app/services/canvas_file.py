@@ -187,8 +187,11 @@ def to_canvas(picture: dict[str, Any], media: dict[str, Media]) -> tuple[dict[st
         edges.append(edge)
 
     canvas: dict[str, Any] = {"nodes": nodes, "edges": edges}
-    if hidden_items or hidden_lines:
+    if hidden_items or hidden_lines or picture.get("background"):
         canvas["nexcanvas"] = {"version": 1, "items": hidden_items, "lines": hidden_lines}
+        # JSON Canvas knows no background; it travels with what only nexcanvas reads.
+        if picture.get("background"):
+            canvas["nexcanvas"]["background"] = picture["background"]
     return canvas, paths
 
 

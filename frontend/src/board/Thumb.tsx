@@ -1,16 +1,20 @@
 import { bounds, lineGeometry, shapePath } from './geometry'
 import { NOTE_COLORS, paint } from './palette'
 import type { Board, Item } from './types'
+import { backgroundStyle, effectiveBackground, inkVariables } from './background'
 import { inkPath } from './ink'
 import { drawOrder } from './order'
 import { mediaUrl } from '../api/client'
 
 /** A small picture of a board for the overview: the same items, simplified, fitted into the card. */
 export function Thumb({ board }: { board: Board }) {
+  // The board's own background, small; without one, the dots of the overview.
+  const shown = effectiveBackground(board.background, true)
+  const look = backgroundStyle(shown, { x: 0, y: 0, zoom: 14 / 24 })
   const box = bounds(board.items)
   if (!box) {
     return (
-      <div className="nc-board grid h-full w-full place-items-center" style={{ backgroundSize: '14px 14px' }}>
+      <div className="nc-board grid h-full w-full place-items-center" style={look}>
         <span className="text-xs text-mist-600">·</span>
       </div>
     )
@@ -19,7 +23,7 @@ export function Thumb({ board }: { board: Board }) {
   const view = `${box.x - pad} ${box.y - pad} ${box.w + pad * 2} ${box.h + pad * 2}`
   const items = new Map(board.items.map((i) => [i.id, i]))
   return (
-    <svg viewBox={view} preserveAspectRatio="xMidYMid meet" className="nc-board h-full w-full" style={{ backgroundSize: '14px 14px' }} aria-hidden="true">
+    <svg viewBox={view} preserveAspectRatio="xMidYMid meet" className="nc-board h-full w-full" style={{ ...look, ...inkVariables(shown) }} aria-hidden="true" data-pattern={shown.pattern}>
       {drawOrder(board.items).map((item) =>
         item.rot ? (
           <g key={item.id} transform={`rotate(${item.rot} ${item.x + item.w / 2} ${item.y + item.h / 2})`}>

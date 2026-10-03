@@ -25,7 +25,8 @@
     "copied": "Copied",
     "more": "More",
     "save": "Save",
-    "loading": "Loading …"
+    "loading": "Loading …",
+    "done": "Done"
   },
   "account": {
     "menu": "Account menu of {{name}}",
@@ -398,7 +399,7 @@
       "text": "How dragging and tools behave. For your account, on every device."
     },
     "toolBackHint": "Off: the tool stays chosen until you take another one.",
-    "gridHint": "A quiet grid of dots behind everything, moving along when you pan.",
+    "gridHint": "For boards without a background of their own. Choose one in the … menu of a board.",
     "language": {
       "title": "Language",
       "text": "nexcanvas brings English and German. Upload more under Server, Languages; whatever a file lacks shows in English.",
@@ -898,5 +899,29 @@
     "menu_other": "{{count}} messages for you",
     "section_one": "New for you",
     "section_other": "New for you ({{count}})"
+  },
+  "background": {
+    "title": "Background",
+    "pattern": "Pattern",
+    "color": "Colour",
+    "custom": "Own",
+    "default": "As my default",
+    "colorHint": "\"Automatic\" follows light and dark. A fixed colour stays the same in both, the writing adapts.",
+    "everyone": "For everybody who opens the board. Moving snaps to its grid when snapping is on.",
+    "patterns": {
+      "none": "Plain",
+      "dots": "Dots",
+      "grid": "Squares",
+      "lines": "Lines",
+      "mm": "Millimetre",
+      "iso": "Isometric"
+    },
+    "colors": {
+      "auto": "Automatic",
+      "paper": "Paper white",
+      "cream": "Cream",
+      "chalk": "Chalkboard",
+      "blueprint": "Blueprint"
+    }
   }
 }

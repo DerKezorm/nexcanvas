@@ -13,13 +13,14 @@ import { drawOrder, framesInOrder } from '../board/order'
 import { Stage, useStageKeys, wholeScreen } from '../board/canvas/Stage'
 import { Lines } from '../board/canvas/Lines'
 import { MediaBase } from '../board/canvas/media'
+import { backgroundStyle, effectiveBackground, inkVariables } from '../board/background'
 import { bounds, type Rect } from '../board/geometry'
-import type { Doc, Item, LineItem, View } from '../board/types'
+import type { Background, Doc, Item, LineItem, View } from '../board/types'
 import { Logo } from '../components/Logo'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
 import { errorText } from '../lib/errors'
 
-type Page = { title: string; picture?: { items: Item[]; lines: LineItem[] }; password?: boolean; token?: string }
+type Page = { title: string; picture?: { items: Item[]; lines: LineItem[]; background?: Background }; password?: boolean; token?: string }
 
 const nothing = () => undefined
 
@@ -147,7 +148,7 @@ export function PublicPage() {
         <div
           ref={root}
           className="nc-board relative min-h-0 flex-1 touch-none overflow-hidden"
-          style={{ backgroundSize: `${24 * view.zoom}px ${24 * view.zoom}px`, backgroundPosition: `${view.x}px ${view.y}px`, cursor: 'grab' }}
+          style={{ ...backgroundStyle(effectiveBackground(doc.background, true), view), cursor: 'grab' }}
           onPointerDown={(e) => {
             if ((e.target as HTMLElement).closest('[data-ui]')) return
             ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
@@ -187,7 +188,7 @@ export function PublicPage() {
             drag.current = null
           }}
         >
-          <div className="pointer-events-none absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, ['--zoom' as string]: view.zoom }}>
+          <div className="pointer-events-none absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, ['--zoom' as string]: view.zoom, ...inkVariables(effectiveBackground(doc.background, true)) }}>
             {drawOrder(doc.items).map((item) => (
               <ItemView key={item.id} item={item} editing={false} onText={nothing} onDone={nothing} onMeasure={nothing} />
             ))}

@@ -2,6 +2,7 @@
 
 import { attach, bounds, lineGeometry, outer, turn } from './geometry'
 import { branchItem, placeBeside, sideToward } from './branch'
+import { backgroundStyle, effectiveBackground, gridStep, inkVariables } from './background'
 import { arrange } from './arrange'
 import { drawOrder, waitingInk } from './order'
 import { pdfOfPictures } from './pdf'
@@ -195,5 +196,42 @@ describe('growing from the plus', () => {
   it('knows on which side an item lies', () => {
     expect(sideToward(box(0, 0), box(300, 20))).toBe('right')
     expect(sideToward(box(0, 0), box(10, -300))).toBe('top')
+  })
+})
+
+describe('the background of a board', () => {
+  const view = { x: 10, y: 20, zoom: 2 }
+
+  it('follows the account where the board has none of its own', () => {
+    expect(effectiveBackground(undefined, true)).toEqual({ pattern: 'dots', color: 'auto' })
+    expect(effectiveBackground(undefined, false)).toEqual({ pattern: 'none', color: 'auto' })
+    expect(effectiveBackground({ pattern: 'grid', color: 'paper' }, false)).toEqual({ pattern: 'grid', color: 'paper' })
+  })
+
+  it('draws each pattern in board units, moving with the view', () => {
+    const dots = backgroundStyle({ pattern: 'dots', color: 'auto' }, view)
+    expect(dots.backgroundImage).toContain('radial-gradient')
+    expect(dots.backgroundSize).toBe('48px 48px')
+    expect(dots.backgroundPosition).toBe('10px 20px')
+    expect(backgroundStyle({ pattern: 'none', color: 'auto' }, view).backgroundImage).toBe('none')
+    expect(backgroundStyle({ pattern: 'lines', color: 'auto' }, view).backgroundSize).toBe('100% 48px')
+    expect(String(backgroundStyle({ pattern: 'mm', color: 'auto' }, view).backgroundImage).split('linear-gradient').length - 1).toBe(4)
+    expect(String(backgroundStyle({ pattern: 'grid', color: 'auto' }, view).backgroundImage).split('linear-gradient').length - 1).toBe(2)
+  })
+
+  it('takes a fixed colour, and darkens the writing on light paper only', () => {
+    expect(backgroundStyle({ pattern: 'none', color: 'paper' }, view).backgroundColor).toBe('#ffffff')
+    expect(backgroundStyle({ pattern: 'none', color: '#123456' }, view).backgroundColor).toBe('#123456')
+    expect(backgroundStyle({ pattern: 'none', color: 'auto' }, view).backgroundColor).toBe('var(--color-board)')
+    expect(inkVariables({ pattern: 'none', color: 'paper' })).toEqual({ '--color-mist-100': '#14141a' })
+    expect(inkVariables({ pattern: 'none', color: 'chalk' })).toEqual({ '--color-mist-100': '#f2f2f5' })
+    expect(inkVariables({ pattern: 'none', color: 'auto' })).toEqual({})
+  })
+
+  it('snaps to the grid it shows', () => {
+    expect(gridStep('grid')).toEqual({ x: 24, y: 24 })
+    expect(gridStep('lines')).toEqual({ x: null, y: 24 })
+    expect(gridStep('none')).toEqual({ x: null, y: null })
+    expect(gridStep('iso')).toEqual({ x: null, y: null })
   })
 })

@@ -9,7 +9,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { boardsApi, spacesApi, type BoardInfo, type SpaceInfo } from '../api/client'
-import type { Board, Doc, Item, LineItem } from './types'
+import type { Background, Board, Doc, Item, LineItem } from './types'
 
 export type Space = SpaceInfo
 
@@ -32,6 +32,7 @@ export function toBoard(info: BoardInfo): Board {
     role: info.role,
     items: picture.items as unknown as Item[],
     lines: picture.lines as unknown as LineItem[],
+    background: (picture as { background?: Background }).background,
   }
 }
 

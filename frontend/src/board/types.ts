@@ -119,9 +119,20 @@ export interface LineItem {
   dashed?: boolean
 }
 
+/** The pattern behind a board's items. */
+export type Pattern = 'none' | 'dots' | 'grid' | 'lines' | 'mm' | 'iso'
+
+/** A board's own background: a pattern and a named colour (`auto`, `paper` …) or one written as #rrggbb. */
+export interface Background {
+  pattern: Pattern
+  color: string
+}
+
 export interface Doc {
   items: Item[]
   lines: LineItem[]
+  /** Kept apart in the live document (`useLiveDoc`); here for pictures, templates and copies. */
+  background?: Background
 }
 
 export interface View {

@@ -1,8 +1,10 @@
-import { ArrowLeft, ChevronRight, Copy, FileDown, FileUp, History, ImageDown, Keyboard, Maximize, Minus, MoreHorizontal, Plus, Presentation, Redo2, RotateCw, Share2, Star, Trash2, Undo2 } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Copy, FileDown, FileUp, Grid3x3, History, ImageDown, Keyboard, Maximize, Minus, MoreHorizontal, Plus, Presentation, Redo2, RotateCw, Share2, Star, Trash2, Undo2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
+import { backgroundStyle, effectiveBackground, gridStep, inkVariables } from '../board/background'
+import { BackgroundDialog } from '../board/canvas/BackgroundDialog'
 import { BranchMenu, rememberChoice } from '../board/canvas/BranchMenu'
 import { ContextBar, type ContextActions } from '../board/canvas/ContextBar'
 import { ExportDialog } from '../board/canvas/ExportDialog'
@@ -179,6 +181,9 @@ function Editor({ board }: { board: Board }) {
   /** The frame shown while presenting, as its place in reading order. */
   const [presenting, setPresenting] = useState<number | null>(null)
   const [exporting, setExporting] = useState<'board' | 'selection' | null>(null)
+  const [choosingBackground, setChoosingBackground] = useState(false)
+  /** The board's own background, or the account's default where it has none. */
+  const bg = effectiveBackground(doc.background, prefs.dots)
   const [keys, setKeys] = useState(false)
   const [asking, setAsking] = useState<'link' | null>(null)
   const [menu, setMenu] = useState<{ x: number; y: number; at: Point; on: string | null } | null>(null)
@@ -693,6 +698,10 @@ function Editor({ board }: { board: Board }) {
           }
           if (bestX !== null) dx += bestX
           if (bestY !== null) dy += bestY
+          // Nothing near to line up with: the corner of what moves goes onto the board's grid, as on squared paper.
+          const grid = gridStep(bg.pattern)
+          if (bestX === null && grid.x) dx = Math.round((g.box.x + dx) / grid.x) * grid.x - g.box.x
+          if (bestY === null && grid.y) dy = Math.round((g.box.y + dy) / grid.y) * grid.y - g.box.y
         }
         setGuides({ x: gx, y: gy })
         const ids = new Set(g.ids)
@@ -1068,7 +1077,7 @@ function Editor({ board }: { board: Board }) {
   useEffect(() => {
     const typing = (el: EventTarget | null) => el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
     const down = (e: KeyboardEvent) => {
-      if (typing(e.target) || share || keys || asking || exporting || versions || presenting !== null) return
+      if (typing(e.target) || share || keys || asking || exporting || versions || choosingBackground || presenting !== null) return
       const mod = e.ctrlKey || e.metaKey
       const k = e.key.toLowerCase()
       if (e.key === ' ' && !e.repeat) {
@@ -1223,7 +1232,7 @@ function Editor({ board }: { board: Board }) {
       window.removeEventListener('keyup', up)
       window.removeEventListener('paste', paste)
     }
-  }, [selected, byId, doc, duplicate, removeIds, setTool, zoomAt, size, fit, readOnly, share, keys, asking, middle, addFiles, addLink, add, tools.note, group, ungroup, presenting, exporting, versions, waiting, grow])
+  }, [selected, byId, doc, duplicate, removeIds, setTool, zoomAt, size, fit, readOnly, share, keys, asking, middle, addFiles, addLink, add, tools.note, group, ungroup, presenting, exporting, versions, waiting, grow, choosingBackground])
 
   // ---------- context actions ----------
 
@@ -1380,6 +1389,10 @@ function Editor({ board }: { board: Board }) {
                   <FileUp className="h-4 w-4 text-mist-500" />
                   {t('canvasFile.import')}
                 </button>
+                <button type="button" role="menuitem" className="nc-menu-item" disabled={readOnly} onClick={() => { close(); setChoosingBackground(true) }}>
+                  <Grid3x3 className="h-4 w-4 text-mist-500" />
+                  {t('background.title')}
+                </button>
                 <div className="my-1 h-px bg-ink-700" />
                 <button type="button" role="menuitem" className="nc-menu-item" disabled={frames.length === 0} title={frames.length === 0 ? t('frames.none') : undefined} onClick={() => { close(); present(0) }}>
                   <Presentation className="h-4 w-4 text-mist-500" />
@@ -1407,7 +1420,9 @@ function Editor({ board }: { board: Board }) {
       <div
         ref={root}
         className={'nc-board min-h-0 flex-1 touch-none overflow-hidden outline-none ' + (presenting !== null ? 'fixed inset-0 z-40' : 'relative')}
-        style={{ backgroundSize: `${24 * view.zoom}px ${24 * view.zoom}px`, backgroundPosition: `${view.x}px ${view.y}px`, backgroundImage: prefs.dots ? undefined : 'none', cursor }}
+        style={{ ...backgroundStyle(bg, view), cursor }}
+        data-pattern={bg.pattern}
+        data-color={bg.color}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -1433,7 +1448,7 @@ function Editor({ board }: { board: Board }) {
         data-testid="board"
       >
         <ItemActions.Provider value={itemActions}>
-        <div ref={world} className="absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, ['--zoom' as string]: view.zoom }}>
+        <div ref={world} className="absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, ['--zoom' as string]: view.zoom, ...inkVariables(bg) }}>
           {/* Frames lie under everything else, whatever was made first. */}
           {drawOrder(items, waiting).map((item) => (
             <ItemView key={item.id} item={item} editing={editing === item.id} onText={onText} onDone={onDone} onMeasure={onMeasure} />
@@ -1683,8 +1698,12 @@ function Editor({ board }: { board: Board }) {
       {share && <ShareDialog board={board} onClose={() => setShare(false)} />}
       {versions && <VersionsDialog boardId={board.id} readOnly={readOnly} onClose={() => setVersions(false)} />}
       {keys && <ShortcutsDialog onClose={() => setKeys(false)} />}
+      {choosingBackground && (
+        <BackgroundDialog own={doc.background} shown={bg} onChange={(next) => doc.setBackground(next)} onClose={() => setChoosingBackground(false)} />
+      )}
       {exporting && (
         <ExportDialog
+          background={bg}
           title={board.title}
           world={world}
           items={items}

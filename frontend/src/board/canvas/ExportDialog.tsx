@@ -2,9 +2,10 @@ import { useState, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '../../components/Dialog'
+import { paintPattern, pictureColors } from '../background'
 import { bounds, center, contains, lineGeometry, type Rect } from '../geometry'
 import { pdfOfPictures, type PdfPage } from '../pdf'
-import type { FrameItem, Item, LineItem } from '../types'
+import type { Background, FrameItem, Item, LineItem } from '../types'
 
 type Scope = 'board' | 'selection' | 'scenes'
 type Format = 'png' | 'pdf'
@@ -31,10 +32,12 @@ function save(blob: Blob, name: string) {
 
 /**
  * Board, selection or every frame as a picture or a PDF. Drawn from the board as it is on the screen (the same fonts,
- * photos and PDF pages), at twice the size for sharp prints, in the current light or dark look.
+ * photos and PDF pages), at twice the size for sharp prints, in the current light or dark look. With the background
+ * on, the board's colour and pattern lie under it, where they lie on the board.
  */
-export function ExportDialog({ title, world, items, lines, selection, frames, onClose }: {
+export function ExportDialog({ title, world, items, lines, selection, frames, background: look, onClose }: {
   title: string
+  background: Background
   world: RefObject<HTMLDivElement | null>
   items: Item[]
   lines: LineItem[]
@@ -83,18 +86,16 @@ export function ExportDialog({ title, world, items, lines, selection, frames, on
     const scale = Math.min(2, MAX_SIDE / Math.max(rect.w + pad * 2, rect.h + pad * 2))
     const width = Math.ceil((rect.w + pad * 2) * scale)
     const height = Math.ceil((rect.h + pad * 2) * scale)
-    const backdrop = getComputedStyle(el.parentElement ?? document.body).backgroundColor
     const before = el.style.getPropertyValue('--zoom')
     // Frame names are sized against the zoom on screen; in the picture they keep their size on the board.
     el.style.setProperty('--zoom', '1')
     try {
-      return await toCanvas(el, {
+      const drawn = await toCanvas(el, {
         width,
         height,
         canvasWidth: width,
         canvasHeight: height,
         pixelRatio: 1,
-        backgroundColor: solid ? backdrop : undefined,
         cacheBust: false,
         style: { transform: `translate(${(pad - rect.x) * scale}px, ${(pad - rect.y) * scale}px) scale(${scale})`, transformOrigin: '0 0' },
         filter: (node) => {
@@ -107,6 +108,17 @@ export function ExportDialog({ title, world, items, lines, selection, frames, on
           return true
         },
       })
+      if (!solid) return drawn
+      // The board's colour and pattern under the picture, board 0,0 where the picture puts it.
+      const out = document.createElement('canvas')
+      out.width = drawn.width
+      out.height = drawn.height
+      const ctx = out.getContext('2d')
+      if (!ctx) return drawn
+      const { base, ink } = pictureColors(look, el.parentElement ?? document.body)
+      paintPattern(ctx, look.pattern, { x: (pad - rect.x) * scale, y: (pad - rect.y) * scale }, scale, base, ink)
+      ctx.drawImage(drawn, 0, 0)
+      return out
     } finally {
       el.style.setProperty('--zoom', before)
     }

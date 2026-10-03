@@ -274,3 +274,27 @@ def test_two_people_type_in_the_same_note_and_both_words_stay(client: TestClient
     wait_for(lambda: stored_updates(board_id) == 0)
     picture = client.get(f"/api/boards/{board_id}").json()["picture"]
     assert picture["items"][0]["text"] == "HaferMilch, Brot"
+
+
+def test_bringing_a_version_back_brings_its_background_back(client: TestClient, operator: Account, space: int) -> None:
+    board_id = make_board(client, space, content={"items": [], "lines": [], "background": {"pattern": "lines", "color": "paper"}})
+    with SessionLocal() as db:
+        board = db.get(Board, board_id)
+        assert board is not None
+        boards.fold(db, board_id, boards.load(db, board), {"tester"})
+        # Someone switches the background afterwards.
+        doc = boards.load(db, board)
+        before = doc.get_state()
+        doc.get("meta", type=Map)["background"] = {"pattern": "dots", "color": "chalk"}
+        boards.store_update(db, board_id, doc.get_update(before), "tester")
+    version = client.get(f"/api/boards/{board_id}/versions").json()[0]["id"]
+    with SessionLocal() as db:
+        board = db.get(Board, board_id)
+        assert board is not None
+        assert boards.snapshot_of(boards.load(db, board))["background"]["pattern"] == "dots"
+    assert client.post(f"/api/boards/{board_id}/versions/{version}/restore").status_code == 200
+    with SessionLocal() as db:
+        board = db.get(Board, board_id)
+        assert board is not None
+        assert boards.snapshot_of(boards.load(db, board))["background"] == {"pattern": "lines", "color": "paper"}
+

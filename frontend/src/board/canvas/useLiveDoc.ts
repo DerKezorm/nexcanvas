@@ -9,6 +9,9 @@
  * The words of notes, shapes and texts are a shared Yjs text each (`texts`), so two people can type in the same note:
  * `setText` hands the edit over as an insertion and a deletion where the words differ, not as a new whole.
  *
+ * The board's own background is a value in `meta`, the same for everybody; `setBackground` changes it as a step of
+ * its own.
+ *
  * Undo and redo are Yjs's own and only ever take back what this tab did, never another person's work.
  */
 
@@ -16,7 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { WebsocketProvider } from 'y-websocket'
 import * as Y from 'yjs'
 
-import type { Doc, Item, LineItem } from '../types'
+import type { Background, Doc, Item, LineItem } from '../types'
 
 export type LiveStatus = 'connecting' | 'live' | 'offline' | 'gone'
 
@@ -79,10 +82,12 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string })
   const items = useMemo(() => ydoc.getMap<unknown>('items'), [ydoc])
   const lines = useMemo(() => ydoc.getMap<unknown>('lines'), [ydoc])
   const texts = useMemo(() => ydoc.getMap<Y.Text>('texts'), [ydoc])
+  const meta = useMemo(() => ydoc.getMap<unknown>('meta'), [ydoc])
   const undoManager = useMemo(
-    () => new Y.UndoManager([items, lines, texts], { trackedOrigins: new Set([LOCAL]), captureTimeout: CAPTURE_MS }),
-    [items, lines, texts],
+    () => new Y.UndoManager([items, lines, texts, meta], { trackedOrigins: new Set([LOCAL]), captureTimeout: CAPTURE_MS }),
+    [items, lines, texts, meta],
   )
+  const [background, setShownBackground] = useState<Background | undefined>(undefined)
   const [doc, setDoc] = useState<Doc>(EMPTY)
   const current = useRef<Doc>(EMPTY)
   const [status, setStatus] = useState<LiveStatus>('connecting')
@@ -99,6 +104,8 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string })
       const next = picture(items, lines, texts)
       current.current = next
       setDoc(next)
+      const own = meta.get('background')
+      setShownBackground(own && typeof own === 'object' ? (own as Background) : undefined)
     }
     const changed = () => {
       if (!frame) frame = requestAnimationFrame(redraw)
@@ -115,7 +122,7 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string })
       undoManager.off('stack-cleared', stacks)
       if (frame) cancelAnimationFrame(frame)
     }
-  }, [ydoc, items, lines, texts, undoManager])
+  }, [ydoc, items, lines, texts, meta, undoManager])
 
   useEffect(() => {
     const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws'
@@ -231,6 +238,18 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string })
     },
     [ydoc, items, lines, texts],
   )
+  /** The board's own background for everybody; null goes back to the account's default. A step of its own. */
+  const setBackground = useCallback(
+    (next: Background | null) => {
+      undoManager.stopCapturing()
+      ydoc.transact(() => {
+        if (next) meta.set('background', next)
+        else meta.delete('background')
+      }, LOCAL)
+      undoManager.stopCapturing()
+    },
+    [ydoc, meta, undoManager],
+  )
   const checkpoint = useCallback(() => undoManager.stopCapturing(), [undoManager])
   const forget = useCallback(() => undefined, [])
   const undo = useCallback(() => {
@@ -280,6 +299,8 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string })
 
   return {
     doc,
+    background,
+    setBackground,
     ref: current,
     commit,
     live,

@@ -47,6 +47,10 @@ MAX_TITLE = 200
 
 KINDS = frozenset({"note", "shape", "text", "ink", "image", "file", "link", "frame"})
 ID = re.compile(r"^[A-Za-z0-9_-]{6,40}$")
+#: The look of a board behind its items (block 3): a pattern and a colour, for everybody who has it open.
+PATTERNS = frozenset({"none", "dots", "grid", "lines", "mm", "iso"})
+NAMED_COLORS = frozenset({"auto", "paper", "cream", "chalk", "blueprint"})
+HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 #: One lock per board around folding, so two folds never write over each other.
 _locks: dict[str, threading.Lock] = {}
@@ -85,7 +89,21 @@ def empty_doc() -> Doc:
     doc.get("items", type=Map)
     doc.get("lines", type=Map)
     doc.get("texts", type=Map)
+    doc.get("meta", type=Map)
     return doc
+
+
+def clean_background(value: Any) -> dict[str, str] | None:
+    """A board's background as the page may set it: a known pattern and a named or written colour; else None."""
+    if not isinstance(value, dict):
+        return None
+    pattern = value.get("pattern")
+    color = value.get("color")
+    if pattern not in PATTERNS or not isinstance(color, str):
+        return None
+    if color not in NAMED_COLORS and not HEX_COLOR.match(color):
+        return None
+    return {"pattern": pattern, "color": color.lower() if color.startswith("#") else color}
 
 
 def doc_from_json(content: dict[str, Any] | None) -> Doc:
@@ -109,6 +127,9 @@ def doc_from_json(content: dict[str, Any] | None) -> Doc:
         for line in raw_lines[:5000]:
             if isinstance(line, dict) and ID.match(str(line.get("id", ""))):
                 lines[str(line["id"])] = {key: val for key, val in line.items() if key != "id"}
+        background = clean_background(content.get("background"))
+        if background:
+            doc.get("meta", type=Map)["background"] = background
     return doc
 
 
@@ -125,7 +146,11 @@ def snapshot_of(doc: Doc) -> dict[str, Any]:
         key=lambda item: (_number(item.get("z")), item["id"]),
     )
     connections = [{"id": key, **value} for key, value in lines.items() if isinstance(value, dict)]
-    return {"items": ordered, "lines": connections}
+    picture: dict[str, Any] = {"items": ordered, "lines": connections}
+    background = clean_background((doc.get("meta", type=Map).to_py() or {}).get("background"))
+    if background:
+        picture["background"] = background
+    return picture
 
 
 def _number(value: Any) -> float:
@@ -270,7 +295,14 @@ def restore_version(db: Session, board: Board, version: BoardVersion) -> bytes:
     old_items = old.get("items", type=Map).to_py() or {}
     old_lines = old.get("lines", type=Map).to_py() or {}
     old_texts = old.get("texts", type=Map).to_py() or {}
+    meta = present.get("meta", type=Map)
+    old_background = (old.get("meta", type=Map).to_py() or {}).get("background")
     with present.transaction():
+        if old_background is None:
+            if "background" in meta:
+                del meta["background"]
+        elif meta.to_py().get("background") != old_background:
+            meta["background"] = old_background
         for key in list(items.keys()):
             if key not in old_items:
                 del items[key]

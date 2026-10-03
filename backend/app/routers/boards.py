@@ -74,7 +74,10 @@ def _picture(db: DbSession, board: Board) -> dict[str, Any]:
     if current is None:
         current = db.scalar(select(Board.snapshot).where(Board.id == board.id)) or {"items": [], "lines": []}
     if len(current.get("items", [])) > PICTURE_ITEMS:
-        current = {"items": current["items"][:PICTURE_ITEMS], "lines": []}
+        shorter: dict[str, Any] = {"items": current["items"][:PICTURE_ITEMS], "lines": []}
+        if "background" in current:
+            shorter["background"] = current["background"]
+        current = shorter
     return current
 
 

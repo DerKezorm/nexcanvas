@@ -25,7 +25,8 @@
     "copied": "Kopiert",
     "more": "Mehr",
     "save": "Speichern",
-    "loading": "Lädt …"
+    "loading": "Lädt …",
+    "done": "Fertig"
   },
   "account": {
     "menu": "Kontomenü von {{name}}",
@@ -398,7 +399,7 @@
       "text": "Wie sich Ziehen und Werkzeuge verhalten. Gilt für dein Konto, auf jedem Gerät."
     },
     "toolBackHint": "Aus: Das Werkzeug bleibt gewählt, bis du ein anderes nimmst.",
-    "gridHint": "Ein ruhiges Punktraster hinter allem, das beim Verschieben mitläuft.",
+    "gridHint": "Für Boards ohne eigenen Hintergrund. Den eigenen wählst du im Menü … eines Boards.",
     "language": {
       "title": "Sprache",
       "text": "Englisch und Deutsch bringt nexcanvas mit. Weitere lädst du unter Server, Sprachen hoch; was einer Datei fehlt, erscheint auf Englisch.",
@@ -898,5 +899,29 @@
     "menu_other": "{{count}} Nachrichten für dich",
     "section_one": "Neu für dich",
     "section_other": "Neu für dich ({{count}})"
+  },
+  "background": {
+    "title": "Hintergrund",
+    "pattern": "Muster",
+    "color": "Farbe",
+    "custom": "Eigene",
+    "default": "Wie meine Vorgabe",
+    "colorHint": "„Automatisch“ folgt hell und dunkel. Eine feste Farbe bleibt in beiden gleich, die Schrift passt sich an.",
+    "everyone": "Gilt für alle, die das Board öffnen. Beim Verschieben rastet es am Raster ein, wenn Einrasten an ist.",
+    "patterns": {
+      "none": "Leer",
+      "dots": "Punkte",
+      "grid": "Karos",
+      "lines": "Linien",
+      "mm": "Millimeter",
+      "iso": "Isometrisch"
+    },
+    "colors": {
+      "auto": "Automatisch",
+      "paper": "Papierweiß",
+      "cream": "Creme",
+      "chalk": "Tafelgrün",
+      "blueprint": "Blaupause"
+    }
   }
 }
