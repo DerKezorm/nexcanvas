@@ -65,6 +65,8 @@ def _view(db: DbSession, account: AccountRow, space: Space) -> dict[str, Any]:
         "color": space.color,
         "role": rights.role_in(db, account, space.id),
         "boards": int(count or 0),
+        # Its rights come from nexsuite: changed there, not here.
+        "managed": bool(space.external_id) and suite.connected(db),
         "teams": [{"id": team.id, "name": team.name, "color": team.color, "role": grant.role} for grant, team in teams],
         "members": [
             {

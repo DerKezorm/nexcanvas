@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 from .config import get_settings
 from .models import Account, AuthSession, utcnow
 
-SESSION_COOKIE = "nexcanvas_session"
+SESSION_COOKIE = "nexcanvas_session" + get_settings().cookie_name_suffix()
 MIN_PASSWORD = 12
 #: After this many failures in a row an account waits a quarter of an hour. Not configurable on purpose.
 MAX_FAILURES = 10
@@ -209,7 +209,7 @@ def _server_key() -> bytes:
     return hashlib.sha256(b"nexcanvas-secrets:" + secret).digest()
 
 
-DEVICE_COOKIE = "nexcanvas_device"
+DEVICE_COOKIE = "nexcanvas_device" + get_settings().cookie_name_suffix()
 DEVICE_DAYS = 365
 
 

@@ -54,7 +54,7 @@ router = APIRouter(prefix="/api", tags=["auth"])
 #: The languages inside the frontend; others come as files from the operator.
 SHIPPED = ("en", "de")
 #: Names a sign-in waiting for its second factor (``services/totp.py``), and nothing else.
-PENDING_COOKIE = "nexcanvas_2fa"
+PENDING_COOKIE = "nexcanvas_2fa" + get_settings().cookie_name_suffix()
 
 
 class SetupIn(BaseModel):
@@ -220,6 +220,8 @@ def methods(db: DbSession) -> dict[str, Any]:
         "password": bool(values["password_login"]),
         "oidc": oidc,
         "oidc_name": values["oidc_provider_name"] if oidc else "",
+        # Connected to nexsuite: people sign in there; the password form is the operator's emergency way.
+        "suite": suite.connected(db),
     }
 
 
@@ -309,6 +311,8 @@ def me(account: Account, db: DbSession) -> dict[str, Any]:
         "second_factor_setup_required": totp.setup_required(db, account),
         "upload_max_mb": settings_service.upload_max_mb(db),
         "preferences": preferences_of(account.preferences),
+        "suite": suite.state(db),
+        "suite_mail": bool(settings_service.get(db, "suite_mail")),
     }
 
 

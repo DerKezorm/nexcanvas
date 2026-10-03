@@ -51,6 +51,7 @@ export default function App() {
     <Routes>
       <Route path="setup" element={<SetupPage />} />
       <Route path="login" element={<LoginPage />} />
+      <Route path="notzugang" element={<LoginPage emergency />} />
       <Route path="invite/:token" element={<InvitePage />} />
       <Route path="s/:token" element={<PublicPage />} />
       <Route

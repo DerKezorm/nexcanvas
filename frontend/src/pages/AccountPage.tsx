@@ -14,6 +14,7 @@ import { Avatar } from '../components/Avatar'
 import { Field, Problem } from '../components/Field'
 import { LibraryChoice } from '../components/LibraryChoice'
 import { Section } from '../components/Section'
+import { Managed } from '../components/Suite'
 import { errorText } from '../lib/errors'
 import { useAuth } from '../state/auth'
 import { saveAsFile, TabRow, type Tab } from './settings/ui'
@@ -132,7 +133,9 @@ export function AccountPage() {
               />
             </div>
             {/* How others see this account; the name below stays what one signs in with. */}
+            {me?.suite === 'connected' && <Managed text={t('suite.managedProfile')} />}
             <form
+              hidden={me?.suite === 'connected'}
               className="flex flex-wrap items-end gap-3"
               onSubmit={(event) => {
                 event.preventDefault()

@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     #: The address people reach nexcanvas under, for links in invitations and the OIDC return. Empty: the address of
     #: the request. The setting in the interface wins over this.
     public_url: str = ""
+    #: Appended to every cookie name. Two instances on one host under different ports share their cookies (a browser
+    #: does not tell ports apart); a suffix keeps their sign-ins apart. Letters, digits and "_" only.
+    cookie_suffix: str = ""
     #: Addresses or networks of reverse proxies whose ``X-Forwarded-For`` may be believed, comma separated. Empty:
     #: the header is ignored, so that nobody dodges the sign-in brake with made-up addresses.
     trusted_proxies: str = ""
@@ -86,6 +89,10 @@ class Settings(BaseSettings):
     @property
     def database_path(self) -> Path:
         return self.data_dir / "nexcanvas.db"
+
+    def cookie_name_suffix(self) -> str:
+        """The suffix, with anything but letters, digits and "_" taken out (a cookie name allows little)."""
+        return "".join(ch for ch in self.cookie_suffix if ch.isascii() and (ch.isalnum() or ch == "_"))
 
     def resolved_secret_key(self) -> str:
         """``NEXCANVAS_SECRET_KEY``, else ``secret.key`` in the data folder, made once with a random value."""

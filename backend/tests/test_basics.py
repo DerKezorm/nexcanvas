@@ -87,3 +87,11 @@ def test_the_service_worker_is_always_fetched_anew_and_the_manifest_has_its_type
     manifest = client.get("/manifest.webmanifest")
     assert manifest.headers["content-type"].startswith("application/manifest+json")
     assert manifest.json() == {"name": "nexcanvas"}
+
+
+def test_a_cookie_suffix_keeps_two_instances_on_one_host_apart(monkeypatch) -> None:
+    from app.config import Settings
+
+    assert Settings(cookie_suffix="_suite").cookie_name_suffix() == "_suite"
+    assert Settings(cookie_suffix="a;b=c d").cookie_name_suffix() == "abcd"
+    assert Settings().cookie_name_suffix() == ""

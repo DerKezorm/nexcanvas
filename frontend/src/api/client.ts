@@ -146,6 +146,9 @@ export type Me = {
   second_factor_setup_required?: boolean
   upload_max_mb?: number
   preferences?: Preferences
+  /** Connected to nexsuite: accounts, teams, rights, sign-in (and mail) are kept there. */
+  suite?: '' | 'connecting' | 'connected'
+  suite_mail?: boolean
 }
 
 export type Preferences = {
@@ -171,6 +174,8 @@ export type SpaceInfo = {
   members: Member[]
   /** The teams with a right in the space. */
   teams: TeamGrantInfo[]
+  /** Its rights come from nexsuite. */
+  managed?: boolean
 }
 
 export type TeamGrantInfo = { id: number; name: string; color: string; role: Role }
@@ -212,7 +217,7 @@ export type MediaInfo = {
 }
 
 export type SetupState = { needs_setup: boolean; code_required: boolean; signed_in: boolean; version: string; min_password: number }
-export type Methods = { password: boolean; oidc: boolean; oidc_name: string }
+export type Methods = { password: boolean; oidc: boolean; oidc_name: string; suite?: boolean }
 
 // ---- Calls ----------------------------------------------------------------------------------------------------------
 

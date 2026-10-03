@@ -12,6 +12,7 @@ import { directoryApi, spacesApi, type Directory, type Person, type Role, type T
 import { useBoards, type Space } from '../board/store'
 import { Button, Card, Feedback, useAction } from '../pages/settings/ui'
 import { useAuth } from '../state/auth'
+import { Managed } from './Suite'
 import { Avatar } from './Avatar'
 import { Dialog } from './Dialog'
 import { SPACE_COLORS } from './NewSpaceDialog'
@@ -49,15 +50,17 @@ export function TeamBadge({ team, className = 'h-6 w-6 text-[11px]' }: { team: {
 export function TeamsCard() {
   const { t } = useTranslation()
   const { me } = useAuth()
-  const operator = me?.role === 'operator'
+  const managed = me?.suite === 'connected'
+  const operator = me?.role === 'operator' && !managed
   const { directory, reload, person } = useDirectory()
   const [editing, setEditing] = useState<Team | 'new' | null>(null)
   const teams = directory?.teams ?? []
   return (
     <Card icon={UsersRound} title={t('settings.tabs.teams')} text={t('teams.text')}>
+      {managed && <Managed text={t('suite.managedTeams')} />}
       {directory && teams.length === 0 && <p className="text-sm text-mist-500">{t('teams.none')}</p>}
       {teams.map((team) => {
-        const mayChange = operator || (team.lead === directory?.me && team.source === 'local')
+        const mayChange = !managed && (operator || (team.lead === directory?.me && team.source === 'local'))
         const lead = team.lead ? person(team.lead) : undefined
         return (
           <div key={team.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-ink-700 bg-ink-850 px-4 py-3 text-sm">

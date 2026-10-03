@@ -67,7 +67,7 @@ TIMEOUT_SECONDS = 10
 #: is "no additional information". The token exchange is the opposite; without it there is no sign-in.
 USERINFO_SECONDS = 5
 
-COOKIE_NAME = "nexcanvas_oidc"
+COOKIE_NAME = "nexcanvas_oidc" + get_settings().cookie_name_suffix()
 COOKIE_PATH = "/api/oidc"
 
 #: Tests set an ``httpx.MockTransport`` here. In production it stays None and httpx uses the network.

@@ -19,6 +19,7 @@ import {
   Plug,
   RotateCcw,
   Shapes,
+  Shield,
   ShieldCheck,
   Users,
   UsersRound,
@@ -33,6 +34,7 @@ import { Avatar } from '../components/Avatar'
 import { Dialog } from '../components/Dialog'
 import { MembersDialog } from '../components/MembersDialog'
 import { PackageList } from '../components/ShapePackages'
+import { ManagedCard, SuiteCard, useSuiteConnected } from '../components/Suite'
 import { TeamBadge, TeamRightsDialog, TeamsCard } from '../components/Teams'
 import { changeLanguage, languageOptions, templateFile, type LanguageOption } from '../i18n'
 import { applyMode, storedMode, type Mode } from '../lib/theme'
@@ -41,11 +43,11 @@ import { AccountsCard, AllSpacesCard, ApiTokensCard, BackupsCard, FilesCard, Lan
 import { Button, Card, Feedback, saveAsFile, TabRow, Toggle, useAction, type Tab } from './settings/ui'
 
 type Top = 'general' | 'looks' | 'spaces' | 'teams' | 'server'
-type Part = 'accounts' | 'signin' | 'shares' | 'api' | 'files' | 'shapes' | 'backups' | 'languages' | 'log'
+type Part = 'accounts' | 'signin' | 'suite' | 'shares' | 'api' | 'files' | 'shapes' | 'backups' | 'languages' | 'log'
 const TOPS: Top[] = ['general', 'looks', 'spaces', 'teams', 'server']
-const PARTS: Part[] = ['accounts', 'signin', 'shares', 'api', 'files', 'shapes', 'backups', 'languages', 'log']
+const PARTS: Part[] = ['accounts', 'signin', 'suite', 'shares', 'api', 'files', 'shapes', 'backups', 'languages', 'log']
 const TOP_ICON = { general: Globe, looks: Eye, spaces: Box, teams: UsersRound, server: ShieldCheck }
-const PART_ICON = { accounts: Users, signin: KeyRound, shares: Globe, api: Plug, files: Files, shapes: Shapes, backups: History, languages: Globe, log: Info }
+const PART_ICON = { accounts: Users, signin: KeyRound, suite: Shield, shares: Globe, api: Plug, files: Files, shapes: Shapes, backups: History, languages: Globe, log: Info }
 
 export function SettingsPage() {
   const { t } = useTranslation()
@@ -83,17 +85,21 @@ export function SettingsPage() {
 function ServerPart({ part }: { part: Part }) {
   const { t } = useTranslation()
   const server = useServerSettings()
+  const connected = useSuiteConnected()
+  const { me } = useAuth()
   switch (part) {
     case 'accounts':
       return (
         <>
-          <AccountsCard />
+          {connected ? <ManagedCard title={t('settings.parts.accounts')} text={t('suite.managedAccounts')} /> : <AccountsCard />}
           <AllSpacesCard />
-          <MailCard server={server} />
+          {me?.suite_mail ? <ManagedCard title={t('suite.mailTitle')} text={t('suite.managedMail')} /> : <MailCard server={server} />}
         </>
       )
     case 'signin':
-      return <SignInCard server={server} />
+      return connected ? <ManagedCard title={t('settings.parts.signin')} text={t('suite.managedSignIn')} /> : <SignInCard server={server} />
+    case 'suite':
+      return <SuiteCard />
     case 'shares':
       return <SharesCard server={server} />
     case 'api':
@@ -287,14 +293,20 @@ function Spaces() {
                   {t('packages.title')}
                 </Button>
               )}
-              <Button small onClick={() => setMembers(s)}>
-                <Users className="h-3.5 w-3.5" strokeWidth={1.8} />
-                {t('share.manage')}
-              </Button>
-              <Button small onClick={() => setTeamsOf(s)}>
-                <UsersRound className="h-3.5 w-3.5" strokeWidth={1.8} />
-                {t('settings.tabs.teams')}
-              </Button>
+              {s.managed ? (
+                <span className="rounded-full border border-accent-500/40 px-2 py-0.5 text-[11px] font-medium text-accent-400">{t('suite.fromSuite')}</span>
+              ) : (
+                <>
+                  <Button small onClick={() => setMembers(s)}>
+                    <Users className="h-3.5 w-3.5" strokeWidth={1.8} />
+                    {t('share.manage')}
+                  </Button>
+                  <Button small onClick={() => setTeamsOf(s)}>
+                    <UsersRound className="h-3.5 w-3.5" strokeWidth={1.8} />
+                    {t('settings.tabs.teams')}
+                  </Button>
+                </>
+              )}
             </li>
           ))}
         </ul>

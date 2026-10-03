@@ -4,7 +4,7 @@
  */
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { ApiError, api, authApi, type Me, type Methods } from '../api/client'
 import { Logo } from '../components/Logo'
@@ -121,7 +121,7 @@ export function SetupPage() {
   )
 }
 
-export function LoginPage() {
+export function LoginPage({ emergency = false }: { emergency?: boolean }) {
   const { t } = useTranslation()
   const { status, setMe } = useAuth()
   const [params] = useSearchParams()
@@ -201,8 +201,24 @@ export function LoginPage() {
     )
   }
 
+  if (methods?.suite && !emergency) {
+    return (
+      <AuthFrame title={t('auth.login.title')} text={t('suite.loginText')}>
+        <Problem code={problem} />
+        <a href={`/api/oidc/start?next=${encodeURIComponent(next)}`} className="nc-btn nc-btn-accent flex h-10 w-full items-center justify-center">
+          {t('suite.loginButton')}
+        </a>
+        <p className="mt-4 text-center text-xs text-mist-600">
+          <Link to="/notzugang" className="hover:text-mist-300">
+            {t('suite.emergencyLink')}
+          </Link>
+        </p>
+      </AuthFrame>
+    )
+  }
+
   return (
-    <AuthFrame title={t('auth.login.title')} text={t('auth.login.text')}>
+    <AuthFrame title={emergency ? t('suite.emergencyTitle') : t('auth.login.title')} text={emergency ? t('suite.emergencyLoginText') : t('auth.login.text')}>
       <form
         className="space-y-4"
         onSubmit={(event) => {
@@ -216,7 +232,7 @@ export function LoginPage() {
         <Primary busy={busy}>{t('auth.login.submit')}</Primary>
         {methods && !methods.password && <p className="text-xs text-mist-500">{t('auth.login.passwordOff')}</p>}
       </form>
-      {methods?.oidc && (
+      {methods?.oidc && !emergency && (
         <>
           <div className="my-4 flex items-center gap-3 text-xs text-mist-600">
             <span className="h-px flex-1 bg-ink-700" />

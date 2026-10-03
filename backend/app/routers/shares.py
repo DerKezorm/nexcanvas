@@ -39,7 +39,7 @@ router = APIRouter(prefix="/api", tags=["shares"])
 BoardId = Annotated[str, PathParam(min_length=6, max_length=24, pattern=r"^[A-Za-z0-9_-]+$")]
 Token = Annotated[str, PathParam(min_length=20, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")]
 MediaId = Annotated[str, PathParam(min_length=8, max_length=40, pattern=r"^[A-Za-z0-9_-]+$")]
-COOKIE = "nexcanvas_page"
+COOKIE = "nexcanvas_page" + get_settings().cookie_name_suffix()
 #: Wrong passwords per page and sender before a pause, and per page from anywhere.
 _brake = Brake()
 
