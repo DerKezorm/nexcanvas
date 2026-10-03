@@ -1,0 +1,69 @@
+{
+  "0.1.0": {
+    "lead": "Die erste Fassung von nexcanvas: ein Whiteboard auf deinem eigenen Server, an dem mehrere Leute gleichzeitig zeichnen, schreiben und ordnen.",
+    "sections": [
+      {
+        "title": "Gemeinsam am selben Board",
+        "where": "Boards, dann ein Board öffnen",
+        "body": "Was einer ändert, sehen alle anderen sofort. Die Zeiger der anderen wandern mit ihrem Namen über das Board, und in einer Notiz können zwei Leute zugleich tippen."
+      },
+      {
+        "title": "Zeichnen, schreiben, verbinden",
+        "where": "Werkzeugleiste oben im Board",
+        "body": "Notizen, Text, neun Grundformen, Linien und Pfeile, Stift, Textmarker und Radierer. Linien docken an der Kante einer Form an und gehen mit, wenn sie verschoben wird. Am „+“ einer Form hängst du die nächste an, Tab legt ein Kind an, Umschalt+Tab ein Geschwister. Drehen, Gruppieren, Ausrichten, Sperren und Ebenen gibt es über die Kontextleiste und das Rechtsklickmenü."
+      },
+      {
+        "title": "Rund 350 Formen und alle Lucide-Icons",
+        "where": "Leiste „Formen“ links im Board; welche Pakete sie zeigt, unter Mein Konto, Formen",
+        "body": "Neun Pakete zum Ziehen oder Aufziehen: Grundformen, Ablaufdiagramm, Projektmanagement, Raumplan in Zentimetern, Netzwerk, UML und Software, BPMN, Haus und Elektro, Symbole und Pfeile. Dazu die Lucide-Icons, nach Themen sortiert. Mit Suche, Favoriten und den zuletzt benutzten. Ein Board nimmt jede benutzte Form mit, sie bleibt also auch dort gezeichnet, wo das Paket fehlt."
+      },
+      {
+        "title": "Eigene Formpakete",
+        "where": "Einstellungen, Bereiche, Formpakete (oder Server, Formpakete)",
+        "body": "Wer einen Bereich verwaltet, legt Pakete für ihn an: Formen per SVG hinzufügen oder eine Zeichnung auf dem Board mit „Als Form speichern“ im Rechtsklickmenü übernehmen. Ein Paket ist eine Datei und geht so auch an einen anderen Server. Der Betreiber kann Pakete für alle freigeben."
+      },
+      {
+        "title": "Rahmen, Szenen und Präsentieren",
+        "where": "Werkzeug Rahmen (Taste F), Liste „Szenen“ unten rechts im Board",
+        "body": "Ein Rahmen fasst einen Teil des Boards zusammen und nimmt seinen Inhalt beim Verschieben mit. Jeder Rahmen ist eine Szene; im Vollbild gehst du sie mit den Pfeiltasten durch, auch auf einer öffentlichen Seite."
+      },
+      {
+        "title": "Fotos, Dateien und PDF",
+        "where": "Datei auf das Board ziehen oder einfügen",
+        "body": "Fotos füllen leere Felder, so entsteht ein Moodboard. Ortsdaten werden beim Hochladen entfernt, große Bilder bekommen eine kleine Vorschau. Ein PDF blätterst du direkt auf dem Board durch, und was du mit dem Stift darauf schreibst, bleibt bei seiner Seite."
+      },
+      {
+        "title": "33 Vorlagen und eigene",
+        "where": "„Neues Board“, oder Vorlagen in der Kopfleiste",
+        "body": "Vorlagen in Gruppen: zum Anfangen, Ablauf und Prozess, Projekt, Raum, Netzwerk, Denken, Organisation. Ein fertiges Board speicherst du über sein Menü als Vorlage, auf Wunsch nur das Gerüst, für einen Bereich oder für den ganzen Server."
+      },
+      {
+        "title": "Hintergrund je Board",
+        "where": "Menü „…“ im Board, Hintergrund",
+        "body": "Leer, Punkte, Karos, Linien, Millimeter oder isometrisch, auf Papierweiß, Creme, Tafelgrün, Blaupause oder einer eigenen Farbe. Der Hintergrund gilt für alle am Board, und beim Einrasten richten sich Formen nach seinem Raster."
+      },
+      {
+        "title": "Teilen und weitergeben",
+        "where": "Knopf „Teilen“ im Board; Menü „…“, Exportieren",
+        "body": "Boards liegen in Bereichen mit den Rechten Lesen, Schreiben und Verwalten; eingeladen wird per Name oder Link. Eine öffentliche Leseseite gibt es auf Wunsch mit Ablaufdatum und Passwort. Export als PNG oder PDF, als ganzes Board, Auswahl oder eine Seite je Szene. Als JSON Canvas geht ein Board samt Fotos zu nexlore, Obsidian oder einem anderen nexcanvas, dort mit „Aus Datei …“ unter „Neues Board“."
+      },
+      {
+        "title": "Auf dem Handy",
+        "where": "nexcanvas im Browser des Handys öffnen",
+        "body": "Alle Werkzeuge in einer Leiste unten. Ein Finger schiebt, zwei zoomen, lang drücken öffnet das Menü, doppelt tippen schreibt Text. Fotos kommen direkt aus der Kamera."
+      },
+      {
+        "title": "Für den Betrieb",
+        "where": "Einstellungen, Server",
+        "body": "Konten mit zweitem Faktor, Anmeldung über OIDC mit einem Knopf, der authentik einrichtet, Sicherung und Wiederherstellung als ein Archiv, ein Log in vier Stufen und eigene Sprachen als JSON-Datei. Für Dashboards gibt es API-Token, die nur lesen: Boards, Zahlen und ein Vorschaubild je Board. Ab Werk ist die API zu."
+      }
+    ],
+    "smallTitle": "Außerdem",
+    "small": [
+      "Hell, dunkel oder wie das System, über den Schalter in der Kopfleiste.",
+      "Strg+K springt zu jedem Board.",
+      "Gelöschte Boards liegen erst im Papierkorb, und alle 30 Minuten entsteht eine Version, zu der du zurückkannst.",
+      "Die Über-Seite im Kontomenü sagt, wenn es eine neue Fassung gibt; der Betreiber kann das Nachsehen dort abschalten."
+    ]
+  }
+}

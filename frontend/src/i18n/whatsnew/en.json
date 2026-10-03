@@ -1,0 +1,69 @@
+{
+  "0.1.0": {
+    "lead": "The first version of nexcanvas: a whiteboard on your own server where several people draw, write and arrange at the same time.",
+    "sections": [
+      {
+        "title": "Together on the same board",
+        "where": "Boards, then open a board",
+        "body": "What one person changes, everyone else sees at once. The others' pointers move across the board with their names, and two people can type in the same note together."
+      },
+      {
+        "title": "Draw, write, connect",
+        "where": "Toolbar at the top of the board",
+        "body": "Notes, text, nine basic shapes, lines and arrows, pen, highlighter and eraser. Lines dock to the edge of a shape and follow it when it moves. The \"+\" on a shape adds the next one, Tab adds a child, Shift+Tab a sibling. Rotate, group, align, lock and layers are in the context bar and the right-click menu."
+      },
+      {
+        "title": "About 350 shapes and all Lucide icons",
+        "where": "\"Shapes\" panel on the left of the board; which packages it shows, under My account, Shapes",
+        "body": "Nine packages to drag or draw out: basic shapes, flowchart, project management, floor plan in centimetres, network, UML and software, BPMN, house and electrics, signs and arrows. Plus the Lucide icons, sorted by topic. With search, favourites and the ones used last. A board carries every shape it uses, so it stays drawn even where the package is missing."
+      },
+      {
+        "title": "Your own shape packages",
+        "where": "Settings, Spaces, Shape packages (or Server, Shape packages)",
+        "body": "Whoever manages a space can make packages for it: add shapes as SVG, or take a drawing from the board with \"Save as shape\" in the right-click menu. A package is a file, so it travels to another server too. The operator can share packages with everyone."
+      },
+      {
+        "title": "Frames, scenes and presenting",
+        "where": "Frame tool (key F), \"Scenes\" list at the bottom right of the board",
+        "body": "A frame holds a part of the board together and takes its content along when moved. Every frame is a scene; in full screen you step through them with the arrow keys, on a public page as well."
+      },
+      {
+        "title": "Photos, files and PDF",
+        "where": "Drag a file onto the board or paste it",
+        "body": "Photos fill empty fields, which makes a mood board. Location data is removed on upload, and large pictures get a small preview. A PDF pages through right on the board, and what you write on it with the pen stays with its page."
+      },
+      {
+        "title": "33 templates, and your own",
+        "where": "\"New board\", or Templates in the header",
+        "body": "Templates in groups: getting started, flow and process, project, room, network, thinking, organisation. Save a finished board as a template from its menu, just the frame of it if you like, for one space or for the whole server."
+      },
+      {
+        "title": "A background for each board",
+        "where": "\"…\" menu on the board, Background",
+        "body": "Blank, dots, squares, lines, millimetres or isometric, on paper white, cream, chalkboard green, blueprint or a colour of your own. The background is the same for everyone on the board, and snapping follows its grid."
+      },
+      {
+        "title": "Sharing and passing on",
+        "where": "\"Share\" button on the board; \"…\" menu, Export",
+        "body": "Boards live in spaces with the rights read, write and manage; people are invited by name or by link. A public read-only page can have an expiry date and a password. Export as PNG or PDF, as the whole board, a selection or one page per scene. As JSON Canvas a board goes with its photos to nexlore, Obsidian or another nexcanvas, where \"From a file …\" under \"New board\" takes it in."
+      },
+      {
+        "title": "On the phone",
+        "where": "Open nexcanvas in the phone's browser",
+        "body": "All tools in a bar at the bottom. One finger pans, two zoom, a long press opens the menu, a double tap writes text. Photos come straight from the camera."
+      },
+      {
+        "title": "For running it",
+        "where": "Settings, Server",
+        "body": "Accounts with a second factor, sign-in through OIDC with a button that sets up authentik, backup and restore as one archive, a log in four levels and your own languages as a JSON file. For dashboards there are API tokens that only read: boards, numbers and a preview picture of each board. Out of the box the API is closed."
+      }
+    ],
+    "smallTitle": "Also",
+    "small": [
+      "Light, dark or like the system, with the switch in the header.",
+      "Ctrl+K jumps to any board.",
+      "Deleted boards go to the bin first, and every 30 minutes a version is kept that you can go back to.",
+      "The About page in the account menu tells you when there is a new version; the operator can turn the check off there."
+    ]
+  }
+}

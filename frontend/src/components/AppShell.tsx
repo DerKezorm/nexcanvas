@@ -10,6 +10,7 @@ import { NewBoardDialog } from './NewBoardDialog'
 import { NewSpaceDialog } from './NewSpaceDialog'
 import { QuickSwitcher } from './QuickSwitcher'
 import { ThemeSwitcher } from './ThemeSwitcher'
+import { WhatsNewBanner } from './WhatsNew'
 
 interface Shell {
   newBoard: (space?: number, template?: string) => void
@@ -97,6 +98,7 @@ export function AppShell() {
             <AccountMenu />
           </div>
         </header>
+        <WhatsNewBanner />
         <div className="flex min-h-0 flex-1">
           <Outlet />
         </div>

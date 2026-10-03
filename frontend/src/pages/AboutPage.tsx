@@ -12,6 +12,8 @@ import { useTranslation } from 'react-i18next'
 
 import { api, ApiError } from '../api/client'
 import { Logo } from '../components/Logo'
+import { WhatsNewWindow } from '../components/WhatsNew'
+import { useWhatsNew } from '../lib/whatsNew'
 import { useAuth } from '../state/auth'
 import { Button, Card, Feedback, Toggle } from './settings/ui'
 
@@ -67,6 +69,9 @@ export function AboutPage() {
   const [updates, setUpdates] = useState<Updates | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // The written text of the running version, to read again at any time.
+  const { entry } = useWhatsNew(me?.version, i18n.language)
+  const [reading, setReading] = useState(false)
 
   const load = useCallback(() => {
     api<About>('/api/about').then(setAbout, (error: unknown) => setProblem(code(error)))
@@ -117,6 +122,13 @@ export function AboutPage() {
                 {updates?.newer && <span className="rounded-full bg-accent-500/15 px-2 py-0.5 text-xs font-semibold text-accent-400">{t('about.newer', { version: latest })}</span>}
               </span>
             </Row>
+            {entry && me && (
+              <Row label={t('about.whatsNew')}>
+                <button type="button" onClick={() => setReading(true)} className="text-accent-400 underline decoration-accent-500/40 underline-offset-4 hover:decoration-accent-400">
+                  {t('whatsNew.title', { version: me.version })}
+                </button>
+              </Row>
+            )}
             <Row label={t('about.licence')}>
               <Out href="https://www.gnu.org/licenses/agpl-3.0.html">{about.license}</Out>
             </Row>
@@ -180,6 +192,7 @@ export function AboutPage() {
           </ul>
         </Card>
       </div>
+      {reading && entry && me && <WhatsNewWindow version={me.version} entry={entry} onClose={() => setReading(false)} />}
     </main>
   )
 }

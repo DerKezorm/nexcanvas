@@ -963,10 +963,19 @@
     "bottom": "Line up at the bottom",
     "spreadY": "Spread evenly up and down"
   },
+  "whatsNew": {
+    "title": "What's new in nexcanvas {{version}}",
+    "banner": "nexcanvas {{version}} is here.",
+    "show": "See what's new",
+    "putAway": "Put away",
+    "where": "Where:",
+    "done": "Got it"
+  },
   "about": {
     "menu": "About nexcanvas",
     "subtitle": "A whiteboard for your own server, live together.",
     "version": "Version",
+    "whatsNew": "What's new",
     "newer": "Version {{version}} is out",
     "licence": "Licence",
     "source": "Source code",

@@ -219,6 +219,7 @@ export const authApi = {
   preferences: (change: Partial<Preferences>) => api<Preferences>('/api/me/preferences', { method: 'PUT', body: change }),
   profile: (display_name: string) => api<Me>('/api/me/profile', { method: 'PUT', body: { display_name } }),
   password: (current: string, next: string) => api<void>('/api/auth/password', { method: 'PUT', body: { current, new: next } }),
+  whatsNewSeen: () => api<Me>('/api/me/whats-new/seen', { method: 'POST' }),
 }
 
 export const spacesApi = {
