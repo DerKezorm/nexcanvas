@@ -223,8 +223,8 @@ describe('the background of a board', () => {
     expect(backgroundStyle({ pattern: 'none', color: 'paper' }, view).backgroundColor).toBe('#ffffff')
     expect(backgroundStyle({ pattern: 'none', color: '#123456' }, view).backgroundColor).toBe('#123456')
     expect(backgroundStyle({ pattern: 'none', color: 'auto' }, view).backgroundColor).toBe('var(--color-board)')
-    expect(inkVariables({ pattern: 'none', color: 'paper' })).toEqual({ '--color-mist-100': '#14141a' })
-    expect(inkVariables({ pattern: 'none', color: 'chalk' })).toEqual({ '--color-mist-100': '#f2f2f5' })
+    expect(inkVariables({ pattern: 'none', color: 'paper' })).toEqual({ '--color-mist-100': '#14141a', '--color-board': '#ffffff' })
+    expect(inkVariables({ pattern: 'none', color: 'chalk' })).toEqual({ '--color-mist-100': '#f2f2f5', '--color-board': '#1f3b30' })
     expect(inkVariables({ pattern: 'none', color: 'auto' })).toEqual({})
   })
 

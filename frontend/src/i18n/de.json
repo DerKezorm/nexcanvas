@@ -193,6 +193,151 @@
       "hint": "Eine Spalte je Tag",
       "title": "Diese Woche",
       "days": "Mo,Di,Mi,Do,Fr,Sa,So"
+    },
+    "categories": {
+      "start": "Zum Anfangen",
+      "flow": "Ablauf und Prozess",
+      "project": "Projekt",
+      "room": "Raum",
+      "network": "Netzwerk",
+      "thinking": "Denken",
+      "organisation": "Organisation"
+    },
+    "own": "Eigene Vorlagen",
+    "scope": {
+      "server": "Für alle auf diesem Server",
+      "space": "Für diesen Bereich"
+    },
+    "inSpace": "In „{{space}}“",
+    "download": "Herunterladen",
+    "rename": "Umbenennen",
+    "remove": "Entfernen",
+    "removeTitle": "„{{name}}“ entfernen?",
+    "removeText": "Die Vorlage geht. Boards, die aus ihr entstanden sind, bleiben, wie sie sind.",
+    "import": {
+      "button": "Vorlage importieren",
+      "title": "Vorlage importieren",
+      "where": "Für",
+      "choose": "Datei wählen"
+    },
+    "save": {
+      "title": "Als Vorlage speichern",
+      "name": "Name der Vorlage",
+      "where": "Für wen",
+      "space": "Für den Bereich „{{space}}“",
+      "server": "Für alle auf diesem Server",
+      "bare": "Nur das Gerüst",
+      "bareHint": "Rahmen, Formen, Texte und Linien bleiben; Notizen, Zeichnungen, Fotos, Dateien und Links nicht.",
+      "button": "Speichern",
+      "saved": "„{{name}}“ liegt jetzt unter Vorlagen."
+    },
+    "flowchart": {
+      "name": "Ablaufdiagramm",
+      "hint": "Start, Schritte, eine Entscheidung, Ende."
+    },
+    "swimlanes": {
+      "name": "Prozess mit Schwimmbahnen",
+      "hint": "Wer macht welchen Schritt, Bahn für Bahn."
+    },
+    "decision": {
+      "name": "Entscheidungsbaum",
+      "hint": "Eine Frage, zwei Wege, vier Ergebnisse."
+    },
+    "gantt": {
+      "name": "Gantt-Zeitplan",
+      "hint": "Wochen, Vorhaben als Balken, Meilensteine."
+    },
+    "roadmap": {
+      "name": "Roadmap",
+      "hint": "Vier Quartale mit Phasen und Vorhaben."
+    },
+    "kanbanWip": {
+      "name": "Kanban mit Grenzen",
+      "hint": "Vier Spalten mit Obergrenzen für Arbeit."
+    },
+    "milestones": {
+      "name": "Meilensteinplan",
+      "hint": "Eine Zeitleiste mit fünf Meilensteinen."
+    },
+    "raci": {
+      "name": "RACI-Matrix",
+      "hint": "Wer verantwortet, entscheidet, berät, erfährt."
+    },
+    "brief": {
+      "name": "Projektsteckbrief",
+      "hint": "Ziel, Umfang, Team, Termine, Risiken, Budget."
+    },
+    "flat": {
+      "name": "Grundriss Wohnung",
+      "hint": "Wände, Türen, Fenster, Möbel in Zentimetern."
+    },
+    "office": {
+      "name": "Büro",
+      "hint": "Vier Arbeitsplätze mit Stühlen und Schrank."
+    },
+    "meeting": {
+      "name": "Besprechungsraum",
+      "hint": "Ein Tisch für acht und ein Bildschirm."
+    },
+    "seating": {
+      "name": "Sitzplan",
+      "hint": "Runde Tische mit je sechs Plätzen."
+    },
+    "homeNet": {
+      "name": "Heimnetz",
+      "hint": "Internet, Router, Switch, Geräte und WLAN."
+    },
+    "rack": {
+      "name": "Rack-Belegung",
+      "hint": "Ein Rack mit Höheneinheiten und Geräten."
+    },
+    "vlans": {
+      "name": "Netzplan mit VLANs",
+      "hint": "Zonen hinter der Firewall, getrennt nach Zweck."
+    },
+    "homelab": {
+      "name": "Homelab",
+      "hint": "Ein Host mit Diensten, Switch und NAS."
+    },
+    "mindmapLarge": {
+      "name": "Mindmap groß",
+      "hint": "Ein Thema, vier Zweige, je zwei Gedanken."
+    },
+    "swot": {
+      "name": "SWOT-Analyse",
+      "hint": "Stärken, Schwächen, Chancen, Risiken."
+    },
+    "businessModel": {
+      "name": "Business Model Canvas",
+      "hint": "Neun Felder für ein Geschäftsmodell."
+    },
+    "empathy": {
+      "name": "Empathy Map",
+      "hint": "Was eine Person sagt, denkt, tut, fühlt."
+    },
+    "ishikawa": {
+      "name": "Ishikawa",
+      "hint": "Ursachen in sechs Gruppen, eine Wirkung."
+    },
+    "eisenhower": {
+      "name": "Eisenhower-Matrix",
+      "hint": "Wichtig und dringend, in vier Feldern."
+    },
+    "startStop": {
+      "name": "Retro: Start, Stop, Weiter",
+      "hint": "Anfangen, aufhören, weitermachen."
+    },
+    "fourL": {
+      "name": "Retro: 4L",
+      "hint": "Gemocht, gelernt, gefehlt, gewünscht."
+    },
+    "orgChart": {
+      "name": "Organigramm",
+      "hint": "Leitung, Bereiche, Teams."
+    },
+    "month": {
+      "name": "Monatsplan",
+      "hint": "Fünf Wochen zum Eintragen."
     }
   },
   "files": {
@@ -744,7 +889,9 @@
     "too_many_packages": "Hier liegen schon 50 Pakete.",
     "packages_not_svg": "Das ist keine SVG-Datei.",
     "packages_empty_svg": "In der SVG-Datei ist nichts, was sich zeichnen lässt.",
-    "packages_not_json": "Das ist keine Paketdatei (JSON)."
+    "packages_not_json": "Das ist keine Paketdatei (JSON).",
+    "template_not_json": "Das ist keine Vorlagendatei von nexcanvas.",
+    "too_many_templates": "Hier liegen schon 100 Vorlagen."
   },
   "auth": {
     "name": "Name",

@@ -193,6 +193,151 @@
       "hint": "A column for each day",
       "title": "This week",
       "days": "Mon,Tue,Wed,Thu,Fri,Sat,Sun"
+    },
+    "categories": {
+      "start": "To begin",
+      "flow": "Flow and process",
+      "project": "Project",
+      "room": "Rooms",
+      "network": "Network",
+      "thinking": "Thinking",
+      "organisation": "Organisation"
+    },
+    "own": "Own templates",
+    "scope": {
+      "server": "For everybody on this server",
+      "space": "For this space"
+    },
+    "inSpace": "In “{{space}}”",
+    "download": "Download",
+    "rename": "Rename",
+    "remove": "Remove",
+    "removeTitle": "Remove “{{name}}”?",
+    "removeText": "The template goes. Boards made from it stay as they are.",
+    "import": {
+      "button": "Import template",
+      "title": "Import template",
+      "where": "For",
+      "choose": "Choose file"
+    },
+    "save": {
+      "title": "Save as template",
+      "name": "Name of the template",
+      "where": "For whom",
+      "space": "For the space “{{space}}”",
+      "server": "For everybody on this server",
+      "bare": "Only the frame",
+      "bareHint": "Frames, shapes, texts and lines stay; notes, drawings, photos, files and links do not.",
+      "button": "Save",
+      "saved": "“{{name}}” now lies under Templates."
+    },
+    "flowchart": {
+      "name": "Flowchart",
+      "hint": "Start, steps, a decision, end."
+    },
+    "swimlanes": {
+      "name": "Process with swimlanes",
+      "hint": "Who does which step, lane by lane."
+    },
+    "decision": {
+      "name": "Decision tree",
+      "hint": "One question, two ways, four outcomes."
+    },
+    "gantt": {
+      "name": "Gantt schedule",
+      "hint": "Weeks, work as bars, milestones."
+    },
+    "roadmap": {
+      "name": "Roadmap",
+      "hint": "Four quarters with phases and initiatives."
+    },
+    "kanbanWip": {
+      "name": "Kanban with limits",
+      "hint": "Four columns with limits on work."
+    },
+    "milestones": {
+      "name": "Milestone plan",
+      "hint": "A timeline with five milestones."
+    },
+    "raci": {
+      "name": "RACI matrix",
+      "hint": "Who is responsible, accountable, consulted, informed."
+    },
+    "brief": {
+      "name": "Project brief",
+      "hint": "Goal, scope, team, dates, risks, budget."
+    },
+    "flat": {
+      "name": "Floor plan flat",
+      "hint": "Walls, doors, windows, furniture in centimetres."
+    },
+    "office": {
+      "name": "Office",
+      "hint": "Four desks with chairs and a cupboard."
+    },
+    "meeting": {
+      "name": "Meeting room",
+      "hint": "A table for eight and a screen."
+    },
+    "seating": {
+      "name": "Seating plan",
+      "hint": "Round tables with six seats each."
+    },
+    "homeNet": {
+      "name": "Home network",
+      "hint": "Internet, router, switch, devices and Wi-Fi."
+    },
+    "rack": {
+      "name": "Rack layout",
+      "hint": "A rack with units and devices."
+    },
+    "vlans": {
+      "name": "Network plan with VLANs",
+      "hint": "Zones behind the firewall, apart by purpose."
+    },
+    "homelab": {
+      "name": "Homelab",
+      "hint": "A host with services, switch and NAS."
+    },
+    "mindmapLarge": {
+      "name": "Large mind map",
+      "hint": "One topic, four branches, two thoughts each."
+    },
+    "swot": {
+      "name": "SWOT analysis",
+      "hint": "Strengths, weaknesses, opportunities, threats."
+    },
+    "businessModel": {
+      "name": "Business model canvas",
+      "hint": "Nine fields for a business model."
+    },
+    "empathy": {
+      "name": "Empathy map",
+      "hint": "What a person says, thinks, does, feels."
+    },
+    "ishikawa": {
+      "name": "Ishikawa",
+      "hint": "Causes in six groups, one effect."
+    },
+    "eisenhower": {
+      "name": "Eisenhower matrix",
+      "hint": "Important and urgent, in four fields."
+    },
+    "startStop": {
+      "name": "Retro: start, stop, continue",
+      "hint": "Start, stop, keep doing."
+    },
+    "fourL": {
+      "name": "Retro: 4L",
+      "hint": "Liked, learned, lacked, longed for."
+    },
+    "orgChart": {
+      "name": "Org chart",
+      "hint": "Management, departments, teams."
+    },
+    "month": {
+      "name": "Month plan",
+      "hint": "Five weeks to fill in."
     }
   },
   "files": {
@@ -744,7 +889,9 @@
     "too_many_packages": "There are 50 packages here already.",
     "packages_not_svg": "This is no SVG file.",
     "packages_empty_svg": "The SVG file holds nothing that can be drawn.",
-    "packages_not_json": "This is no package file (JSON)."
+    "packages_not_json": "This is no package file (JSON).",
+    "template_not_json": "This is no nexcanvas template file.",
+    "too_many_templates": "There are 100 templates here already."
   },
   "auth": {
     "name": "Name",

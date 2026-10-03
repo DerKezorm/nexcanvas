@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { useBoards } from '../board/store'
-import { templateDoc, type TemplateId } from '../board/templates'
 import { AccountMenu } from './AccountMenu'
 import { Logo } from './Logo'
 import { NewBoardDialog } from './NewBoardDialog'
@@ -13,7 +12,7 @@ import { QuickSwitcher } from './QuickSwitcher'
 import { ThemeSwitcher } from './ThemeSwitcher'
 
 interface Shell {
-  newBoard: (space?: number, template?: TemplateId) => void
+  newBoard: (space?: number, template?: string) => void
   newSpace: () => void
   search: () => void
 }
@@ -37,11 +36,11 @@ export function AppShell() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const boards = useBoards()
-  const [asking, setAsking] = useState<{ space?: number; template?: TemplateId } | null>(null)
+  const [asking, setAsking] = useState<{ space?: number; template?: string } | null>(null)
   const [searching, setSearching] = useState(false)
   const [spaceDialog, setSpaceDialog] = useState(false)
 
-  const newBoard = useCallback((space?: number, template?: TemplateId) => setAsking({ space, template }), [])
+  const newBoard = useCallback((space?: number, template?: string) => setAsking({ space, template }), [])
   const newSpace = useCallback(() => setSpaceDialog(true), [])
   const search = useCallback(() => setSearching(true), [])
   const shell = useMemo(() => ({ newBoard, newSpace, search }), [newBoard, newSpace, search])
@@ -107,9 +106,8 @@ export function AppShell() {
           space={asking.space}
           template={asking.template}
           onClose={() => setAsking(null)}
-          onCreate={async (space, title, template) => {
-            const doc = templateDoc(template, (key, values) => t(key, values as never) as unknown as string)
-            const id = await boards.create(space, title, doc.items.length ? doc : undefined)
+          onCreate={async (space, title, doc) => {
+            const id = await boards.create(space, title, doc.items.length || doc.background ? doc : undefined)
             setAsking(null)
             navigate(`/b/${id}`)
           }}

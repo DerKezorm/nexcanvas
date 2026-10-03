@@ -194,8 +194,10 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
         const inside = box.x >= 0 && box.y >= 0 && box.x + box.w <= 1.001 && box.y + box.h <= 1.001
         // Words on the fill read as on a shape; words beside the drawing (under a router) read as on the board.
         const color = inside && item.fill !== 'none' ? textOn(item.fill) : 'var(--color-mist-100)'
-        const size = Math.max(12, Math.min(20, Math.min(item.w, item.h * (inside ? 1 : 3)) / 4.5))
         const shown = item.text || (def.measure ? `${Math.round(item.w)} cm` : '')
+        // Inside: as large as the box allows, but the longest word must fit on a line. Beside a symbol: one size.
+        const longest = Math.max(4, ...shown.split(/\s+/).map((word) => word.length))
+        const size = inside ? Math.max(10, Math.min(18, (box.h * item.h) / 2.6, (box.w * item.w) / (longest * 0.62))) : 14
         const quiet = def.quiet && !item.text && !editing
         return (
           <>
@@ -208,7 +210,7 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
                 {editing ? (
                   <Editor id={item.id} value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="h-full w-full text-center font-medium" style={{ color, fontSize: size, lineHeight: 1.2 }} />
                 ) : (
-                  <span className="pointer-events-none line-clamp-4 px-1 break-words whitespace-pre-wrap" data-measure={def.measure && !item.text ? '' : undefined}>
+                  <span className="pointer-events-none line-clamp-4 px-1 whitespace-pre-wrap" data-measure={def.measure && !item.text ? '' : undefined}>
                     {shown}
                   </span>
                 )}

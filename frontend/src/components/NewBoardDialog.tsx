@@ -1,22 +1,13 @@
-import { Brain, CalendarDays, Columns3, Images, MessagesSquare, Square } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ApiError } from '../api/client'
 import { useBoards } from '../board/store'
 import { errorText } from '../lib/errors'
-import { TEMPLATES, type TemplateId } from '../board/templates'
+import { catalogDoc } from '../board/templates'
+import type { Doc } from '../board/types'
 import { Dialog } from './Dialog'
-
-// eslint-disable-next-line react-refresh/only-export-components
-export const TEMPLATE_ICONS: Record<TemplateId, typeof Square> = {
-  blank: Square,
-  mood: Images,
-  retro: MessagesSquare,
-  kanban: Columns3,
-  mindmap: Brain,
-  week: CalendarDays,
-}
+import { TemplatePicker, useOwnTemplates, type Start } from './Templates'
 
 /** Name, space and a starting point. The space decides who sees the board, as in nexlore. */
 export function NewBoardDialog({
@@ -27,17 +18,25 @@ export function NewBoardDialog({
   onNewSpace,
 }: {
   space?: number
-  template?: TemplateId
+  template?: string
   onClose: () => void
-  onCreate: (space: number, title: string, template: TemplateId) => Promise<void>
+  onCreate: (space: number, title: string, doc: Doc) => Promise<void>
   onNewSpace: () => void
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const boards = useBoards()
   const writable = boards.spaces.filter((s) => s.role === 'write' || s.role === 'manage')
   const [title, setTitle] = useState('')
   const [where, setWhere] = useState<number>(space && writable.some((s) => s.id === space) ? space : (writable[0]?.id ?? 0))
-  const [start, setStart] = useState<TemplateId>(template)
+  const [start, setStart] = useState<Start>({ kind: 'shipped', id: template.startsWith('own:') ? 'blank' : template })
+  // The templates this space and the server keep, for the space chosen.
+  const own = useOwnTemplates(where ? [where] : [])
+  // Opened from a kept template (`own:<key>`): chosen once the list is there.
+  const wanted = template.startsWith('own:') ? Number(template.slice(4)) : null
+  useEffect(() => {
+    const found = wanted ? own.list.find((o) => o.key === wanted) : undefined
+    if (found) setStart({ kind: 'own', template: found })
+  }, [wanted, own.list])
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const name = title.trim() || t('board.untitled')
@@ -64,7 +63,8 @@ export function NewBoardDialog({
           setBusy(true)
           setProblem(null)
           try {
-            await onCreate(where, name, start)
+            const doc = start.kind === 'own' ? start.template.content : catalogDoc(start.id, (key, values) => t(key, values as never) as unknown as string, i18n.language)
+            await onCreate(where, name, doc)
           } catch (error) {
             setProblem(error instanceof ApiError ? error.code : 'internal_error')
             setBusy(false)
@@ -90,36 +90,15 @@ export function NewBoardDialog({
         </div>
         <fieldset>
           <legend className="mb-2 text-xs font-medium text-mist-500">{t('board.startWith')}</legend>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {TEMPLATES.map((id) => {
-              const Icon = TEMPLATE_ICONS[id]
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  aria-pressed={start === id}
-                  onClick={() => setStart(id)}
-                  className={
-                    'flex items-start gap-3 rounded-xl border p-3 text-left transition-colors ' +
-                    (start === id ? 'border-accent-500 bg-accent-500/10' : 'border-ink-700 hover:border-ink-600 hover:bg-ink-850')
-                  }
-                >
-                  <Icon className={'mt-0.5 h-4 w-4 shrink-0 ' + (start === id ? 'text-accent-400' : 'text-mist-500')} strokeWidth={1.8} />
-                  <span>
-                    <span className="block text-sm font-medium text-mist-100">{t(`templates.${id}.name`)}</span>
-                    <span className="block text-xs text-mist-600">{t(`templates.${id}.hint`)}</span>
-                  </span>
-                </button>
-              )
-            })}
-          </div>
+          <TemplatePicker value={start} onChange={setStart} own={own.list} />
         </fieldset>
         {problem && <p className="text-sm text-bad-500">{errorText(problem)}</p>}
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className="nc-btn nc-btn-ghost">
             {t('common.cancel')}
           </button>
-          <button type="submit" className="nc-btn nc-btn-accent" disabled={!where || busy}>
+          {/* Opened from a kept template: not before it is chosen, else the board would start empty. */}
+          <button type="submit" className="nc-btn nc-btn-accent" disabled={!where || busy || (wanted !== null && start.kind !== 'own')}>
             {t('board.create')}
           </button>
         </div>

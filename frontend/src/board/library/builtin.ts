@@ -126,6 +126,8 @@ const room: ShapeDef[] = [
 
 const person = (x: number, y: number, s: number) => [circle(x + 20 * s, y + 13 * s, 12 * s), path(`M${x} ${y + 60 * s}C${x} ${y + 36 * s} ${x + 9 * s} ${y + 28 * s} ${x + 20 * s} ${y + 28 * s}C${x + 31 * s} ${y + 28 * s} ${x + 40 * s} ${y + 36 * s} ${x + 40 * s} ${y + 60 * s}Z`)]
 const below = { x: -0.4, y: 1.04, w: 1.8, h: 0.42 }
+/** Beside the symbol on the right: network plans run top to bottom, their lines would cross words below. */
+const beside = { x: 1.04, y: 0.15, w: 1.15, h: 0.7 }
 
 const project: ShapeDef[] = [
   { id: 'task', name: { de: 'Aufgabe', en: 'Task' }, words: ['karte', 'card', 'todo'], vw: 180, vh: 110, elements: [rect(0, 0, 180, 110, { rx: 10 }), rect(0, 0, 180, 24, { rx: 10, f: 'soft', s: 'none' }), line(0, 24, 180, 24, 1)], text: { x: 0.05, y: 0.26, w: 0.9, h: 0.7 }, fill: '#fde68a' },
@@ -152,50 +154,50 @@ const net: ShapeDef[] = [
   {
     id: 'router', name: { de: 'Router', en: 'Router' }, words: ['gateway'], vw: 90, vh: 56, keep: true,
     elements: [path('M0 14A45 14 0 0 1 90 14V42A45 14 0 0 1 0 42Z'), ellipse(45, 14, 45, 14), stroke('M26 8L36 13M36 13L33 7M36 13L30 14M64 20L54 15M54 15L57 21M54 15L60 14M58 6L48 11M48 11L54 12M48 11L51 5M32 22L42 17M42 17L36 16M42 17L39 23', 1.6)],
-    text: below, fill: BLUE,
+    text: beside, fill: BLUE,
   },
   {
     id: 'switch', name: { de: 'Switch', en: 'Switch' }, words: ['netzwerkswitch', 'hub'], vw: 110, vh: 44, keep: true,
-    elements: [rect(0, 0, 110, 44, { rx: 6 }), stroke('M20 14H70M62 9L70 14L62 19M90 30H40M48 25L40 30L48 35', 1.8)], text: below, fill: BLUE,
+    elements: [rect(0, 0, 110, 44, { rx: 6 }), stroke('M20 14H70M62 9L70 14L62 19M90 30H40M48 25L40 30L48 35', 1.8)], text: beside, fill: BLUE,
   },
   {
     id: 'firewall', name: { de: 'Firewall', en: 'Firewall' }, words: ['mauer', 'wall', 'sicherheit', 'security'], vw: 90, vh: 64, keep: true,
-    elements: [rect(0, 0, 90, 64, { rx: 3 }), ...lines(3, (i) => [0, 16 * (i + 1), 90, 16 * (i + 1)], 1.2), stroke('M30 0V16M60 0V16M15 16V32M45 16V32M75 16V32M30 32V48M60 32V48M15 48V64M45 48V64M75 48V64', 1.2)], text: below, fill: '#f87171',
+    elements: [rect(0, 0, 90, 64, { rx: 3 }), ...lines(3, (i) => [0, 16 * (i + 1), 90, 16 * (i + 1)], 1.2), stroke('M30 0V16M60 0V16M15 16V32M45 16V32M75 16V32M30 32V48M60 32V48M15 48V64M45 48V64M75 48V64', 1.2)], text: beside, fill: '#f87171',
   },
   {
     id: 'server', name: { de: 'Server', en: 'Server' }, words: ['rechner', 'host'], vw: 56, vh: 84, keep: true,
-    elements: [rect(0, 0, 56, 84, { rx: 6 }), line(0, 28, 56, 28, 1.2), line(0, 56, 56, 56, 1.2), ...[14, 42, 70].map((y) => circle(44, y, 3, { f: 'paper', s: 'none' })), ...[14, 42, 70].map((y) => line(10, y, 30, y, 2))], text: below, fill: BLUE,
+    elements: [rect(0, 0, 56, 84, { rx: 6 }), line(0, 28, 56, 28, 1.2), line(0, 56, 56, 56, 1.2), ...[14, 42, 70].map((y) => circle(44, y, 3, { f: 'paper', s: 'none' })), ...[14, 42, 70].map((y) => line(10, y, 30, y, 2))], text: beside, fill: BLUE,
   },
   {
     id: 'nas', name: { de: 'NAS', en: 'NAS' }, words: ['speicher', 'storage', 'synology', 'festplatten'], vw: 80, vh: 66, keep: true,
-    elements: [rect(0, 0, 80, 66, { rx: 6 }), ...[0, 1, 2, 3].map((i) => rect(9 + i * 17, 10, 11, 38, { rx: 2, f: 'paper', w: 1 })), circle(66, 56, 3, { f: 'paper', s: 'none' })], text: below, fill: BLUE,
+    elements: [rect(0, 0, 80, 66, { rx: 6 }), ...[0, 1, 2, 3].map((i) => rect(9 + i * 17, 10, 11, 38, { rx: 2, f: 'paper', w: 1 })), circle(66, 56, 3, { f: 'paper', s: 'none' })], text: beside, fill: BLUE,
   },
   {
     id: 'access-point', name: { de: 'Access Point', en: 'Access point' }, words: ['wlan', 'wifi', 'funk'], vw: 80, vh: 62, keep: true,
-    elements: [path('M6 62A34 18 0 0 1 74 62Z'), stroke('M22 34A22 22 0 0 1 58 34M12 24A36 36 0 0 1 68 24M2 14A50 50 0 0 1 78 14', 2)], text: below, fill: BLUE,
+    elements: [path('M6 62A34 18 0 0 1 74 62Z'), stroke('M22 34A22 22 0 0 1 58 34M12 24A36 36 0 0 1 68 24M2 14A50 50 0 0 1 78 14', 2)], text: beside, fill: BLUE,
   },
   {
     id: 'internet', name: { de: 'Internet', en: 'Internet' }, words: ['wolke', 'cloud', 'wan'], vw: 120, vh: 76,
     elements: [path('M30 70C12 70 2 58 6 46C-1 37 7 21 23 24C26 8 48 3 59 14C69 1 93 5 94 23C111 23 120 38 113 50C120 64 106 75 92 69C83 78 62 78 53 70C45 75 37 74 30 70Z')],
     text: { x: 0.15, y: 0.28, w: 0.7, h: 0.5 }, fill: LIGHT,
   },
-  { id: 'pc', name: { de: 'PC', en: 'PC' }, words: ['computer', 'desktop', 'arbeitsplatz', 'monitor'], vw: 80, vh: 70, keep: true, elements: [rect(0, 0, 80, 52, { rx: 4 }), rect(6, 6, 68, 40, { rx: 2, f: 'paper', w: 1 }), path('M30 52H50L54 64H26Z'), line(18, 68, 62, 68, 3)], text: below, fill: BLUE },
-  { id: 'laptop', name: { de: 'Laptop', en: 'Laptop' }, words: ['notebook'], vw: 96, vh: 60, keep: true, elements: [rect(12, 0, 72, 48, { rx: 4 }), rect(17, 5, 62, 38, { rx: 2, f: 'paper', w: 1 }), path('M0 52H96L90 60H6Z')], text: below, fill: BLUE },
-  { id: 'phone', name: { de: 'Handy', en: 'Phone' }, words: ['smartphone', 'telefon', 'mobil'], vw: 40, vh: 72, keep: true, elements: [rect(0, 0, 40, 72, { rx: 7 }), rect(4, 8, 32, 54, { rx: 2, f: 'paper', w: 1 }), line(16, 4, 24, 4, 1.5)], text: below, fill: BLUE },
-  { id: 'tablet', name: { de: 'Tablet', en: 'Tablet' }, words: ['ipad'], vw: 60, vh: 80, keep: true, elements: [rect(0, 0, 60, 80, { rx: 7 }), rect(5, 7, 50, 64, { rx: 2, f: 'paper', w: 1 }), circle(30, 75, 2, { f: 'paper', s: 'none' })], text: below, fill: BLUE },
-  { id: 'printer', name: { de: 'Drucker', en: 'Printer' }, words: ['scanner'], vw: 80, vh: 64, keep: true, elements: [rect(16, 0, 48, 20, { f: 'paper' }), rect(0, 18, 80, 30, { rx: 5 }), rect(16, 40, 48, 24, { f: 'paper' }), circle(68, 28, 3, { f: 'paper', s: 'none' })], text: below, fill: BLUE },
+  { id: 'pc', name: { de: 'PC', en: 'PC' }, words: ['computer', 'desktop', 'arbeitsplatz', 'monitor'], vw: 80, vh: 70, keep: true, elements: [rect(0, 0, 80, 52, { rx: 4 }), rect(6, 6, 68, 40, { rx: 2, f: 'paper', w: 1 }), path('M30 52H50L54 64H26Z'), line(18, 68, 62, 68, 3)], text: beside, fill: BLUE },
+  { id: 'laptop', name: { de: 'Laptop', en: 'Laptop' }, words: ['notebook'], vw: 96, vh: 60, keep: true, elements: [rect(12, 0, 72, 48, { rx: 4 }), rect(17, 5, 62, 38, { rx: 2, f: 'paper', w: 1 }), path('M0 52H96L90 60H6Z')], text: beside, fill: BLUE },
+  { id: 'phone', name: { de: 'Handy', en: 'Phone' }, words: ['smartphone', 'telefon', 'mobil'], vw: 40, vh: 72, keep: true, elements: [rect(0, 0, 40, 72, { rx: 7 }), rect(4, 8, 32, 54, { rx: 2, f: 'paper', w: 1 }), line(16, 4, 24, 4, 1.5)], text: beside, fill: BLUE },
+  { id: 'tablet', name: { de: 'Tablet', en: 'Tablet' }, words: ['ipad'], vw: 60, vh: 80, keep: true, elements: [rect(0, 0, 60, 80, { rx: 7 }), rect(5, 7, 50, 64, { rx: 2, f: 'paper', w: 1 }), circle(30, 75, 2, { f: 'paper', s: 'none' })], text: beside, fill: BLUE },
+  { id: 'printer', name: { de: 'Drucker', en: 'Printer' }, words: ['scanner'], vw: 80, vh: 64, keep: true, elements: [rect(16, 0, 48, 20, { f: 'paper' }), rect(0, 18, 80, 30, { rx: 5 }), rect(16, 40, 48, 24, { f: 'paper' }), circle(68, 28, 3, { f: 'paper', s: 'none' })], text: beside, fill: BLUE },
   {
     id: 'rack', name: { de: 'Rack', en: 'Rack' }, words: ['schrank', 'serverschrank', 'cabinet'], vw: 100, vh: 220,
-    elements: [rect(0, 0, 100, 220, { rx: 4 }), rect(8, 10, 84, 200, { f: 'paper', w: 1 }), ...lines(19, (i) => [8, 10 + 10 * (i + 1), 92, 10 + 10 * (i + 1)], 0.6)], text: below, fill: '#3f3f46',
+    elements: [rect(0, 0, 100, 220, { rx: 4 }), rect(8, 10, 84, 200, { f: 'paper', w: 1 }), ...lines(19, (i) => [8, 10 + 10 * (i + 1), 92, 10 + 10 * (i + 1)], 0.6)], text: beside, fill: '#3f3f46',
   },
   {
     id: 'patch-panel', name: { de: 'Patchfeld', en: 'Patch panel' }, words: ['patchpanel', 'ports', 'buchsen'], vw: 200, vh: 30, quiet: true,
     elements: [rect(0, 0, 200, 30, { rx: 2 }), ...Array.from({ length: 12 }, (_, i) => rect(14 + i * 15, 9, 10, 12, { f: 'paper', w: 1 }))], fill: '#3f3f46',
   },
-  { id: 'camera', name: { de: 'Kamera', en: 'Camera' }, words: ['ueberwachung', 'cctv', 'webcam'], vw: 80, vh: 56, keep: true, elements: [rect(0, 6, 60, 30, { rx: 6 }), circle(46, 21, 9, { f: 'paper' }), path('M60 14L80 6V36L60 28Z'), stroke('M20 36V56M8 56H32', 3)], text: below, fill: BLUE },
-  { id: 'modem', name: { de: 'Modem', en: 'Modem' }, words: ['dsl', 'kabel', 'glasfaser', 'fiber'], vw: 90, vh: 46, keep: true, elements: [rect(0, 14, 90, 32, { rx: 6 }), stroke('M74 14L82 0', 2.5), ...[0, 1, 2, 3].map((i) => circle(16 + i * 12, 30, 3, { f: 'paper', s: 'none' }))], text: below, fill: BLUE },
-  { id: 'load-balancer', name: { de: 'Lastverteiler', en: 'Load balancer' }, words: ['loadbalancer', 'proxy', 'verteiler'], vw: 64, vh: 64, keep: true, elements: [circle(32, 32, 32), stroke('M12 32H28M28 32L44 18M28 32L44 46M28 32H48M38 14L45 18L40 24M38 50L45 46L40 40M43 27L49 32L43 37', 2)], text: below, fill: BLUE },
-  { id: 'database', name: { de: 'Datenbank', en: 'Database' }, words: ['db', 'sql'], vw: 60, vh: 76, keep: true, elements: [path('M0 10A30 10 0 0 1 60 10V66A30 10 0 0 1 0 66Z'), ellipse(30, 10, 30, 10), stroke('M0 30A30 10 0 0 0 60 30M0 48A30 10 0 0 0 60 48', 1.2)], text: below, fill: BLUE },
+  { id: 'camera', name: { de: 'Kamera', en: 'Camera' }, words: ['ueberwachung', 'cctv', 'webcam'], vw: 80, vh: 56, keep: true, elements: [rect(0, 6, 60, 30, { rx: 6 }), circle(46, 21, 9, { f: 'paper' }), path('M60 14L80 6V36L60 28Z'), stroke('M20 36V56M8 56H32', 3)], text: beside, fill: BLUE },
+  { id: 'modem', name: { de: 'Modem', en: 'Modem' }, words: ['dsl', 'kabel', 'glasfaser', 'fiber'], vw: 90, vh: 46, keep: true, elements: [rect(0, 14, 90, 32, { rx: 6 }), stroke('M74 14L82 0', 2.5), ...[0, 1, 2, 3].map((i) => circle(16 + i * 12, 30, 3, { f: 'paper', s: 'none' }))], text: beside, fill: BLUE },
+  { id: 'load-balancer', name: { de: 'Lastverteiler', en: 'Load balancer' }, words: ['loadbalancer', 'proxy', 'verteiler'], vw: 64, vh: 64, keep: true, elements: [circle(32, 32, 32), stroke('M12 32H28M28 32L44 18M28 32L44 46M28 32H48M38 14L45 18L40 24M38 50L45 46L40 40M43 27L49 32L43 37', 2)], text: beside, fill: BLUE },
+  { id: 'database', name: { de: 'Datenbank', en: 'Database' }, words: ['db', 'sql'], vw: 60, vh: 76, keep: true, elements: [path('M0 10A30 10 0 0 1 60 10V66A30 10 0 0 1 0 66Z'), ellipse(30, 10, 30, 10), stroke('M0 30A30 10 0 0 0 60 30M0 48A30 10 0 0 0 60 48', 1.2)], text: beside, fill: BLUE },
   { id: 'zone', hollow: true, name: { de: 'Zone', en: 'Zone' }, words: ['vlan', 'netz', 'subnet', 'bereich', 'gruppe'], vw: 320, vh: 200, elements: [rect(0, 0, 320, 200, { rx: 16, f: 'none', s: 'line', dash: true, w: 1.5 })], text: { x: 0.04, y: 0.02, w: 0.92, h: 0.15 }, fill: 'none' },
 ]
 

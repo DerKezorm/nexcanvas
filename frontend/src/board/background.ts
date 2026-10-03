@@ -115,7 +115,7 @@ export function backgroundStyle(bg: Background, view: View, clear = false): CSSP
 export function inkVariables(bg: Background): CSSProperties {
   const light = isLight(bg.color)
   if (light === null) return {}
-  return { ['--color-mist-100' as string]: light ? '#14141a' : '#f2f2f5' } as CSSProperties
+  return { ['--color-mist-100' as string]: light ? '#14141a' : '#f2f2f5', ['--color-board' as string]: baseColor(bg.color) } as CSSProperties
 }
 
 /** Where moving snaps to on this pattern, per axis, in board units; null where it does not. */

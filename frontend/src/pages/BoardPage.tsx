@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronRight, Copy, FileDown, FileUp, Grid3x3, History, ImageDown, Keyboard, Maximize, Minus, MoreHorizontal, Plus, Presentation, Redo2, RotateCw, Share2, Star, Trash2, Undo2 } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Copy, FileDown, FileUp, Grid3x3, History, LayoutTemplate, ImageDown, Keyboard, Maximize, Minus, MoreHorizontal, Plus, Presentation, Redo2, RotateCw, Share2, Star, Trash2, Undo2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -37,6 +37,7 @@ import { errorText } from '../lib/errors'
 import { useAuth } from '../state/auth'
 import { Dialog } from '../components/Dialog'
 import { Popover } from '../components/Popover'
+import { SaveTemplateDialog } from '../components/Templates'
 
 const uid = () => Math.random().toString(36).slice(2, 10)
 
@@ -199,6 +200,7 @@ function Editor({ board }: { board: Board }) {
   const [librarySheet, setLibrarySheet] = useState(false)
   /** What is selected, on its way into a package as one shape. */
   const [savingShape, setSavingShape] = useState<Item[] | null>(null)
+  const [savingTemplate, setSavingTemplate] = useState(false)
   const favorites = useMemo(() => me?.preferences?.library_favorites ?? [], [me])
   const recent = useMemo(() => me?.preferences?.library_recent ?? [], [me])
   /** The account's library preferences, kept with it (open or folded, starred, last taken). */
@@ -261,15 +263,18 @@ function Editor({ board }: { board: Board }) {
     return () => observer.disconnect()
   }, [])
 
+  /** Room the shape library takes on the left, kept out of fitting (none on a phone or while presenting). */
+  const leftInset = useRef(0)
   const fit = useCallback(
     (rect: Rect | null = bounds(doc.ref.current.items), animate = true, wanted = 90) => {
       const el = root.current
       if (!el) return
-      const w = el.clientWidth
+      const inset = wanted < 90 ? 0 : leftInset.current
+      const w = el.clientWidth - inset
       const h = el.clientHeight
       const pad = w < 640 ? Math.min(wanted, 20) : wanted
       if (!rect) {
-        setView({ x: w / 2, y: h / 2, zoom: 1 })
+        setView({ x: inset + w / 2, y: h / 2, zoom: 1 })
         return
       }
       // Room for the tool bar at the top, except when presenting (a small margin, nothing over the frame). A phone has
@@ -277,7 +282,7 @@ function Editor({ board }: { board: Board }) {
       const onStage = wanted < 90
       const bar = !onStage && w >= 640 ? 40 : 0
       const zoom = clampZoom(Math.min((w - pad * 2) / Math.max(rect.w, 1), (h - pad * 2 - bar) / Math.max(rect.h, 1), onStage ? MAX_ZOOM : 1.4))
-      const next = { zoom, x: w / 2 - (rect.x + rect.w / 2) * zoom, y: h / 2 + bar / 2 - (rect.y + rect.h / 2) * zoom }
+      const next = { zoom, x: inset + w / 2 - (rect.x + rect.w / 2) * zoom, y: h / 2 + bar / 2 - (rect.y + rect.h / 2) * zoom }
       if (!animate) return setView(next)
       const from = viewRef.current
       const start = performance.now()
@@ -292,13 +297,24 @@ function Editor({ board }: { board: Board }) {
     [doc.ref],
   )
 
-  // The whole board in view once it arrived from the server (not before: an empty board would fit to nothing).
+  // The whole board in view once it arrived from the server (not before: an empty board would fit to nothing). The
+  // picture follows the sync a frame later, so its items are waited for; a board that stays empty is fitted anyway.
   const fitted = useRef(false)
+  const arrived = doc.doc.items.length > 0
   useEffect(() => {
     if (!doc.synced || fitted.current) return
-    fitted.current = true
-    fit(undefined, false)
-  }, [doc.synced, fit])
+    if (arrived) {
+      fitted.current = true
+      fit(undefined, false)
+      return
+    }
+    const timer = window.setTimeout(() => {
+      if (fitted.current) return
+      fitted.current = true
+      fit(undefined, false)
+    }, 400)
+    return () => window.clearTimeout(timer)
+  }, [doc.synced, arrived, fit])
 
   const local = useCallback((e: { clientX: number; clientY: number }): Point => {
     const r = root.current!.getBoundingClientRect()
@@ -1368,6 +1384,7 @@ function Editor({ board }: { board: Board }) {
   const cursor = spaceHeld || tools.tool === 'hand' ? 'grab' : tools.tool === 'select' ? 'default' : tools.tool === 'eraser' ? 'cell' : 'crosshair'
   const zoomPct = Math.round(view.zoom * 100)
   const phone = size.w < 640
+  leftInset.current = !phone && !readOnly ? (libraryOpen ? 300 : 70) : 0
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -1437,6 +1454,12 @@ function Editor({ board }: { board: Board }) {
                   <FileUp className="h-4 w-4 text-mist-500" />
                   {t('canvasFile.import')}
                 </button>
+                {(space?.role === 'manage' || me?.role === 'operator') && (
+                  <button type="button" role="menuitem" className="nc-menu-item" onClick={() => { close(); setSavingTemplate(true) }}>
+                    <LayoutTemplate className="h-4 w-4 text-mist-500" />
+                    {t('templates.save.title')}
+                  </button>
+                )}
                 <button type="button" role="menuitem" className="nc-menu-item" disabled={readOnly} onClick={() => { close(); setChoosingBackground(true) }}>
                   <Grid3x3 className="h-4 w-4 text-mist-500" />
                   {t('background.title')}
@@ -1818,6 +1841,27 @@ function Editor({ board }: { board: Board }) {
       {share && <ShareDialog board={board} onClose={() => setShare(false)} />}
       {versions && <VersionsDialog boardId={board.id} readOnly={readOnly} onClose={() => setVersions(false)} />}
       {keys && <ShortcutsDialog onClose={() => setKeys(false)} />}
+      {savingTemplate && (
+        <SaveTemplateDialog
+          doc={{
+            items,
+            lines,
+            ...(doc.background ? { background: doc.background } : {}),
+            // Only the shapes of packages the board still uses travel along.
+            defs: Object.fromEntries(Object.entries(doc.defs).filter(([key]) => items.some((i) => i.kind === 'shape' && i.lib === key))),
+          }}
+          title={board.title}
+          space={board.space}
+          spaceName={space?.name ?? ''}
+          mayManage={space?.role === 'manage'}
+          operator={me?.role === 'operator'}
+          onClose={() => setSavingTemplate(false)}
+          onSaved={(name) => {
+            setSavingTemplate(false)
+            setNotice(t('templates.save.saved', { name }))
+          }}
+        />
+      )}
       {choosingBackground && (
         <BackgroundDialog own={doc.background} shown={bg} onChange={(next) => doc.setBackground(next)} onClose={() => setChoosingBackground(false)} />
       )}

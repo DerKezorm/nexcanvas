@@ -1,6 +1,10 @@
 /** Starting points for a new board. Each fills the board with a little structure and nothing else. */
 
+import { SHIPPED, shippedDoc, type Category } from './templateCatalog'
 import type { Doc, Item, LineItem, NoteColor } from './types'
+
+export type { Category }
+export { CATEGORIES } from './templateCatalog'
 
 export type TemplateId = 'blank' | 'mood' | 'retro' | 'kanban' | 'mindmap' | 'week'
 
@@ -8,7 +12,7 @@ export const TEMPLATES: TemplateId[] = ['blank', 'mood', 'retro', 'kanban', 'min
 
 const uid = () => Math.random().toString(36).slice(2, 10)
 
-type Say = (key: string, vars?: Record<string, unknown>) => string
+export type Say = (key: string, vars?: Record<string, unknown>) => string
 
 export function templateDoc(id: TemplateId, t: Say): Doc {
   const items: Item[] = []
@@ -79,4 +83,33 @@ export function templateDoc(id: TemplateId, t: Say): Doc {
     }
   }
   return { items, lines }
+}
+
+/** A template kept by a space or the server (block 5). */
+export interface OwnTemplate {
+  key: number
+  scope: 'space' | 'server'
+  space: number | null
+  name: string
+  content: Doc
+}
+
+/** Every shipped template with its group: the first six as "start", then the catalogue of block 5. */
+export const CATALOG: { id: string; category: Category }[] = [...TEMPLATES.map((id) => ({ id, category: 'start' as Category })), ...SHIPPED.map(({ id, category }) => ({ id, category }))]
+
+/** The board a shipped template builds, in the language of the page. */
+export function catalogDoc(id: string, t: Say, language: string): Doc {
+  if ((TEMPLATES as string[]).includes(id)) return templateDoc(id as TemplateId, t)
+  return shippedDoc(id, language) ?? { items: [], lines: [] }
+}
+
+/**
+ * Only the frame of a board, for a template "without content": frames, shapes, texts and lines stay, notes, drawings,
+ * photos, files and links go, with the lines that led to them.
+ */
+export function skeleton(doc: Doc): Doc {
+  const items = doc.items.filter((i) => i.kind === 'frame' || i.kind === 'shape' || i.kind === 'text')
+  const kept = new Set(items.map((i) => i.id))
+  const lines = doc.lines.filter((l) => (!l.a.item || kept.has(l.a.item)) && (!l.b.item || kept.has(l.b.item)))
+  return { ...doc, items, lines }
 }

@@ -315,6 +315,21 @@ class ShapePackage(Base):
     updated_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
 
+class BoardTemplate(Base):
+    """A board kept as a starting point (block 5), for one space or, without a space, for the whole server. ``content``
+    is the picture as ``services/boards`` checks a new board's content: items, lines, background, shapes."""
+
+    __tablename__ = "board_templates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    space_id: Mapped[int | None] = mapped_column(ForeignKey("spaces.id", ondelete="CASCADE"), nullable=True, index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    content: Mapped[Any] = mapped_column(JSON)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+
 class ApiToken(Base):
     """A token an account made for programs (``/api/v1``). Only the SHA-256 is stored."""
 
@@ -351,6 +366,7 @@ __all__ = [
     "AuthSession",
     "Base",
     "Board",
+    "BoardTemplate",
     "BoardUpdate",
     "BoardVersion",
     "Favorite",
