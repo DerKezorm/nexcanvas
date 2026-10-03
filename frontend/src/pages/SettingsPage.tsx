@@ -1,6 +1,6 @@
 /**
  * Settings, laid out like nexlore's: whoever knows one finds their way in the other.
- * Settings: General, Look, Spaces, and for the operator Server, with a second row for its parts. The tab is in the
+ * Settings: General, Look, Spaces, Teams, and for the operator Server, with a second row for its parts. The tab is in the
  * address (`?tab=server&sub=backups`), so a link can point at one; a tab someone may not see falls back to General.
  * The own account is `AccountPage.tsx`.
  */
@@ -21,6 +21,7 @@ import {
   Shapes,
   ShieldCheck,
   Users,
+  UsersRound,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -32,17 +33,18 @@ import { Avatar } from '../components/Avatar'
 import { Dialog } from '../components/Dialog'
 import { MembersDialog } from '../components/MembersDialog'
 import { PackageList } from '../components/ShapePackages'
+import { TeamBadge, TeamRightsDialog, TeamsCard } from '../components/Teams'
 import { changeLanguage, languageOptions, templateFile, type LanguageOption } from '../i18n'
 import { applyMode, storedMode, type Mode } from '../lib/theme'
 import { useAuth } from '../state/auth'
 import { AccountsCard, AllSpacesCard, ApiTokensCard, BackupsCard, FilesCard, LanguagesCard, LogCard, MailCard, SharesCard, SignInCard, useServerSettings } from './settings/ServerCards'
 import { Button, Card, Feedback, saveAsFile, TabRow, Toggle, useAction, type Tab } from './settings/ui'
 
-type Top = 'general' | 'looks' | 'spaces' | 'server'
+type Top = 'general' | 'looks' | 'spaces' | 'teams' | 'server'
 type Part = 'accounts' | 'signin' | 'shares' | 'api' | 'files' | 'shapes' | 'backups' | 'languages' | 'log'
-const TOPS: Top[] = ['general', 'looks', 'spaces', 'server']
+const TOPS: Top[] = ['general', 'looks', 'spaces', 'teams', 'server']
 const PARTS: Part[] = ['accounts', 'signin', 'shares', 'api', 'files', 'shapes', 'backups', 'languages', 'log']
-const TOP_ICON = { general: Globe, looks: Eye, spaces: Box, server: ShieldCheck }
+const TOP_ICON = { general: Globe, looks: Eye, spaces: Box, teams: UsersRound, server: ShieldCheck }
 const PART_ICON = { accounts: Users, signin: KeyRound, shares: Globe, api: Plug, files: Files, shapes: Shapes, backups: History, languages: Globe, log: Info }
 
 export function SettingsPage() {
@@ -69,6 +71,7 @@ export function SettingsPage() {
           {top === 'general' && <General />}
           {top === 'looks' && <Looks />}
           {top === 'spaces' && <Spaces />}
+          {top === 'teams' && <TeamsCard />}
           {top === 'server' && <ServerPart part={part} />}
         </div>
       </div>
@@ -250,6 +253,7 @@ function Spaces() {
   const { t } = useTranslation()
   const boards = useBoards()
   const [members, setMembers] = useState<Space | null>(null)
+  const [teamsOf, setTeamsOf] = useState<Space | null>(null)
   const [params, setParams] = useSearchParams()
   const asked = Number(params.get('packages')) || null
   const packagesOf = boards.spaces.find((s) => s.id === asked) ?? null
@@ -273,6 +277,9 @@ function Spaces() {
                 {s.members.slice(0, 5).map((m) => (
                   <Avatar key={m.id} person={m} className="h-6 w-6 text-[11px]" ring />
                 ))}
+                {s.teams.map((grant) => (
+                  <TeamBadge key={`t${grant.id}`} team={grant} className="h-6 w-6 text-[11px] ring-2 ring-ink-950" />
+                ))}
               </span>
               {s.role === 'manage' && (
                 <Button small onClick={() => setParams({ tab: 'spaces', packages: String(s.id) }, { replace: true })}>
@@ -283,6 +290,10 @@ function Spaces() {
               <Button small onClick={() => setMembers(s)}>
                 <Users className="h-3.5 w-3.5" strokeWidth={1.8} />
                 {t('share.manage')}
+              </Button>
+              <Button small onClick={() => setTeamsOf(s)}>
+                <UsersRound className="h-3.5 w-3.5" strokeWidth={1.8} />
+                {t('settings.tabs.teams')}
               </Button>
             </li>
           ))}
@@ -316,6 +327,7 @@ function Spaces() {
         </Card>
       )}
       {members && <MembersDialog space={members} onClose={() => setMembers(null)} />}
+      {teamsOf && <TeamRightsDialog space={teamsOf} onClose={() => setTeamsOf(null)} />}
       {packagesOf && (
         <Dialog title={t('packages.spaceTitle', { space: packagesOf.name })} onClose={() => setParams({ tab: 'spaces' }, { replace: true })} wide>
           <p className="mb-3 text-sm text-mist-500">{t('packages.spaceText')}</p>

@@ -169,7 +169,18 @@ export type SpaceInfo = {
   role: Role | null
   boards: number
   members: Member[]
+  /** The teams with a right in the space. */
+  teams: TeamGrantInfo[]
 }
+
+export type TeamGrantInfo = { id: number; name: string; color: string; role: Role }
+
+/** A team: who works together. `members` are those the own account may see; `size` counts them all. */
+export type Team = { id: number; name: string; color: string; lead: number | null; source: 'local' | 'admin'; members: number[]; size: number }
+
+export type Person = { id: number; name: string; display_name: string; avatar: string | null }
+
+export type Directory = { me: number; people: Person[]; teams: Team[] }
 
 export type BoardInfo = {
   id: string
@@ -233,6 +244,20 @@ export const spacesApi = {
     api<{ name: string; role: Role; invited?: boolean }>(`/api/spaces/${id}/members/${encodeURIComponent(name)}`, { method: 'PUT', body: { role } }),
   removeMember: (id: number, name: string) => api<void>(`/api/spaces/${id}/members/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   invite: (id: number, role: Role, days = 7) => api<Invite & { link: string }>(`/api/spaces/${id}/invites`, { method: 'POST', body: { role, days } }),
+  /** A team's right in the space; `null` takes it away. */
+  teamRight: (id: number, team: number, role: Role | null) =>
+    role
+      ? api<SpaceInfo>(`/api/spaces/${id}/teams/${team}`, { method: 'PUT', body: { role } })
+      : api<SpaceInfo | { id: number; gone: true }>(`/api/spaces/${id}/teams/${team}`, { method: 'DELETE' }),
+}
+
+export type TeamChange = { name?: string; color?: string; members?: number[]; lead?: number | null }
+
+export const directoryApi = {
+  get: () => api<Directory>('/api/directory'),
+  create: (team: { name: string; color: string; members: number[]; lead: number | null }) => api<Team>('/api/teams', { method: 'POST', body: team }),
+  change: (id: number, change: TeamChange) => api<Team>(`/api/teams/${id}`, { method: 'PATCH', body: change }),
+  remove: (id: number) => api<void>(`/api/teams/${id}`, { method: 'DELETE' }),
 }
 
 export type ApiToken = {

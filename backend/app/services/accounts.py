@@ -304,15 +304,16 @@ def grant(db: Session, account: Account, space_id: int, role: str) -> None:
 
 def redeem(db: Session, invite: Invite, account: Account, *, consumed: bool = False) -> None:
     """The invitation is used: it goes first (``consume``), then its right goes to the account. Into a space without
-    members (the operator's, from the disk) the one who invited comes along as manager: with a first member the
+    members and teams (the operator's) the one who invited comes along as manager: with a first member the
     space would otherwise stop being theirs at the very moment they share it."""
     if not consumed and not consume(db, invite):
         db.rollback()
         raise AccountError("invite_invalid", "This invitation is not valid any more.", 404)
     if invite.space_id is not None and invite.space_role:
-        members = db.scalar(select(func.count()).select_from(Membership).where(Membership.space_id == invite.space_id))
+        from . import rights
+
         inviter = db.get(Account, invite.created_by) if invite.created_by else None
-        if not members and inviter is not None and inviter.id != account.id:
+        if not rights.owned(db, invite.space_id) and inviter is not None and inviter.id != account.id:
             grant(db, inviter, invite.space_id, MANAGE)
         grant(db, account, invite.space_id, invite.space_role)
     db.commit()

@@ -3,7 +3,8 @@
 second picture, no script in an SVG (an SVG is not taken at all).
 
 Kept in the database next to the account (a few kilobytes), so every backup carries it and nothing lies beside.
-Seen by the account itself, the operator, and whoever shares a space with it; anyone else is told there is none.
+Seen by the account itself, the operator, and whoever shares a space or a team with it; anyone else is told there is
+none.
 """
 
 from __future__ import annotations
@@ -12,9 +13,9 @@ import io
 import logging
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session
 
-from ..models import OPERATOR, Account, Membership
+from ..models import OPERATOR, Account, Membership, TeamGrant, TeamMember
 from . import media
 
 logger = logging.getLogger("nexcanvas.accounts")
@@ -61,15 +62,27 @@ def make(data: bytes) -> bytes:
         raise AvatarError("avatar_not_a_picture") from exc
 
 
+def visible_ids(db: Session, viewer: Account) -> set[int] | None:
+    """The accounts ``viewer`` may see: itself, whoever shares a space with it (in person or through a team), and
+    whoever is in a team with it. None for the operator, who sees everybody."""
+    if viewer.role == OPERATOR:
+        return None
+    teams = set(db.scalars(select(TeamMember.team_id).where(TeamMember.account_id == viewer.id)))
+    spaces = set(db.scalars(select(Membership.space_id).where(Membership.account_id == viewer.id)))
+    if teams:
+        spaces |= set(db.scalars(select(TeamGrant.space_id).where(TeamGrant.team_id.in_(teams))))
+    seen = {viewer.id}
+    if spaces:
+        seen |= set(db.scalars(select(Membership.account_id).where(Membership.space_id.in_(spaces))))
+        teams |= set(db.scalars(select(TeamGrant.team_id).where(TeamGrant.space_id.in_(spaces))))
+    if teams:
+        seen |= set(db.scalars(select(TeamMember.account_id).where(TeamMember.team_id.in_(teams))))
+    return seen
+
+
 def may_see(db: Session, viewer: Account, owner_id: int) -> bool:
-    """The account itself, the operator, and whoever shares a space with it."""
+    """The account itself, the operator, and whoever shares a space or a team with it."""
     if viewer.id == owner_id or viewer.role == OPERATOR:
         return True
-    theirs = aliased(Membership)
-    shared = db.execute(
-        select(Membership.space_id)
-        .join(theirs, theirs.space_id == Membership.space_id)
-        .where(Membership.account_id == viewer.id, theirs.account_id == owner_id)
-        .limit(1)
-    ).first()
-    return shared is not None
+    seen = visible_ids(db, viewer)
+    return seen is None or owner_id in seen

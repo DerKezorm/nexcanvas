@@ -12,10 +12,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import MANAGE, OPERATOR, Account, Membership, Space, SpaceNotice
+from . import rights
 
 INVITE = "invite"
 OPERATOR_ADDED = "operator_added"
@@ -71,6 +72,7 @@ def tell(db: Session, space: Space, kind: str, actor: Account, subject: str, rol
          also: tuple[int, ...] = ()) -> None:
     """A notice about what the operator did, for every member of the space and for ``also`` (the account concerned)."""
     members = set(db.scalars(select(Membership.account_id).where(Membership.space_id == space.id)))
+    members |= rights.team_members_of(db, space.id)
     for account_id in (members | set(also)) - {actor.id}:
         db.add(SpaceNotice(account_id=account_id, space_id=space.id, space_name=space.name, kind=kind, role=role,
                            actor=actor.name, actor_id=actor.id, subject=subject))
@@ -103,8 +105,7 @@ def _may_invite(db: Session, inviter: Account | None, space: Space) -> bool:
         return False
     if inviter.role == OPERATOR:
         return True
-    membership = db.get(Membership, (space.id, inviter.id))
-    return membership is not None and membership.role == MANAGE
+    return rights.at_least(rights.role_in(db, inviter, space.id), MANAGE)
 
 
 def answer(db: Session, account: Account, notice_id: int, *, accept: bool) -> str | None:
@@ -124,9 +125,8 @@ def answer(db: Session, account: Account, notice_id: int, *, accept: bool) -> st
         db.commit()
         raise NoticeError("not_found")
     if db.get(Membership, (space.id, account.id)) is None:
-        members = db.scalar(select(func.count()).select_from(Membership).where(Membership.space_id == space.id)) or 0
-        if members == 0 and inviter is not None and inviter.role == OPERATOR:
-            # A space without members is the operator's; the operator who invited stays in it as manager.
+        if not rights.owned(db, space.id) and inviter is not None and inviter.role == OPERATOR:
+            # A space nobody has is the operator's; the operator who invited stays in it as manager.
             db.add(Membership(space_id=space.id, account_id=inviter.id, role=MANAGE))
         db.add(Membership(space_id=space.id, account_id=account.id, role=row.role))
     db.commit()

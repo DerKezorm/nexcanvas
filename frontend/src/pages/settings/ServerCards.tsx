@@ -247,7 +247,7 @@ export function AllSpacesCard() {
       <Feedback problem={problem} />
       {open && (
         <MembersDialog
-          space={{ id: open.id, name: open.name, color: '', role: open.role, boards: 0, members: [] }}
+          space={{ id: open.id, name: open.name, color: '', role: open.role, boards: 0, members: [], teams: [] }}
           onClose={() => {
             setOpen(null)
             void load()

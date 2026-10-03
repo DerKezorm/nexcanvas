@@ -1,4 +1,5 @@
-"""Spaces: the list with their members (for avatars and the sidebar), making, renaming, colouring, the bin.
+"""Spaces: the list with their members and teams (for avatars and the sidebar), making, renaming, colouring, the
+bin, and the rights of teams.
 
 Members and invitations are in ``routers/members.py``.
 """
@@ -15,7 +16,7 @@ from sqlalchemy import func, select
 
 from ..deps import Account, DbSession
 from ..errors import error
-from ..models import MANAGE, Board, Membership, Space
+from ..models import MANAGE, SPACE_ROLES, Board, Membership, Space, Team, TeamGrant
 from ..models import Account as AccountRow
 from ..services import rights, spaces
 
@@ -29,6 +30,10 @@ SpaceId = Annotated[int, PathParam(ge=1)]
 class SpaceIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     color: str | None = Field(default=None, max_length=16)
+
+
+class TeamRight(BaseModel):
+    role: str = Field(pattern="^(read|write|manage)$")
 
 
 class SpaceChange(BaseModel):
@@ -50,12 +55,17 @@ def _view(db: DbSession, account: AccountRow, space: Space) -> dict[str, Any]:
     count = db.scalar(
         select(func.count()).select_from(Board).where(Board.space_id == space.id, Board.deleted_at.is_(None))
     )
+    teams = db.execute(
+        select(TeamGrant, Team).join(Team, Team.id == TeamGrant.team_id).where(TeamGrant.space_id == space.id)
+        .order_by(Team.name)
+    ).all()
     return {
         "id": space.id,
         "name": space.name,
         "color": space.color,
         "role": rights.role_in(db, account, space.id),
         "boards": int(count or 0),
+        "teams": [{"id": team.id, "name": team.name, "color": team.color, "role": grant.role} for grant, team in teams],
         "members": [
             {
                 "id": person.id,
@@ -126,4 +136,40 @@ def restore(space_id: SpaceId, account: Account, db: DbSession) -> dict[str, Any
         raise error("not_found", "Not found.", 404)
     space.deleted_at = None
     db.commit()
+    return _view(db, account, space)
+
+
+@router.put("/{space_id}/teams/{team_id}", summary="Give a team a right in the space (managers)")
+def give_team(
+    space_id: SpaceId, team_id: SpaceId, payload: TeamRight, account: Account, db: DbSession
+) -> dict[str, Any]:
+    try:
+        space = rights.check(db, account, space_id, MANAGE)
+    except rights.RightsError as exc:
+        raise _fail(exc) from exc
+    if db.get(Team, team_id) is None or payload.role not in SPACE_ROLES:
+        raise error("not_found", "Not found.", 404)
+    grant = db.get(TeamGrant, (space_id, team_id))
+    if grant is None:
+        db.add(TeamGrant(space_id=space_id, team_id=team_id, role=payload.role))
+    else:
+        grant.role = payload.role
+    db.commit()
+    logger.info("Team right set space=%s team=%s role=%s by=%s", space_id, team_id, payload.role, account.name)
+    return _view(db, account, space)
+
+
+@router.delete("/{space_id}/teams/{team_id}", summary="Take a team's right in the space away (managers)")
+def take_team(space_id: SpaceId, team_id: SpaceId, account: Account, db: DbSession) -> dict[str, Any]:
+    try:
+        space = rights.check(db, account, space_id, MANAGE)
+    except rights.RightsError as exc:
+        raise _fail(exc) from exc
+    grant = db.get(TeamGrant, (space_id, team_id))
+    if grant is not None:
+        db.delete(grant)
+        db.commit()
+    # A manager who had the right only through this team may have lost the space now: then it is gone for them.
+    if rights.role_in(db, account, space_id) is None:
+        return {"id": space_id, "gone": True}
     return _view(db, account, space)

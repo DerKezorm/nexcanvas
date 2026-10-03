@@ -22,7 +22,7 @@ from sqlalchemy import func, select
 
 from ..deps import Account, DbSession, OperatorAccount, client_ip
 from ..errors import detail, error
-from ..models import MANAGE, OPERATOR, SPACE_ROLES, Invite, Membership, Space
+from ..models import MANAGE, OPERATOR, SPACE_ROLES, Invite, Membership, Space, TeamGrant, TeamMember
 from ..models import Account as AccountRow
 from ..security import MIN_PASSWORD, SESSION_COOKIE, brake, session_account
 from ..services import accounts, mailer, notices, rights, settings_service
@@ -65,25 +65,30 @@ def _members(db: DbSession, space_id: int) -> list[Any]:
 
 
 def _managers_left(db: DbSession, space_id: int, without: int) -> int:
-    return int(
-        db.scalar(
-            select(func.count())
-            .select_from(Membership)
-            .where(Membership.space_id == space_id, Membership.role == MANAGE, Membership.account_id != without)
-        )
-        or 0
-    )
+    """Managers of the space besides ``without``: people, and teams with the right to manage that have somebody else
+    in them."""
+    people = db.scalar(
+        select(func.count())
+        .select_from(Membership)
+        .where(Membership.space_id == space_id, Membership.role == MANAGE, Membership.account_id != without)
+    ) or 0
+    teams = db.scalar(
+        select(func.count(func.distinct(TeamGrant.team_id)))
+        .join(TeamMember, TeamMember.team_id == TeamGrant.team_id)
+        .where(TeamGrant.space_id == space_id, TeamGrant.role == MANAGE, TeamMember.account_id != without)
+    ) or 0
+    return int(people) + int(teams)
 
 
 def _others(db: DbSession, space_id: int, without: int) -> int:
-    return int(
-        db.scalar(
-            select(func.count())
-            .select_from(Membership)
-            .where(Membership.space_id == space_id, Membership.account_id != without)
-        )
-        or 0
-    )
+    """Whoever else has a right in the space: people, and teams."""
+    people = db.scalar(
+        select(func.count())
+        .select_from(Membership)
+        .where(Membership.space_id == space_id, Membership.account_id != without)
+    ) or 0
+    teams = db.scalar(select(func.count()).select_from(TeamGrant).where(TeamGrant.space_id == space_id)) or 0
+    return int(people) + int(teams)
 
 
 def _invite_view(invite: Invite, db: DbSession) -> dict[str, Any]:

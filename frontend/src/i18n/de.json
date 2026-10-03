@@ -482,6 +482,7 @@
       "general": "Allgemein",
       "looks": "Aussehen",
       "spaces": "Bereiche",
+      "teams": "Teams",
       "server": "Server"
     },
     "parts": {
@@ -842,7 +843,10 @@
     "packages_empty_svg": "In der SVG-Datei ist nichts, was sich zeichnen lässt.",
     "packages_not_json": "Das ist keine Paketdatei (JSON).",
     "template_not_json": "Das ist keine Vorlagendatei von nexcanvas.",
-    "too_many_templates": "Hier liegen schon 100 Vorlagen."
+    "too_many_templates": "Hier liegen schon 100 Vorlagen.",
+    "lead_not_member": "Die Leitung muss selbst im Team sein.",
+    "unknown_account": "Nicht jede gewählte Person gibt es.",
+    "team_not_local": "Die Mitglieder dieses Teams werden woanders gepflegt."
   },
   "auth": {
     "name": "Name",
@@ -1252,5 +1256,31 @@
     "unused": "nie benutzt",
     "allSpaces": "Alle Bereiche, die ich lesen darf, auch spätere",
     "someSpaces": "Nur diese"
+  },
+  "teams": {
+    "text": "Wer zusammenarbeitet. Getrennt von den Bereichen: Ein Bereich regelt, wer was sieht. Gibt ein Bereich einem Team ein Recht, hat es jedes Mitglied.",
+    "none": "Noch keine Teams.",
+    "noLead": "Ohne Leitung",
+    "lead": "Leitung: {{name}}",
+    "size_one": "{{count}} Person",
+    "size_other": "{{count}} Personen",
+    "fromAdmin": "Aus der Verwaltung",
+    "edit": "Bearbeiten",
+    "new": "Neues Team",
+    "name": "Name",
+    "color": "Farbe",
+    "namePlaceholder": "Zum Beispiel Gestaltung",
+    "members": "Mitglieder",
+    "leadMark": "Leitung",
+    "leadHint": "Als Leitung änderst du die Mitglieder. Zur Wahl stehen alle, mit denen du einen Bereich oder ein Team teilst.",
+    "delete": "Team löschen",
+    "deleteSure": "Wirklich löschen",
+    "create": "Team anlegen",
+    "invite": "Personen einladen",
+    "nobodyElse": "Ins Team kommen nur Personen mit Konto, und bisher gibt es nur dich. Lade zuerst jemanden ein.",
+    "rightsTitle": "Teams in {{space}}",
+    "rightsText": "Ein Team mit einem Recht gibt es allen seinen Mitgliedern. Wer selbst ein höheres Recht hat, behält es.",
+    "rightFor": "Recht von {{team}}",
+    "noRight": "Kein Recht"
   }
 }

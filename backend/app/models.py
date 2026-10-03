@@ -155,6 +155,49 @@ class Membership(Base):
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
 
+TEAM_LOCAL = "local"
+TEAM_ADMIN = "admin"
+TEAM_SOURCES = (TEAM_LOCAL, TEAM_ADMIN)
+
+
+class Team(Base):
+    """People who work together (planning, design, the shop floor …). A team is not a space: a space says who may see
+    what, a team says who works together. A space can give a team a right, and then everybody in the team has it.
+
+    ``source`` says who keeps the members: nexcanvas itself, or later the family's admin app (``external_id`` is its
+    id then). Only the source changes when that day comes, never the id. The same in every app of the family."""
+
+    __tablename__ = "teams"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(80))
+    color: Mapped[str] = mapped_column(String(16), default="#ff8a70")
+    lead_id: Mapped[int | None] = mapped_column(ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    source: Mapped[str] = mapped_column(String(16), default=TEAM_LOCAL)
+    #: The admin app's id for ``admin``.
+    external_id: Mapped[str] = mapped_column(String(255), default="")
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+
+class TeamMember(Base):
+    __tablename__ = "team_members"
+
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"), primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id", ondelete="CASCADE"), primary_key=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+
+class TeamGrant(Base):
+    """A team's right in a space: everybody in the team has it, next to any right of their own (the higher counts)."""
+
+    __tablename__ = "team_grants"
+
+    space_id: Mapped[int] = mapped_column(ForeignKey("spaces.id", ondelete="CASCADE"), primary_key=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"), primary_key=True, index=True)
+    role: Mapped[str] = mapped_column(String(16), default=READ)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+
 class Invite(Base):
     """A link that lets somebody in: into nexcanvas (a new account) and, when it names a space, into that space with a
     right. Only the hash of the token is stored; used once, then gone."""
@@ -360,6 +403,9 @@ __all__ = [
     "SIGN_IN_OIDC",
     "SIGN_IN_PASSWORD",
     "SPACE_ROLES",
+    "TEAM_ADMIN",
+    "TEAM_LOCAL",
+    "TEAM_SOURCES",
     "WRITE",
     "Account",
     "ApiToken",
@@ -378,6 +424,9 @@ __all__ = [
     "Share",
     "Space",
     "SpaceNotice",
+    "Team",
+    "TeamGrant",
+    "TeamMember",
     "Visit",
     "utcnow",
 ]

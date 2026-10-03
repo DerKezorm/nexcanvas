@@ -482,6 +482,7 @@
       "general": "General",
       "looks": "Look",
       "spaces": "Spaces",
+      "teams": "Teams",
       "server": "Server"
     },
     "parts": {
@@ -842,7 +843,10 @@
     "packages_empty_svg": "The SVG file holds nothing that can be drawn.",
     "packages_not_json": "This is no package file (JSON).",
     "template_not_json": "This is no nexcanvas template file.",
-    "too_many_templates": "There are 100 templates here already."
+    "too_many_templates": "There are 100 templates here already.",
+    "lead_not_member": "The lead must be in the team.",
+    "unknown_account": "Not every person chosen exists.",
+    "team_not_local": "The members of this team are kept elsewhere."
   },
   "auth": {
     "name": "Name",
@@ -1252,5 +1256,31 @@
     "unused": "never used",
     "allSpaces": "All spaces I may read, later ones too",
     "someSpaces": "Only these"
+  },
+  "teams": {
+    "text": "Who works together. Separate from spaces: a space says who sees what. When a space gives a team a right, every member has it.",
+    "none": "No teams yet.",
+    "noLead": "No lead",
+    "lead": "Lead: {{name}}",
+    "size_one": "{{count}} person",
+    "size_other": "{{count}} people",
+    "fromAdmin": "From the admin app",
+    "edit": "Edit",
+    "new": "New team",
+    "name": "Name",
+    "color": "Colour",
+    "namePlaceholder": "For example Design",
+    "members": "Members",
+    "leadMark": "Lead",
+    "leadHint": "As the lead you change the members. You can choose everybody you share a space or a team with.",
+    "delete": "Delete team",
+    "deleteSure": "Really delete",
+    "create": "Create team",
+    "invite": "Invite people",
+    "nobodyElse": "Only people with an account can join a team, and so far there is only you. Invite someone first.",
+    "rightsTitle": "Teams in {{space}}",
+    "rightsText": "A team with a right gives it to all its members. Whoever has a higher right of their own keeps it.",
+    "rightFor": "Right of {{team}}",
+    "noRight": "No right"
   }
 }

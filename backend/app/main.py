@@ -24,6 +24,7 @@ from .middleware import GuardMiddleware, RequestContextMiddleware, unhandled_err
 from .routers import about, apitokens, auth, boards, health, media, members, oidc, shapes, shares, spaces, templates
 from .routers import avatars as avatars_router
 from .routers import backups as backups_router
+from .routers import directory as directory_router
 from .routers import locales as locales_router
 from .routers import logs as logs_router
 from .routers import settings as settings_router
@@ -37,7 +38,7 @@ logger = logging.getLogger("nexcanvas")
 
 ROUTERS = [
     health, about, locales_router, logs_router, auth, totp_router, oidc, members, settings_router, backups_router,
-    avatars_router, spaces, boards, media, shares, shapes, templates, apitokens, v1_router,
+    avatars_router, spaces, directory_router, boards, media, shares, shapes, templates, apitokens, v1_router,
 ]
 
 
