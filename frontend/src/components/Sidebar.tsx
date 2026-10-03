@@ -5,6 +5,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 
 import { useBoards } from '../board/store'
 import { useNotices } from '../lib/notices'
+import { useAuth } from '../state/auth'
 import { useShell } from './AppShell'
 import { NoticeList } from './Notices'
 
@@ -25,6 +26,7 @@ function Section({ title, children, open, onToggle, action }: { title: string; c
 
 /** The left column of the overview, built like nexlore's: recent, favourites, spaces with their boards. */
 export function Sidebar() {
+  const { me } = useAuth()
   const { t } = useTranslation()
   const boards = useBoards()
   const shell = useShell()
@@ -69,9 +71,12 @@ export function Sidebar() {
       <section className="px-2.5 py-2.5">
         <div className="flex items-center justify-between px-1.5">
           <span className="rounded-full bg-ink-850 px-3 py-1 text-[11px] font-semibold tracking-wider text-mist-100 uppercase">{t('sidebar.spaces')}</span>
-          <button type="button" className="rounded p-1 text-mist-500 hover:bg-ink-850 hover:text-mist-100" title={t('sidebar.newSpace')} aria-label={t('sidebar.newSpace')} onClick={() => shell.newSpace()}>
-            <Plus className="h-4 w-4" />
-          </button>
+          {/* Connected to nexsuite: spaces are made there. */}
+          {me?.suite !== 'connected' && (
+            <button type="button" className="rounded p-1 text-mist-500 hover:bg-ink-850 hover:text-mist-100" title={t('sidebar.newSpace')} aria-label={t('sidebar.newSpace')} onClick={() => shell.newSpace()}>
+              <Plus className="h-4 w-4" />
+            </button>
+          )}
         </div>
         <div className="mt-2 space-y-0.5">
           <Link to="/" className={row + (chosen === null ? ' bg-accent-500/12 text-mist-100' : '')}>

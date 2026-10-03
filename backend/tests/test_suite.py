@@ -246,6 +246,10 @@ def test_keeping_in_step_follows_people_teams_spaces_and_mail(client: TestClient
         assert db.query(Membership).filter_by(space_id=world["ideen"]).count() == 0
         assert db.query(TeamGrant).filter_by(space_id=world["ideen"]).count() == 0
     assert _setting("smtp_host") == "smtp.example.com" and _setting("suite_mail") is True
+    fake.spaces["10"]["color"] = "#123456"
+    fake.ticked.add("10")
+    client.post("/api/suite/sync")
+    assert _row_space(world["ideen"]).color == "#123456", "the colour comes from nexsuite too"
     assert world["ideen"] in [s["id"] for s in client.get("/api/spaces").json()], "the operator still sees it"
 
 

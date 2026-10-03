@@ -58,7 +58,8 @@ from . import settings_service
 logger = logging.getLogger("nexcanvas.suite")
 
 KIND = "nexcanvas"
-CAPABILITIES = ["people", "teams", "spaces", "mail", "links"]
+#: What nexcanvas takes from nexsuite. Links between the apps come later; until then they are not claimed.
+CAPABILITIES = ["people", "teams", "spaces", "mail"]
 TIMEOUT = 10.0
 #: A notice older than this is refused (against a notice caught and sent again later).
 NOTICE_SECONDS = 300
@@ -449,6 +450,7 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
             db.add(space)
             db.flush()
         space.name = str(item["name"])[:80]
+        space.color = str(item.get("color") or space.color)[:16]
         if space.deleted_at is not None:
             space.deleted_at = None
         _set_grants(db, space.id,
