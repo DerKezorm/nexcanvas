@@ -3,16 +3,35 @@
  * none is taken from a maker's icon set. In the floor plan one unit is one centimetre, so a bed placed with a click is
  * as large next to a door as it is in a room.
  */
-import { circle, ellipse, line, lines, outline, path, rect, stroke } from './draw'
+import { shapePath } from '../geometry'
+import type { ShapeKind } from '../types'
+import { bpmn } from './bpmn'
+import { BLUE, circle, ellipse, gearPath, LIGHT, line, lines, mark, outline, path, polygonPoints, rect, starPoints, stroke, through } from './draw'
+import { house } from './house'
+import { signs } from './signs'
 import type { ShapeDef, ShapePackage } from './types'
+import { uml } from './uml'
 
 const META = { version: '1.0.0', author: 'nexcanvas', license: 'AGPL-3.0', builtin: true, scope: 'builtin' as const, enabled: true }
-const BLUE = '#60a5fa'
-const LIGHT = '#bfdbfe'
+
+/** The board's own shapes, as in the toolbar: placed from the library they are those, not shapes of a package. */
+const NATIVE: [ShapeKind, string, string, number, number][] = [
+  ['rect', 'Rechteck', 'Rectangle', 160, 120],
+  ['round', 'Abgerundetes Rechteck', 'Rounded rectangle', 160, 120],
+  ['ellipse', 'Ellipse', 'Ellipse', 160, 120],
+  ['triangle', 'Dreieck', 'Triangle', 140, 120],
+  ['diamond', 'Raute', 'Diamond', 140, 120],
+  ['hexagon', 'Sechseck', 'Hexagon', 160, 120],
+  ['star', 'Stern', 'Star', 120, 120],
+  ['arrow', 'Pfeil', 'Arrow', 160, 100],
+  ['speech', 'Sprechblase', 'Speech bubble', 160, 120],
+]
+const native: ShapeDef[] = NATIVE.map(([kind, de, en, vw, vh]) => ({ id: kind, name: { de, en }, words: ['grundform', 'basic', kind], vw, vh, native: kind, elements: [path(shapePath(kind, vw, vh))], fill: BLUE }))
 
 // ---------- Basic shapes ----------
 
 const basic: ShapeDef[] = [
+  ...native,
   { id: 'parallelogram', name: { de: 'Parallelogramm', en: 'Parallelogram' }, vw: 120, vh: 80, elements: [path('M24 0H120L96 80H0Z')], outline: outline(120, 80, [[24, 0], [120, 0], [96, 80], [0, 80]]), text: { x: 0.18, y: 0, w: 0.64, h: 1 }, fill: BLUE },
   { id: 'trapezoid', name: { de: 'Trapez', en: 'Trapezoid' }, vw: 120, vh: 80, elements: [path('M24 0H96L120 80H0Z')], outline: outline(120, 80, [[24, 0], [96, 0], [120, 80], [0, 80]]), text: { x: 0.18, y: 0, w: 0.64, h: 1 }, fill: BLUE },
   { id: 'pentagon', name: { de: 'Fünfeck', en: 'Pentagon' }, vw: 100, vh: 96, elements: [path('M50 0L100 36L81 96H19L0 36Z')], outline: outline(100, 96, [[50, 0], [100, 36], [81, 96], [19, 96], [0, 36]]), text: { x: 0.2, y: 0.3, w: 0.6, h: 0.6 }, fill: BLUE },
@@ -36,6 +55,26 @@ const basic: ShapeDef[] = [
   { id: 'right-triangle', name: { de: 'Rechtwinkliges Dreieck', en: 'Right triangle' }, vw: 100, vh: 100, elements: [path('M0 0L100 100H0Z')], outline: outline(100, 100, [[0, 0], [100, 100], [0, 100]]), text: { x: 0.05, y: 0.5, w: 0.5, h: 0.45 }, fill: BLUE },
   { id: 'half-circle', name: { de: 'Halbkreis', en: 'Half circle' }, vw: 120, vh: 60, elements: [path('M0 60A60 60 0 0 1 120 60Z')], text: { x: 0.2, y: 0.35, w: 0.6, h: 0.6 }, fill: BLUE },
   { id: 'frame-round', name: { de: 'Pille', en: 'Pill' }, words: ['button', 'knopf'], vw: 140, vh: 56, elements: [rect(0, 0, 140, 56, { rx: 28 })], text: { x: 0.12, y: 0, w: 0.76, h: 1 }, fill: BLUE },
+  { id: 'circle', name: { de: 'Kreis', en: 'Circle' }, words: ['rund', 'round'], vw: 100, vh: 100, keep: true, elements: [circle(50, 50, 50)], text: { x: 0.15, y: 0.15, w: 0.7, h: 0.7 }, fill: BLUE },
+  { id: 'square', name: { de: 'Quadrat', en: 'Square' }, words: ['viereck'], vw: 100, vh: 100, keep: true, elements: [rect(0, 0, 100, 100)], fill: BLUE },
+  { id: 'heptagon', name: { de: 'Siebeneck', en: 'Heptagon' }, vw: 100, vh: 100, elements: [path(through(polygonPoints(7, 50, 52, 50)))], outline: outline(100, 100, polygonPoints(7, 50, 52, 50)), text: { x: 0.2, y: 0.25, w: 0.6, h: 0.55 }, fill: BLUE },
+  { id: 'decagon', name: { de: 'Zehneck', en: 'Decagon' }, vw: 100, vh: 100, elements: [path(through(polygonPoints(10, 50, 50, 50)))], outline: outline(100, 100, polygonPoints(10, 50, 50, 50)), text: { x: 0.15, y: 0.15, w: 0.7, h: 0.7 }, fill: BLUE },
+  { id: 'plaque', name: { de: 'Plakette', en: 'Plaque' }, words: ['schild', 'sign'], vw: 140, vh: 80, elements: [path('M14 0H126A14 14 0 0 0 140 14V66A14 14 0 0 0 126 80H14A14 14 0 0 0 0 66V14A14 14 0 0 0 14 0Z')], text: { x: 0.1, y: 0.12, w: 0.8, h: 0.76 }, fill: BLUE },
+  { id: 'snip', name: { de: 'Abgeschnittene Ecke', en: 'Snipped corner' }, words: ['ecke', 'corner', 'karte'], vw: 140, vh: 80, elements: [path('M0 0H116L140 24V80H0Z')], outline: outline(140, 80, [[0, 0], [116, 0], [140, 24], [140, 80], [0, 80]]), fill: BLUE },
+  { id: 'frame', name: { de: 'Rahmen', en: 'Frame' }, words: ['bilderrahmen', 'border'], vw: 140, vh: 100, elements: [rect(0, 0, 140, 100), rect(12, 12, 116, 76, { f: 'paper' })], text: { x: 0.12, y: 0.15, w: 0.76, h: 0.7 }, fill: BLUE },
+  { id: 'ring', name: { de: 'Ring', en: 'Ring' }, words: ['donut', 'kreis'], vw: 100, vh: 100, keep: true, elements: [circle(50, 50, 50), circle(50, 50, 28, { f: 'paper' })], text: { x: 0.3, y: 0.3, w: 0.4, h: 0.4 }, fill: BLUE },
+  { id: 'pie', name: { de: 'Kreisausschnitt', en: 'Pie' }, words: ['torte', 'tortenstueck', 'segment', 'anteil'], vw: 100, vh: 100, keep: true, elements: [path('M50 50L50 0A50 50 0 1 1 0 50Z')], text: { x: 0.45, y: 0.45, w: 0.45, h: 0.4 }, fill: BLUE },
+  { id: 'moon', name: { de: 'Mond', en: 'Moon' }, words: ['sichel', 'crescent', 'nacht'], vw: 50, vh: 100, keep: true, quiet: true, elements: [path('M50 0A50 50 0 0 0 50 100A30 50 0 0 1 50 0Z')], fill: '#fde68a' },
+  { id: 'lightning', name: { de: 'Blitz', en: 'Lightning' }, words: ['strom', 'energie', 'zap', 'schnell'], vw: 90, vh: 100, keep: true, quiet: true, elements: [path('M40 0H90L60 40H85L20 100L38 55H10Z')], fill: '#fde047' },
+  { id: 'drop', name: { de: 'Tropfen', en: 'Drop' }, words: ['wasser', 'water', 'fluessig'], vw: 80, vh: 110, keep: true, elements: [path('M40 0C40 0 80 45 80 70A40 40 0 0 1 0 70C0 45 40 0 40 0Z')], text: { x: 0.15, y: 0.5, w: 0.7, h: 0.4 }, fill: '#93c5fd' },
+  { id: 'shield', name: { de: 'Schild', en: 'Shield' }, words: ['wappen', 'sicherheit', 'security'], vw: 100, vh: 110, keep: true, elements: [path('M50 0L100 15V50C100 80 75 100 50 110C25 100 0 80 0 50V15Z')], text: { x: 0.15, y: 0.2, w: 0.7, h: 0.55 }, fill: BLUE },
+  { id: 'wave', name: { de: 'Welle', en: 'Wave' }, words: ['banner', 'flagge', 'fahne'], vw: 140, vh: 80, elements: [path('M0 12C35 -4 70 28 105 12Q125 2 140 10V68C105 84 70 52 35 68Q15 78 0 72Z')], text: { x: 0.05, y: 0.18, w: 0.9, h: 0.64 }, fill: BLUE },
+  { id: 'l-shape', name: { de: 'Winkel', en: 'L-shape' }, words: ['ecke', 'l'], vw: 100, vh: 100, elements: [path('M0 0H34V66H100V100H0Z')], outline: outline(100, 100, [[0, 0], [34, 0], [34, 66], [100, 66], [100, 100], [0, 100]]), text: { x: 0.02, y: 0.68, w: 0.96, h: 0.3 }, fill: BLUE },
+  { id: 'cone', name: { de: 'Kegel', en: 'Cone' }, words: ['3d', 'trichter'], vw: 100, vh: 110, elements: [path('M50 0L100 96A50 14 0 0 1 0 96Z'), stroke('M0 96A50 14 0 0 1 100 96', 1, true)], text: { x: 0.2, y: 0.45, w: 0.6, h: 0.4 }, fill: BLUE },
+  { id: 'pyramid', name: { de: 'Pyramide', en: 'Pyramid' }, words: ['3d', 'hierarchie'], vw: 110, vh: 100, elements: [path('M55 0L110 78L66 100L0 84Z'), stroke('M55 0L66 100', 1.5)], text: { x: 0.12, y: 0.45, w: 0.5, h: 0.35 }, fill: BLUE },
+  { id: 'sphere', name: { de: 'Kugel', en: 'Sphere' }, words: ['3d', 'ball', 'globus'], vw: 100, vh: 100, keep: true, elements: [circle(50, 50, 50), stroke('M0 50A50 16 0 0 0 100 50', 1.2)], text: { x: 0.15, y: 0.15, w: 0.7, h: 0.5 }, fill: BLUE },
+  { id: 'many-star', name: { de: 'Zackenstern', en: 'Many-pointed star' }, words: ['siegel', 'badge', 'stoerer', 'stern'], vw: 100, vh: 100, keep: true, elements: [path(through(starPoints(16, 50, 50, 50, 40)))], text: { x: 0.2, y: 0.2, w: 0.6, h: 0.6 }, fill: '#fbbf24' },
+  { id: 'gear', name: { de: 'Zahnrad', en: 'Gear' }, words: ['einstellung', 'settings', 'technik'], vw: 100, vh: 100, keep: true, quiet: true, elements: [path(gearPath(10, 50, 50, 50, 41)), circle(50, 50, 16, { f: 'paper' })], fill: '#a1a1aa' },
 ]
 
 // ---------- Flowchart ----------
@@ -45,7 +84,7 @@ const flow: ShapeDef[] = [
   { id: 'process', name: { de: 'Prozess', en: 'Process' }, words: ['schritt', 'step', 'aktion'], vw: 140, vh: 70, elements: [rect(0, 0, 140, 70, { rx: 4 })], fill: LIGHT },
   { id: 'decision', name: { de: 'Entscheidung', en: 'Decision' }, words: ['frage', 'question', 'wenn', 'if'], vw: 140, vh: 90, elements: [path('M70 0L140 45L70 90L0 45Z')], outline: outline(140, 90, [[70, 0], [140, 45], [70, 90], [0, 45]]), text: { x: 0.2, y: 0.2, w: 0.6, h: 0.6 }, fill: '#fde68a' },
   { id: 'data', name: { de: 'Daten', en: 'Data' }, words: ['eingabe', 'ausgabe', 'input', 'output'], vw: 140, vh: 70, elements: [path('M28 0H140L112 70H0Z')], outline: outline(140, 70, [[28, 0], [140, 0], [112, 70], [0, 70]]), text: { x: 0.2, y: 0, w: 0.6, h: 1 }, fill: LIGHT },
-  { id: 'predefined', name: { de: 'Unterprozess', en: 'Subprocess' }, words: ['vordefiniert', 'predefined'], vw: 140, vh: 70, elements: [rect(0, 0, 140, 70), line(14, 0, 14, 70), line(126, 0, 126, 70)], text: { x: 0.12, y: 0, w: 0.76, h: 1 }, fill: LIGHT },
+  { id: 'predefined', name: { de: 'Unterprozess', en: 'Subprocess' }, words: ['vordefiniert', 'predefined'], vw: 140, vh: 70, elements: [rect(0, 0, 140, 70), mark('M14 0V70M126 0V70')], text: { x: 0.12, y: 0, w: 0.76, h: 1 }, fill: LIGHT },
   { id: 'document', name: { de: 'Dokument', en: 'Document' }, vw: 140, vh: 84, elements: [path('M0 0H140V72C105 60 70 92 35 80C20 75 9 74 0 76Z')], text: { x: 0.05, y: 0.05, w: 0.9, h: 0.75 }, fill: LIGHT },
   {
     id: 'documents', name: { de: 'Mehrere Dokumente', en: 'Documents' }, vw: 140, vh: 92,
@@ -64,6 +103,18 @@ const flow: ShapeDef[] = [
   { id: 'stored-data', name: { de: 'Gespeicherte Daten', en: 'Stored data' }, vw: 140, vh: 70, elements: [path('M20 0H140A20 35 0 0 0 140 70H20A20 35 0 0 1 20 0Z')], text: { x: 0.15, y: 0, w: 0.7, h: 1 }, fill: LIGHT },
   { id: 'loop-limit', name: { de: 'Schleifengrenze', en: 'Loop limit' }, words: ['schleife', 'loop'], vw: 140, vh: 70, elements: [path('M20 0H120L140 20V70H0V20Z')], outline: outline(140, 70, [[20, 0], [120, 0], [140, 20], [140, 70], [0, 70], [0, 20]]), text: { x: 0.05, y: 0.15, w: 0.9, h: 0.85 }, fill: LIGHT },
   { id: 'annotation', hollow: true, name: { de: 'Anmerkung', en: 'Annotation' }, words: ['kommentar', 'comment', 'notiz'], vw: 120, vh: 80, elements: [rect(0, 0, 120, 80, { f: 'none', s: 'none' }), stroke('M24 0H0V80H24', 2)], text: { x: 0.12, y: 0, w: 0.86, h: 1 }, fill: 'none' },
+  { id: 'sort', name: { de: 'Sortieren', en: 'Sort' }, words: ['sortierung', 'ordnen'], vw: 140, vh: 90, elements: [path('M70 0L140 45L70 90L0 45Z'), mark('M0 45H140', 1.5)], outline: outline(140, 90, [[70, 0], [140, 45], [70, 90], [0, 45]]), text: { x: 0.25, y: 0.14, w: 0.5, h: 0.32 }, fill: LIGHT },
+  { id: 'collate', name: { de: 'Zusammenstellen', en: 'Collate' }, words: ['sanduhr', 'hourglass', 'sammeln'], vw: 100, vh: 100, elements: [path('M0 0H100L0 100H100Z')], outline: outline(100, 100, [[0, 0], [100, 0], [0, 100], [100, 100]]), text: { x: 0.25, y: 0, w: 0.5, h: 0.4 }, fill: LIGHT },
+  { id: 'extract', name: { de: 'Auszug', en: 'Extract' }, words: ['dreieck', 'triangle', 'herausziehen'], vw: 100, vh: 80, elements: [path('M50 0L100 80H0Z')], outline: outline(100, 80, [[50, 0], [100, 80], [0, 80]]), text: { x: 0.25, y: 0.5, w: 0.5, h: 0.45 }, fill: LIGHT },
+  { id: 'or', name: { de: 'Oder', en: 'Or' }, words: ['oder', 'or', 'verbindung'], vw: 60, vh: 60, keep: true, quiet: true, elements: [circle(30, 30, 30), mark('M30 0V60M0 30H60', 1.5)], fill: LIGHT },
+  { id: 'summing-junction', name: { de: 'Summierstelle', en: 'Summing junction' }, words: ['und', 'and', 'summe'], vw: 60, vh: 60, keep: true, quiet: true, elements: [circle(30, 30, 30), mark('M8.8 8.8L51.2 51.2M51.2 8.8L8.8 51.2', 1.5)], fill: LIGHT },
+  { id: 'card', name: { de: 'Lochkarte', en: 'Card' }, words: ['karte', 'punch card'], vw: 140, vh: 80, elements: [path('M24 0H140V80H0V24Z')], outline: outline(140, 80, [[24, 0], [140, 0], [140, 80], [0, 80], [0, 24]]), text: { x: 0.08, y: 0.15, w: 0.86, h: 0.8 }, fill: LIGHT },
+  { id: 'paper-tape', name: { de: 'Lochstreifen', en: 'Paper tape' }, words: ['band', 'tape', 'welle'], vw: 140, vh: 80, elements: [path('M0 12C35 -4 70 28 105 12Q125 2 140 10V68C105 84 70 52 35 68Q15 78 0 72Z')], text: { x: 0.05, y: 0.18, w: 0.9, h: 0.64 }, fill: LIGHT },
+  { id: 'internal-storage', name: { de: 'Interner Speicher', en: 'Internal storage' }, words: ['speicher', 'memory', 'ram'], vw: 140, vh: 80, elements: [rect(0, 0, 140, 80), mark('M16 0V80M0 16H140', 1.2)], text: { x: 0.14, y: 0.22, w: 0.82, h: 0.74 }, fill: LIGHT },
+  { id: 'sequential-data', name: { de: 'Sequenzieller Speicher', en: 'Sequential data' }, words: ['band', 'tape', 'magnetband'], vw: 84, vh: 80, keep: true, elements: [circle(40, 40, 40), stroke('M40 80H84', 2)], text: { x: 0.12, y: 0.15, w: 0.72, h: 0.7 }, fill: LIGHT },
+  { id: 'direct-data', name: { de: 'Direktzugriffsspeicher', en: 'Direct access storage' }, words: ['festplatte', 'disk', 'trommel', 'drum'], vw: 140, vh: 80, elements: [path('M14 0H126A14 40 0 0 1 126 80H14A14 40 0 0 1 14 0Z'), ellipse(126, 40, 14, 40)], text: { x: 0.04, y: 0.05, w: 0.78, h: 0.9 }, fill: LIGHT },
+  { id: 'start-point', name: { de: 'Startpunkt', en: 'Start point' }, words: ['start', 'anfang', 'begin'], vw: 30, vh: 30, keep: true, quiet: true, elements: [circle(15, 15, 15, { f: 'line', s: 'none' })], fill: 'none' },
+  { id: 'end-point', name: { de: 'Endpunkt', en: 'End point' }, words: ['ende', 'end', 'stopp'], vw: 32, vh: 32, keep: true, quiet: true, elements: [circle(16, 16, 15, { f: 'paper' }), circle(16, 16, 9, { f: 'line', s: 'none' })], fill: 'none' },
 ]
 
 // ---------- Floor plan (1 unit = 1 cm) ----------
@@ -120,6 +171,53 @@ const room: ShapeDef[] = [
     text: { x: 0, y: 0, w: 1, h: 0.62 }, fill: 'none',
   },
   { id: 'room', hollow: true, name: { de: 'Raum', en: 'Room' }, words: ['zimmer', 'flaeche', 'area'], vw: 400, vh: 300, w: 400, h: 300, elements: [rect(0, 0, 400, 300, { f: 'soft', s: 'line', w: 1 })], text: { x: 0.05, y: 0.05, w: 0.9, h: 0.25 }, fill: 'none' },
+  {
+    id: 'opening', name: { de: 'Durchgang', en: 'Opening' }, words: ['oeffnung', 'durchbruch', 'tuerloch'], vw: 90, vh: 12, w: 90, h: 12, quiet: true,
+    elements: [rect(0, 0, 90, 12, { f: 'paper', s: 'none' }), line(0, 0, 0, 12, 2.5), line(90, 0, 90, 12, 2.5)], fill: 'none',
+  },
+  { id: 'pillar', name: { de: 'Stütze', en: 'Pillar' }, words: ['saeule', 'pfeiler', 'column', 'stuetze'], vw: 30, vh: 30, w: 30, h: 30, keep: true, quiet: true, elements: [rect(0, 0, 30, 30, { f: 'line', s: 'none' })], fill: 'none' },
+  { id: 'radiator', name: { de: 'Heizkörper', en: 'Radiator' }, words: ['heizung', 'heizkoerper'], vw: 100, vh: 12, w: 100, h: 12, quiet: true, elements: [rect(0, 0, 100, 12, { rx: 2 }), ...lines(9, (i) => [10 * (i + 1), 2, 10 * (i + 1), 10], 0.8)], fill: 'none' },
+  { id: 'fireplace', name: { de: 'Kamin', en: 'Fireplace' }, words: ['ofen', 'feuer', 'kaminofen'], vw: 120, vh: 50, w: 120, h: 50, quiet: true, elements: [rect(0, 0, 120, 50), path('M20 0V30H100V0', { f: 'soft' }), stroke('M45 30C40 20 50 16 50 8C58 16 56 22 60 22C62 16 64 14 68 12C72 20 74 26 72 30', 1.2)], fill: 'none' },
+  { id: 'nightstand', name: { de: 'Nachttisch', en: 'Nightstand' }, words: ['nachtschrank', 'bedside'], vw: 45, vh: 40, w: 45, h: 40, keep: true, quiet: true, elements: [rect(0, 0, 45, 40, { rx: 3 }), circle(22.5, 20, 7, { f: 'none', w: 1 })], fill: 'none' },
+  { id: 'dresser', name: { de: 'Kommode', en: 'Dresser' }, words: ['sideboard', 'schubladen', 'drawers'], vw: 120, vh: 50, w: 120, h: 50, quiet: true, elements: [rect(0, 0, 120, 50), line(40, 0, 40, 50, 0.8), line(80, 0, 80, 50, 0.8)], fill: 'none' },
+  { id: 'shelf', name: { de: 'Regal', en: 'Shelf' }, words: ['buecherregal', 'bookshelf', 'regal'], vw: 100, vh: 35, w: 100, h: 35, quiet: true, elements: [rect(0, 0, 100, 35), stroke('M0 0L100 35', 0.8, true)], fill: 'none' },
+  { id: 'tv-board', name: { de: 'Fernseher mit Board', en: 'TV and stand' }, words: ['fernseher', 'tv', 'lowboard'], vw: 160, vh: 45, w: 160, h: 45, quiet: true, elements: [rect(0, 15, 160, 30), rect(20, 4, 120, 6, { rx: 2, f: 'line', s: 'none' })], fill: 'none' },
+  {
+    id: 'corner-sofa', name: { de: 'Ecksofa', en: 'Corner sofa' }, words: ['sofa', 'couch', 'wohnlandschaft'], vw: 240, vh: 200, w: 240, h: 200, quiet: true,
+    elements: [path('M0 10Q0 0 10 0H230Q240 0 240 10V80Q240 90 230 90H90V190Q90 200 80 200H10Q0 200 0 190Z'), path('M0 10Q0 0 10 0H230Q240 0 240 10V22H22V200H10Q0 200 0 190Z', { f: 'soft' }), line(90, 22, 90, 90, 1), line(165, 22, 165, 90, 1), line(22, 120, 90, 120, 1)],
+    fill: 'none',
+  },
+  {
+    id: 'dining-set', name: { de: 'Esstisch mit Stühlen', en: 'Dining set' }, words: ['esstisch', 'tisch', 'stuehle', 'essen'], vw: 220, vh: 170, w: 220, h: 170, quiet: true,
+    elements: [...[45, 90, 135].flatMap((x) => [rect(x, 2, 40, 32, { rx: 5 }), rect(x, 136, 40, 32, { rx: 5 })]), rect(30, 26, 160, 118, { rx: 4 })],
+    fill: 'none',
+  },
+  { id: 'kitchen-island', name: { de: 'Kochinsel', en: 'Kitchen island' }, words: ['kueche', 'insel', 'theke', 'island'], vw: 200, vh: 90, w: 200, h: 90, elements: [rect(0, 0, 200, 90), line(0, 60, 200, 60, 0.8)], text: { x: 0.05, y: 0.05, w: 0.9, h: 0.6 }, fill: 'none' },
+  { id: 'washer', name: { de: 'Waschmaschine', en: 'Washing machine' }, words: ['waschmaschine', 'waesche', 'washer'], vw: 60, vh: 60, w: 60, h: 60, keep: true, quiet: true, elements: [rect(0, 0, 60, 60, { rx: 3 }), circle(30, 32, 17, { f: 'paper' }), circle(30, 32, 10, { f: 'none', w: 1 })], fill: 'none' },
+  { id: 'dryer', name: { de: 'Trockner', en: 'Dryer' }, words: ['trockner', 'waesche', 'dryer'], vw: 60, vh: 60, w: 60, h: 60, keep: true, quiet: true, elements: [rect(0, 0, 60, 60, { rx: 3 }), circle(30, 32, 17, { f: 'paper' }), stroke('M22 30Q26 26 30 30T38 30M22 36Q26 32 30 36T38 36', 1)], fill: 'none' },
+  { id: 'dishwasher', name: { de: 'Spülmaschine', en: 'Dishwasher' }, words: ['spuelmaschine', 'geschirr', 'dishwasher'], vw: 60, vh: 60, w: 60, h: 60, keep: true, quiet: true, elements: [rect(0, 0, 60, 60), line(0, 10, 60, 10, 1.2), stroke('M10 22H50M10 32H50M10 42H50M10 52H50', 0.8, true)], fill: 'none' },
+  { id: 'oven', name: { de: 'Backofen', en: 'Oven' }, words: ['ofen', 'backofen', 'oven'], vw: 60, vh: 60, w: 60, h: 60, keep: true, quiet: true, elements: [rect(0, 0, 60, 60), rect(8, 16, 44, 36, { rx: 3, f: 'paper', w: 1 }), stroke('M14 8H46', 2)], fill: 'none' },
+  { id: 'double-sink', name: { de: 'Doppelwaschbecken', en: 'Double washbasin' }, words: ['waschbecken', 'doppel', 'bad'], vw: 140, vh: 50, w: 140, h: 50, quiet: true, elements: [rect(0, 0, 140, 50, { rx: 4 }), ellipse(35, 27, 24, 16, { f: 'paper' }), ellipse(105, 27, 24, 16, { f: 'paper' })], fill: 'none' },
+  { id: 'piano', name: { de: 'Klavier', en: 'Piano' }, words: ['klavier', 'piano', 'instrument'], vw: 150, vh: 60, w: 150, h: 60, quiet: true, elements: [rect(0, 0, 150, 60), rect(0, 40, 150, 20, { f: 'paper' }), ...lines(14, (i) => [10 * (i + 1), 40, 10 * (i + 1), 60], 0.6)], fill: 'none' },
+  { id: 'rug', hollow: true, name: { de: 'Teppich', en: 'Rug' }, words: ['teppich', 'rug', 'laeufer'], vw: 200, vh: 140, w: 200, h: 140, elements: [rect(0, 0, 200, 140, { rx: 6, f: 'soft', s: 'line', w: 1 }), rect(10, 10, 180, 120, { rx: 4, f: 'none', s: 'line', w: 0.8, dash: true })], text: { x: 0.1, y: 0.1, w: 0.8, h: 0.8 }, fill: 'none' },
+  { id: 'elevator', name: { de: 'Aufzug', en: 'Elevator' }, words: ['aufzug', 'lift', 'fahrstuhl'], vw: 150, vh: 150, w: 150, h: 150, keep: true, quiet: true, elements: [rect(0, 0, 150, 150), stroke('M0 0L150 150M150 0L0 150', 1)], fill: 'none' },
+  {
+    id: 'spiral-stairs', name: { de: 'Wendeltreppe', en: 'Spiral stairs' }, words: ['treppe', 'wendel', 'spiral'], vw: 160, vh: 160, w: 160, h: 160, keep: true, quiet: true,
+    elements: [circle(80, 80, 80), ...Array.from({ length: 12 }, (_, i) => { const a = (i * Math.PI) / 6; return line(80 + Math.cos(a) * 12, 80 + Math.sin(a) * 12, 80 + Math.cos(a) * 80, 80 + Math.sin(a) * 80, 0.8) }), circle(80, 80, 12, { f: 'paper' })],
+    fill: 'none',
+  },
+  {
+    id: 'car', name: { de: 'Auto', en: 'Car' }, words: ['auto', 'pkw', 'garage', 'stellplatz', 'parking'], vw: 180, vh: 450, w: 180, h: 450, keep: true, quiet: true,
+    elements: [path('M30 0H150Q180 0 180 40V410Q180 450 150 450H30Q0 450 0 410V40Q0 0 30 0Z'), rect(20, 120, 140, 70, { rx: 14, f: 'soft' }), rect(20, 330, 140, 50, { rx: 12, f: 'soft' }), rect(20, 190, 140, 140, { rx: 4, f: 'none', w: 1 })],
+    fill: 'none',
+  },
+  { id: 'parking', hollow: true, name: { de: 'Stellplatz', en: 'Parking space' }, words: ['parkplatz', 'garage', 'stellplatz'], vw: 250, vh: 500, w: 250, h: 500, elements: [rect(0, 0, 250, 500, { f: 'none', w: 1.5, dash: true })], text: { x: 0.1, y: 0.4, w: 0.8, h: 0.2 }, fill: 'none' },
+  {
+    id: 'tree', name: { de: 'Baum', en: 'Tree' }, words: ['baum', 'garten', 'garden', 'strauch'], vw: 200, vh: 200, w: 200, h: 200, keep: true, quiet: true,
+    elements: [path('M100 4C122 4 132 18 140 22C160 20 180 36 178 60C196 72 198 98 186 112C196 132 186 160 162 166C154 188 128 198 108 190C88 200 60 192 50 172C26 172 8 150 14 128C0 112 2 86 20 74C16 48 36 26 60 28C70 12 82 4 100 4Z'), circle(100, 100, 8, { f: 'line', s: 'none' })],
+    fill: '#4ade80',
+  },
+  { id: 'north', name: { de: 'Nordpfeil', en: 'North arrow' }, words: ['norden', 'north', 'kompass', 'himmelsrichtung'], vw: 60, vh: 80, w: 60, h: 80, keep: true, quiet: true, elements: [circle(30, 50, 28, { f: 'none', w: 1.2 }), path('M30 0L42 60L30 52L18 60Z', { f: 'line', s: 'line', w: 1 })], fill: 'none' },
 ]
 
 // ---------- Project management ----------
@@ -146,6 +244,40 @@ const project: ShapeDef[] = [
   { id: 'goal', name: { de: 'Zielscheibe', en: 'Target' }, words: ['ziel', 'goal', 'okr'], vw: 60, vh: 60, keep: true, elements: [circle(30, 30, 30), circle(30, 30, 20, { f: 'paper' }), circle(30, 30, 10)], text: below, fill: '#f87171' },
   { id: 'idea', name: { de: 'Idee', en: 'Idea' }, words: ['gluehbirne', 'lightbulb', 'einfall'], vw: 46, vh: 66, keep: true, elements: [path('M23 0C36 0 46 10 46 23C46 33 39 38 36 44V52H10V44C7 38 0 33 0 23C0 10 10 0 23 0Z'), rect(12, 56, 22, 10, { rx: 3, f: 'soft' })], text: below, fill: '#fde68a' },
   { id: 'meeting', name: { de: 'Besprechung', en: 'Meeting' }, words: ['termin', 'treffen', 'sprechblasen', 'talk'], vw: 80, vh: 60, keep: true, elements: [path('M0 6Q0 0 6 0H44Q50 0 50 6V28Q50 34 44 34H18L8 44V34H6Q0 34 0 28Z'), path('M30 22Q30 16 36 16H74Q80 16 80 22V44Q80 50 74 50H72V60L62 50H36Q30 50 30 44Z', { f: 'soft' })], text: below, fill: BLUE },
+  { id: 'sticky', name: { de: 'Haftnotiz', en: 'Sticky note' }, words: ['notiz', 'zettel', 'post-it', 'note'], vw: 100, vh: 100, keep: true, elements: [path('M0 0H100V76L76 100H0Z'), path('M76 100V82Q76 76 82 76H100Z', { f: 'soft' })], outline: outline(100, 100, [[0, 0], [100, 0], [100, 76], [76, 100], [0, 100]]), text: { x: 0.08, y: 0.08, w: 0.84, h: 0.68 }, fill: '#fde68a' },
+  {
+    id: 'checklist', name: { de: 'Checkliste', en: 'Checklist' }, words: ['liste', 'todo', 'aufgaben', 'list'], vw: 60, vh: 72, keep: true,
+    elements: [rect(0, 0, 60, 72, { rx: 6 }), ...[0, 1, 2].flatMap((i) => [rect(10, 14 + i * 18, 10, 10, { rx: 2, f: 'paper', w: 1.2 }), mark(`M28 ${19 + i * 18}H50`, 2)]), stroke('M11.5 18.5L14.5 22L20.5 13.5', 2)],
+    text: below, fill: LIGHT,
+  },
+  { id: 'priority-high', name: { de: 'Hohe Priorität', en: 'High priority' }, words: ['prioritaet', 'wichtig', 'dringend', 'urgent', 'hoch'], vw: 60, vh: 60, keep: true, elements: [circle(30, 30, 30), path('M30 46V16M18 27L30 15L42 27', { f: 'none', s: 'paper', w: 4.5 })], text: below, fill: '#f87171' },
+  { id: 'priority-low', name: { de: 'Niedrige Priorität', en: 'Low priority' }, words: ['prioritaet', 'unwichtig', 'spaeter', 'niedrig'], vw: 60, vh: 60, keep: true, elements: [circle(30, 30, 30), path('M30 14V44M18 33L30 45L42 33', { f: 'none', s: 'paper', w: 4.5 })], text: below, fill: '#93c5fd' },
+  { id: 'blocked', name: { de: 'Blockiert', en: 'Blocked' }, words: ['blockiert', 'stopp', 'wartet', 'hindernis', 'blocker'], vw: 60, vh: 60, keep: true, elements: [path('M17.6 0H42.4L60 17.6V42.4L42.4 60H17.6L0 42.4V17.6Z'), path('M16 30H44', { f: 'none', s: 'paper', w: 6 })], text: below, fill: '#f87171' },
+  { id: 'in-progress', name: { de: 'In Arbeit', en: 'In progress' }, words: ['laeuft', 'halb', 'fortschritt', 'progress', 'begonnen'], vw: 60, vh: 60, keep: true, elements: [circle(30, 30, 29, { f: 'paper', w: 2.5 }), path('M30 6A24 24 0 0 1 30 54Z', { s: 'none' })], text: below, fill: BLUE },
+  { id: 'question', name: { de: 'Offene Frage', en: 'Open question' }, words: ['frage', 'unklar', 'question', 'klaeren'], vw: 60, vh: 60, keep: true, elements: [circle(30, 30, 30), path('M21 22C21 13 39 12 39 22C39 30 30 30 30 37', { f: 'none', s: 'paper', w: 4.5 }), circle(30, 46, 3.5, { f: 'paper', s: 'none' })], text: below, fill: '#a78bfa' },
+  { id: 'budget', name: { de: 'Budget', en: 'Budget' }, words: ['geld', 'muenzen', 'kosten', 'money', 'coins', 'finanzen'], vw: 60, vh: 60, keep: true, elements: [40, 28, 16].flatMap((y) => [path(`M4 ${y}V${y + 8}A26 8 0 0 0 56 ${y + 8}V${y}`), ellipse(30, y, 26, 8)]), text: below, fill: '#fbbf24' },
+  { id: 'chart', name: { de: 'Kennzahl', en: 'Metric' }, words: ['diagramm', 'chart', 'balken', 'kpi', 'auswertung'], vw: 60, vh: 60, keep: true, elements: [rect(0, 0, 60, 60, { rx: 6, f: 'paper' }), rect(10, 34, 10, 16, { rx: 1 }), rect(25, 22, 10, 28, { rx: 1 }), rect(40, 12, 10, 38, { rx: 1 })], text: below, fill: BLUE },
+  {
+    id: 'rocket', name: { de: 'Start', en: 'Launch' }, words: ['rakete', 'rocket', 'launch', 'go-live', 'veroeffentlichung'], vw: 50, vh: 72, keep: true,
+    elements: [path('M17 52L25 72L33 52Z', { f: 'soft' }), path('M10 34L0 54L12 50Z'), path('M40 34L50 54L38 50Z'), path('M25 0C38 10 42 26 40 52H10C8 26 12 10 25 0Z'), circle(25, 24, 6, { f: 'paper' })],
+    text: below, fill: LIGHT,
+  },
+  {
+    id: 'trophy', name: { de: 'Erfolg', en: 'Success' }, words: ['pokal', 'trophy', 'gewonnen', 'erreicht', 'win'], vw: 60, vh: 64, keep: true,
+    elements: [stroke('M14 6H4V12C4 20 10 24 15 24M46 6H56V12C56 20 50 24 45 24', 3), path('M14 0H46V18C46 30 39 38 30 38C21 38 14 30 14 18Z'), rect(26, 38, 8, 12, { f: 'line', s: 'none' }), rect(16, 50, 28, 10, { rx: 2 })],
+    text: below, fill: '#fbbf24',
+  },
+  {
+    id: 'hourglass', name: { de: 'Wartet', en: 'Waiting' }, words: ['sanduhr', 'hourglass', 'warten', 'zeit', 'pause'], vw: 44, vh: 64, keep: true,
+    elements: [path('M5 6H39C39 22 26 26 26 32C26 38 39 42 39 58H5C5 42 18 38 18 32C18 26 5 22 5 6Z', { f: 'paper' }), path('M11 15H33C31 21 26 23 22 27C18 23 13 21 11 15Z', { s: 'none' }), path('M10 54C12 47 19 45 22 41C25 45 32 47 34 54Z', { s: 'none' }), rect(0, 0, 44, 6, { rx: 2, f: 'line', s: 'none' }), rect(0, 58, 44, 6, { rx: 2, f: 'line', s: 'none' })],
+    text: below, fill: '#fbbf24',
+  },
+  { id: 'sprint', name: { de: 'Sprint', en: 'Sprint' }, words: ['iteration', 'zyklus', 'scrum', 'kreislauf', 'cycle'], vw: 64, vh: 64, keep: true, elements: [stroke('M53.3 19.5A24 24 0 1 0 54.5 40.2', 5), path('M57 29L62 44L47 41Z', { f: 'line', s: 'line', w: 1 })], text: below, fill: 'none' },
+  { id: 'dependency', name: { de: 'Abhängigkeit', en: 'Dependency' }, words: ['kette', 'chain', 'verknuepfung', 'link', 'abhaengig'], vw: 64, vh: 40, keep: true, elements: [rect(2, 10, 36, 20, { rx: 10, f: 'none', w: 4 }), rect(26, 10, 36, 20, { rx: 10, f: 'none', w: 4 })], text: below, fill: 'none' },
+  {
+    id: 'stakeholder', name: { de: 'Beteiligte', en: 'Stakeholders' }, words: ['stakeholder', 'kunde', 'customer', 'gruppe'], vw: 90, vh: 60, keep: true,
+    elements: [...person(50, 6, 0.9), ...person(4, 6, 0.9), ...person(25, 0, 1)], text: below, fill: '#a78bfa',
+  },
 ]
 
 // ---------- Network ----------
@@ -199,6 +331,37 @@ const net: ShapeDef[] = [
   { id: 'load-balancer', name: { de: 'Lastverteiler', en: 'Load balancer' }, words: ['loadbalancer', 'proxy', 'verteiler'], vw: 64, vh: 64, keep: true, elements: [circle(32, 32, 32), stroke('M12 32H28M28 32L44 18M28 32L44 46M28 32H48M38 14L45 18L40 24M38 50L45 46L40 40M43 27L49 32L43 37', 2)], text: beside, fill: BLUE },
   { id: 'database', name: { de: 'Datenbank', en: 'Database' }, words: ['db', 'sql'], vw: 60, vh: 76, keep: true, elements: [path('M0 10A30 10 0 0 1 60 10V66A30 10 0 0 1 0 66Z'), ellipse(30, 10, 30, 10), stroke('M0 30A30 10 0 0 0 60 30M0 48A30 10 0 0 0 60 48', 1.2)], text: beside, fill: BLUE },
   { id: 'zone', hollow: true, name: { de: 'Zone', en: 'Zone' }, words: ['vlan', 'netz', 'subnet', 'bereich', 'gruppe'], vw: 320, vh: 200, elements: [rect(0, 0, 320, 200, { rx: 16, f: 'none', s: 'line', dash: true, w: 1.5 })], text: { x: 0.04, y: 0.02, w: 0.92, h: 0.15 }, fill: 'none' },
+  {
+    id: 'container', name: { de: 'Container', en: 'Container' }, words: ['docker', 'podman', 'kubernetes', 'pod'], vw: 80, vh: 60, keep: true,
+    elements: [rect(0, 30, 80, 30, { rx: 3 }), rect(4, 0, 34, 28, { rx: 3 }), rect(42, 0, 34, 28, { rx: 3 }), stroke('M12 6V22M21 6V22M30 6V22M50 6V22M59 6V22M68 6V22M10 36V54M20 36V54M30 36V54M40 36V54M50 36V54M60 36V54M70 36V54', 1)],
+    text: beside, fill: BLUE,
+  },
+  { id: 'vm', name: { de: 'Virtuelle Maschine', en: 'Virtual machine' }, words: ['vm', 'virtuell', 'proxmox', 'hypervisor', 'gast'], vw: 80, vh: 64, keep: true, elements: [rect(0, 0, 80, 64, { rx: 6, f: 'soft', dash: true, w: 1.5 }), rect(12, 12, 56, 40, { rx: 4 }), stroke('M22 24H58M22 32H58M22 40H44', 1.5)], text: beside, fill: BLUE },
+  { id: 'ups', name: { de: 'USV', en: 'UPS' }, words: ['usv', 'ups', 'notstrom', 'batterie', 'strom'], vw: 50, vh: 80, keep: true, elements: [rect(0, 0, 50, 80, { rx: 5 }), path('M29 14L16 40H26L22 62L36 33H26Z', { f: 'paper', s: 'none' })], text: beside, fill: BLUE },
+  {
+    id: 'vpn', name: { de: 'VPN', en: 'VPN' }, words: ['vpn', 'tunnel', 'wireguard', 'sicher', 'netbird', 'tailscale'], vw: 60, vh: 70, keep: true,
+    elements: [path('M30 0L60 10V34C60 52 46 64 30 70C14 64 0 52 0 34V10Z'), stroke('M23 32V25A7 7 0 0 1 37 25V32', 2.5), rect(19, 31, 22, 18, { rx: 3, f: 'paper' })], text: beside, fill: '#4ade80',
+  },
+  { id: 'smart-home', name: { de: 'Smart Home', en: 'Smart home' }, words: ['haus', 'iot', 'home assistant', 'automatisierung'], vw: 70, vh: 66, keep: true, elements: [path('M35 0L70 28H62V66H8V28H0Z'), stroke('M25 46A14 14 0 0 1 45 46M19 39A22 22 0 0 1 51 39', 2.5), circle(35, 54, 3, { f: 'line', s: 'none' })], text: beside, fill: BLUE },
+  { id: 'sensor', name: { de: 'Sensor', en: 'Sensor' }, words: ['iot', 'fuehler', 'messung', 'zigbee'], vw: 60, vh: 50, keep: true, elements: [circle(30, 25, 12), stroke('M14 13A20 20 0 0 0 14 37M46 13A20 20 0 0 1 46 37M8 5A30 30 0 0 0 8 45M52 5A30 30 0 0 1 52 45', 2)], text: beside, fill: BLUE },
+  { id: 'tv', name: { de: 'Fernseher', en: 'TV' }, words: ['fernseher', 'tv', 'mediaplayer', 'bildschirm'], vw: 90, vh: 64, keep: true, elements: [rect(0, 0, 90, 54, { rx: 4 }), rect(5, 5, 80, 44, { rx: 2, f: 'paper', w: 1 }), stroke('M30 63L36 54M60 63L54 54', 2.5)], text: beside, fill: BLUE },
+  { id: 'speaker', name: { de: 'Lautsprecher', en: 'Speaker' }, words: ['lautsprecher', 'sonos', 'audio', 'musik', 'smart speaker'], vw: 44, vh: 64, keep: true, elements: [rect(0, 0, 44, 64, { rx: 14 }), circle(22, 40, 12, { f: 'paper' }), circle(22, 40, 4, { f: 'line', s: 'none' }), circle(22, 14, 4, { f: 'paper' })], text: beside, fill: BLUE },
+  {
+    id: 'voip', name: { de: 'Telefon', en: 'Desk phone' }, words: ['telefon', 'voip', 'sip', 'festnetz'], vw: 80, vh: 60, keep: true,
+    elements: [path('M0 20Q0 10 10 10H70Q80 10 80 20V54Q80 60 74 60H6Q0 60 0 54Z'), path('M6 10C6 0 74 0 74 10V18H58V12H22V18H6Z', { f: 'soft' }), ...[0, 1, 2].flatMap((r) => [0, 1, 2].map((c) => circle(28 + c * 12, 30 + r * 9, 2.5, { f: 'paper', s: 'none' })))],
+    text: beside, fill: BLUE,
+  },
+  { id: 'user', name: { de: 'Nutzer', en: 'User' }, words: ['person', 'mensch', 'client', 'benutzer'], vw: 40, vh: 60, keep: true, elements: person(0, 0, 1), text: beside, fill: BLUE },
+  { id: 'mail', name: { de: 'Mailserver', en: 'Mail server' }, words: ['mail', 'smtp', 'imap', 'e-mail', 'brief'], vw: 76, vh: 52, keep: true, elements: [rect(0, 0, 76, 52, { rx: 4 }), mark('M2 4L38 30L74 4', 2)], text: beside, fill: LIGHT },
+  { id: 'globe', name: { de: 'Website', en: 'Website' }, words: ['web', 'www', 'dns', 'domain', 'globus', 'internet'], vw: 60, vh: 60, keep: true, elements: [circle(30, 30, 30), mark('M0 30H60M30 0C16 14 16 46 30 60M30 0C44 14 44 46 30 60M5 15H55M5 45H55', 1.4)], text: beside, fill: LIGHT },
+  { id: 'disk', name: { de: 'Festplatte', en: 'Hard disk' }, words: ['hdd', 'ssd', 'platte', 'laufwerk', 'speicher'], vw: 70, vh: 50, keep: true, elements: [rect(0, 0, 70, 50, { rx: 5 }), circle(28, 25, 16, { f: 'paper' }), circle(28, 25, 3, { f: 'line', s: 'none' }), stroke('M58 40L52 14', 2.5)], text: beside, fill: BLUE },
+  {
+    id: 'cell-tower', name: { de: 'Mobilfunk', en: 'Cell tower' }, words: ['mobilfunk', 'lte', '5g', 'mast', 'antenne'], vw: 60, vh: 80, keep: true,
+    elements: [stroke('M30 20L14 80M30 20L46 80M20 56H40M17 68H43M24 40H36', 2.5), circle(30, 16, 5, { f: 'line', s: 'none' }), stroke('M18 6A16 16 0 0 0 18 26M42 6A16 16 0 0 1 42 26M10 0A24 24 0 0 0 10 32M50 0A24 24 0 0 1 50 32', 2)],
+    text: beside, fill: 'none',
+  },
+  { id: 'certificate', name: { de: 'Zertifikat', en: 'Certificate' }, words: ['schluessel', 'key', 'tls', 'ssl', 'zertifikat'], vw: 70, vh: 40, keep: true, elements: [path('M36 15H70V25H64V33H56V25H36Z'), circle(20, 20, 18), circle(20, 20, 6, { f: 'paper' })], text: beside, fill: '#fbbf24' },
+  { id: 'reverse-proxy', name: { de: 'Reverse Proxy', en: 'Reverse proxy' }, words: ['proxy', 'nginx', 'traefik', 'caddy', 'vorschalt'], vw: 90, vh: 50, keep: true, elements: [rect(0, 0, 90, 50, { rx: 8 }), stroke('M14 25H44M36 17L44 25L36 33M76 15H54M62 9L54 15L62 21M76 35H54M62 29L54 35L62 41', 2)], text: beside, fill: BLUE },
 ]
 
 export const BUILTIN: ShapePackage[] = [
@@ -207,4 +370,8 @@ export const BUILTIN: ShapePackage[] = [
   { ...META, id: 'room', name: { de: 'Raumplan', en: 'Floor plan' }, shapes: room },
   { ...META, id: 'project', name: { de: 'Projektmanagement', en: 'Project management' }, shapes: project },
   { ...META, id: 'network', name: { de: 'Netzwerk', en: 'Network' }, shapes: net },
+  { ...META, id: 'uml', name: { de: 'UML und Software', en: 'UML and software' }, shapes: uml },
+  { ...META, id: 'bpmn', name: { de: 'BPMN', en: 'BPMN' }, shapes: bpmn },
+  { ...META, id: 'house', name: { de: 'Haus und Elektro', en: 'House and electrics' }, shapes: house },
+  { ...META, id: 'signs', name: { de: 'Symbole und Pfeile', en: 'Signs and arrows' }, shapes: signs },
 ]

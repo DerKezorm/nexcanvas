@@ -7,12 +7,15 @@
  * React element by element. A package from somewhere else can therefore never run anything, whatever it holds; the
  * server checks the same list again before it keeps a package.
  *
- * Colours are roles, not values: `fill` is the colour the item is filled with, `line` its line colour, `soft` the line
- * colour faintly, `paper` the board under it. So a router turns green with the rest of the drawing when someone picks
- * green, and reads in light and dark.
+ * Colours are roles, not values: `fill` is the colour the item is filled with, `line` its line colour, `ink` the line
+ * colour of details lying on the fill (dark on a light fill, light on a dark one, as the words), `soft` the line colour
+ * faintly, `paper` the board under it. So a router turns green with the rest of the drawing when someone picks green,
+ * and reads in light and dark.
  */
 
-export type Paint = 'fill' | 'line' | 'soft' | 'paper' | 'none'
+import type { ShapeKind } from '../types'
+
+export type Paint = 'fill' | 'line' | 'ink' | 'soft' | 'paper' | 'none'
 
 export type ShapeElement =
   | { t: 'path'; d: string; f?: Paint; s?: Paint; w?: number; dash?: boolean; tx?: number; ty?: number; sx?: number; sy?: number }
@@ -55,6 +58,10 @@ export interface ShapeDef {
   fill?: string
   /** A container (a room, a lane, a zone): only its lines answer the pointer, so what lies in it stays reachable. */
   hollow?: boolean
+  /** The words a new one starts with (the number on a marker). */
+  word?: string
+  /** One of the board's own shapes (the toolbar's): placed as that, not as a shape of a package. Shipped only. */
+  native?: ShapeKind
 }
 
 export interface ShapePackage {

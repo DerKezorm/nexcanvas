@@ -10,7 +10,7 @@ import { BUILTIN } from '../board/library/builtin'
 import { LibShape } from '../board/library/LibShape'
 import { LibraryPanel, SHAPE_DRAG } from '../board/library/LibraryPanel'
 import { SaveShapeDialog } from '../board/library/SaveShapeDialog'
-import { LibraryContext, makeLookup, outlineFor, shipped, useInstalled, type Library } from '../board/library/registry'
+import { LibraryContext, makeLookup, outlineFor, shipped, useIconPackages, useInstalled, type Library } from '../board/library/registry'
 import { ContextBar, type ContextActions } from '../board/canvas/ContextBar'
 import { ExportDialog } from '../board/canvas/ExportDialog'
 import { ScenesPanel } from '../board/canvas/ScenesPanel'
@@ -190,9 +190,16 @@ function Editor({ board }: { board: Board }) {
   const [exporting, setExporting] = useState<'board' | 'selection' | null>(null)
   const [choosingBackground, setChoosingBackground] = useState(false)
   const { installed, reload: reloadPackages } = useInstalled(board.space)
+  const icons = useIconPackages()
+  /** Packages the account switched off for its own library; what is on the board still draws. */
+  const hidden = useMemo(() => new Set(me?.preferences?.library_hidden ?? []), [me])
   const library = useMemo<Library>(
-    () => ({ lookup: makeLookup(installed, doc.defs), packages: [...BUILTIN, ...installed.filter((p) => p.enabled !== false)], reload: reloadPackages }),
-    [installed, doc.defs, reloadPackages],
+    () => ({
+      lookup: makeLookup([...installed, ...icons], doc.defs),
+      packages: [...BUILTIN, ...installed.filter((p) => p.enabled !== false), ...icons].filter((p) => !hidden.has(p.id)),
+      reload: reloadPackages,
+    }),
+    [installed, icons, hidden, doc.defs, reloadPackages],
   )
   const outlineOf = useMemo(() => outlineFor(library.lookup), [library])
   const { setMe } = useAuth()
@@ -384,12 +391,26 @@ function Editor({ board }: { board: Board }) {
       const w = def.w ?? def.vw
       const h = def.h ?? def.vh
       const r = box ?? { x: at.x - w / 2, y: at.y - h / 2, w, h }
-      if (!shipped(key)) doc.addDefs({ [key]: def })
-      add({ id: uid(), kind: 'shape', ...r, shape: 'rect', lib: key, fill: def.fill ?? '#60a5fa', stroke: 'none', text: '' })
+      if (def.native) {
+        // One of the board's own shapes: the same as drawn with the toolbar.
+        add({ id: uid(), kind: 'shape', ...r, shape: def.native, fill: def.fill ?? '#60a5fa', stroke: 'none', text: '' })
+      } else {
+        if (!shipped(key)) doc.addDefs({ [key]: def })
+        add({ id: uid(), kind: 'shape', ...r, shape: 'rect', lib: key, fill: def.fill ?? '#60a5fa', stroke: 'none', text: def.word ?? '' })
+      }
       keepLibrary({ library_recent: [key, ...recent.filter((k) => k !== key)].slice(0, 12) })
     },
     [library, doc, add, keepLibrary, recent],
   )
+  /** A shape taken in the library: one of the board's own becomes the toolbar's shape, any other the package's. */
+  const pickShape = useCallback(
+    (key: string) => {
+      const native = library.lookup(key)?.native
+      setTools((s) => (native ? { ...s, tool: 'shape', shape: native, lib: undefined } : { ...s, tool: 'shape', lib: key }))
+    },
+    [library],
+  )
+  const activeShape = tools.tool === 'shape' ? (tools.lib ?? `basic/${tools.shape}`) : undefined
 
   /** Adds what was chosen at the "+": beside `from` on `side` (or at `place`), joined to it by a line, ready to write in.
    * `like` is the item whose kind "the same" repeats, when that is not `from` (a sibling repeats the selected item). */
@@ -1576,8 +1597,8 @@ function Editor({ board }: { board: Board }) {
               setLibraryOpen(false)
               keepLibrary({ library_open: false })
             }}
-            active={tools.tool === 'shape' ? tools.lib : undefined}
-            onPick={(key) => setTools((s) => ({ ...s, tool: 'shape', lib: key }))}
+            active={activeShape}
+            onPick={pickShape}
             favorites={favorites}
             recent={recent}
             onFavorite={(key, on) => keepLibrary({ library_favorites: on ? [...favorites.filter((k) => k !== key), key] : favorites.filter((k) => k !== key) })}
@@ -1590,9 +1611,9 @@ function Editor({ board }: { board: Board }) {
             open
             onOpen={() => undefined}
             onClose={() => setLibrarySheet(false)}
-            active={tools.tool === 'shape' ? tools.lib : undefined}
+            active={activeShape}
             onPick={(key) => {
-              setTools((s) => ({ ...s, tool: 'shape', lib: key }))
+              pickShape(key)
               setLibrarySheet(false)
             }}
             favorites={favorites}

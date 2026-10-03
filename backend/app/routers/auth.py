@@ -390,12 +390,15 @@ PREFERENCES: dict[str, tuple[Any, ...]] = {
 #: Lists an account keeps: shapes it starred and the ones it took last, as ``package/shape``; the most of each.
 PREFERENCE_LISTS: dict[str, int] = {"library_favorites": 200, "library_recent": 12}
 SHAPE_KEY = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}/[a-z0-9][a-z0-9-]{0,39}$")
+#: Packages an account switched off for its own library, by package id; the most it keeps.
+HIDDEN_MOST = 200
+PACKAGE_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
 
 
-def _shape_keys(value: Any, most: int) -> list[str] | None:
+def _shape_keys(value: Any, most: int, pattern: re.Pattern[str] = SHAPE_KEY) -> list[str] | None:
     if not isinstance(value, list) or len(value) > most:
         return None
-    if not all(isinstance(v, str) and SHAPE_KEY.match(v) for v in value):
+    if not all(isinstance(v, str) and pattern.match(v) for v in value):
         return None
     return list(dict.fromkeys(value))
 
@@ -405,6 +408,7 @@ def preferences_of(stored: Any) -> dict[str, Any]:
     out = {key: stored[key] if stored.get(key) in allowed else allowed[0] for key, allowed in PREFERENCES.items()}
     for key, most in PREFERENCE_LISTS.items():
         out[key] = _shape_keys(stored.get(key), most) or []
+    out["library_hidden"] = _shape_keys(stored.get("library_hidden"), HIDDEN_MOST, PACKAGE_ID) or []
     return out
 
 
@@ -419,6 +423,12 @@ def set_preferences(payload: dict[str, Any], account: Account, db: DbSession) ->
             if keys is None:
                 raise error("bad_preference", "This value is not one nexcanvas offers.", 422, field=key)
             current[key] = keys
+            continue
+        if key == "library_hidden":
+            ids = _shape_keys(value, HIDDEN_MOST, PACKAGE_ID)
+            if ids is None:
+                raise error("bad_preference", "This value is not one nexcanvas offers.", 422, field=key)
+            current[key] = ids
             continue
         allowed = PREFERENCES.get(key)
         if allowed is None or value not in allowed or type(value) is not type(allowed[0]):

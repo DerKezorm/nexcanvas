@@ -97,7 +97,9 @@ def test_only_known_fields_are_kept(client: TestClient, operator: Account, space
     sneaky["shapes"][0]["onload"] = "alert(1)"
     sneaky["shapes"][0]["elements"][0]["style"] = "background:url(https://example.com/x)"
     sneaky["shapes"][0]["elements"][0]["href"] = "javascript:alert(1)"
+    sneaky["shapes"][0]["word"] = " 1 "
     made = install(client, space, sneaky)
+    assert made["shapes"][0]["word"] == "1"
     text = str(made)
     for word in ("script", "onload", "style", "href", "javascript", "example.com"):
         assert word not in text
@@ -133,6 +135,9 @@ def test_an_element_outside_the_format_is_refused(client: TestClient, operator: 
     {"elements": []},
     {"fill": "rgb(1,2,3)"},
     {"outline": [{"x": 0, "y": 0}]},
+    {"word": "x" * 41},
+    {"word": "a\nb"},
+    {"word": 3},
 ])
 def test_a_shape_outside_the_format_is_refused(client: TestClient, operator: Account, space: int, change: dict) -> None:
     bad = copy.deepcopy(PACKAGE)
@@ -158,6 +163,16 @@ def test_the_library_remembers_favourites_and_recent_shapes_per_account(client: 
     assert saved["library_favorites"] == ["network/router", "p3/rack"] and saved["library_open"] is False
     assert client.put("/api/me/preferences", json={"library_recent": ["<script>/x"]}).status_code == 422
     assert client.put("/api/me/preferences", json={"library_recent": ["a/b"] * 13}).status_code == 422
+
+
+def test_an_account_switches_packages_off_for_its_own_library(client: TestClient, operator: Account) -> None:
+    assert client.get("/api/auth/me").json()["preferences"]["library_hidden"] == []
+    saved = client.put("/api/me/preferences", json={"library_hidden": ["room", "icons", "p3", "room"]}).json()
+    assert saved["library_hidden"] == ["room", "icons", "p3"]
+    assert client.get("/api/auth/me").json()["preferences"]["library_hidden"] == ["room", "icons", "p3"]
+    for bad in (["network/router"], ["<b>"], "room", [1], ["x"] * 201):
+        assert client.put("/api/me/preferences", json={"library_hidden": bad}).status_code == 422
+    assert client.put("/api/me/preferences", json={"library_hidden": []}).json()["library_hidden"] == []
 
 
 def test_a_board_carries_the_shapes_it_uses_checked(client: TestClient, operator: Account, space: int) -> None:

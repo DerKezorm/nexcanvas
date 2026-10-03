@@ -1,6 +1,6 @@
 import type { SVGProps } from 'react'
 
-import { paint } from '../palette'
+import { paint, textOn } from '../palette'
 import type { Paint, ShapeDef, ShapeElement } from './types'
 
 /** The colours an item hands to its shape: its fill and its line colour (`none` lines draw in the automatic ink). */
@@ -9,15 +9,23 @@ export interface ShapeColors {
   line: string
 }
 
+/** Ink on the fill: dark on a light fill and light on a dark one, as the words are; the board's ink on no fill. */
+function inkOnFill(colors: ShapeColors): string {
+  return /^#[0-9a-f]{6}$/i.test(colors.fill) ? textOn(colors.fill) : 'var(--color-mist-100)'
+}
+const lineOf = (colors: ShapeColors) => (colors.line === 'none' ? 'var(--color-mist-100)' : paint(colors.line))
+
 function colorOf(role: Paint | undefined, colors: ShapeColors): string {
   switch (role) {
     case 'fill':
       // An unfilled shape is paper where it would be filled: furniture hides the grid under it.
       return colors.fill === 'none' ? 'var(--color-board)' : paint(colors.fill)
     case 'line':
-      return colors.line === 'none' ? 'var(--color-mist-100)' : paint(colors.line)
+      return lineOf(colors)
+    case 'ink':
+      return colors.line === 'none' ? inkOnFill(colors) : paint(colors.line)
     case 'soft':
-      return `color-mix(in srgb, ${colors.line === 'none' ? 'var(--color-mist-100)' : paint(colors.line)} 16%, transparent)`
+      return `color-mix(in srgb, ${lineOf(colors)} 16%, transparent)`
     case 'paper':
       return 'var(--color-board)'
     default:

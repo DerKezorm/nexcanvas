@@ -82,7 +82,8 @@
       "unlinked": "Verknüpfung gelöst.",
       "text": "Dein Passwort zur Bestätigung, dann geht es zum Anbieter und zurück.",
       "link": "Mit dem Anbieter verknüpfen"
-    }
+    },
+    "shapes": "Formen"
   },
   "board": {
     "new": "Neues Board",
@@ -1095,7 +1096,9 @@
     "scope": {
       "server": "Server",
       "space": "Bereich"
-    }
+    },
+    "showAll": "Alle {{count}} zeigen",
+    "choose": "Pakete ein- und ausblenden"
   },
   "packages": {
     "title": "Formpakete",
@@ -1139,5 +1142,19 @@
     "where": "Die Form liegt danach in der Formenleiste aller Boards dieses Bereichs. Ihre Farben richten sich nach Füllung und Linienfarbe, wie bei jeder Form.",
     "save": "Speichern",
     "saved": "„{{name}}“ liegt jetzt in der Formenleiste."
+  },
+  "libraryChoice": {
+    "title": "Formen in der Leiste",
+    "text": "Welche Pakete die Formenleiste am Board zeigt. Gilt nur für dich; was schon auf einem Board liegt, bleibt dort.",
+    "shipped": "Mit nexcanvas",
+    "shippedText": "Selbst gezeichnete Formen für Diagramme, Pläne und Skizzen.",
+    "icons": "Icons",
+    "iconsText": "Die Symbole aus Lucide, mit denen nexcanvas seine Knöpfe zeichnet: nach Themen in zwei Farben oder alle als Linien.",
+    "installed": "Installiert",
+    "installedText": "Pakete des Servers und deiner Bereiche.",
+    "count_one": "{{count}} Form",
+    "count_other": "{{count}} Formen",
+    "allOn": "Alle an",
+    "allOff": "Alle aus"
   }
 }

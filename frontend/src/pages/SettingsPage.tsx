@@ -34,6 +34,7 @@ import { api, authApi, type Me, type Methods, type Preferences } from '../api/cl
 import { useBoards, type Space } from '../board/store'
 import { Avatar } from '../components/Avatar'
 import { Dialog } from '../components/Dialog'
+import { LibraryChoice } from '../components/LibraryChoice'
 import { MembersDialog } from '../components/MembersDialog'
 import { PackageList } from '../components/ShapePackages'
 import { changeLanguage, languageOptions, templateFile, type LanguageOption } from '../i18n'
@@ -325,7 +326,7 @@ function Spaces() {
 
 // --- The own account ------------------------------------------------------------------------------------------------
 
-type AccountPart = 'profile' | 'security'
+type AccountPart = 'profile' | 'security' | 'shapes'
 
 export function AccountPage() {
   const { t } = useTranslation()
@@ -333,11 +334,12 @@ export function AccountPage() {
   const [params, setParams] = useSearchParams()
   // Back from the provider (linking the account): its answer stands on the security tab.
   const asked = params.get('tab')
-  const part: AccountPart = asked === 'security' || params.get('linked') || params.get('error') ? 'security' : 'profile'
+  const part: AccountPart = asked === 'security' || params.get('linked') || params.get('error') ? 'security' : asked === 'shapes' ? 'shapes' : 'profile'
   if (!me) return null
   const tabs: Tab<AccountPart>[] = [
     { value: 'profile', label: t('account.profile'), icon: UserRound },
     { value: 'security', label: t('account.security'), icon: Shield },
+    { value: 'shapes', label: t('account.shapes'), icon: Shapes },
   ]
   return (
     <main className="nc-scroll min-w-0 flex-1 overflow-y-auto">
@@ -347,6 +349,7 @@ export function AccountPage() {
         <div className="space-y-6 pt-1">
           {part === 'profile' && <Profile me={me} />}
           {part === 'security' && <Security me={me} />}
+          {part === 'shapes' && <LibraryChoice me={me} />}
         </div>
       </div>
     </main>

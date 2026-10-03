@@ -25,7 +25,10 @@ function fold(text: string): string {
   return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
 }
 
-type Entry = { key: string; def: ShapeDef; pkg: ShapePackage }
+type Entry = { key: string; def: ShapeDef; pkg: ShapePackage; hay: string }
+
+/** How many shapes a group or a search shows before "show all": the icon packages hold hundreds. */
+const SHOWN = 64
 
 /**
  * The shape library on the left of the board, as Visio's stencils: a search over every shape, the starred ones, the
@@ -59,18 +62,20 @@ export function LibraryPanel({
   const { packages, lookup } = useLibrary()
   const [query, setQuery] = useState('')
   const [groups, setGroups] = useState<Record<string, boolean>>(storedGroups)
+  /** Groups and the search shown in full past the first shapes. */
+  const [whole, setWhole] = useState<Record<string, boolean>>({})
   const lang = i18n.language
 
-  const entries = useMemo<Entry[]>(() => packages.flatMap((pkg) => pkg.shapes.map((def) => ({ key: shapeKey(pkg.id, def.id), def, pkg }))), [packages])
+  const entries = useMemo<Entry[]>(
+    () => packages.flatMap((pkg) => pkg.shapes.map((def) => ({ key: shapeKey(pkg.id, def.id), def, pkg, hay: fold([...Object.values(def.name), ...(def.words ?? []), ...Object.values(pkg.name)].join(' ')) }))),
+    [packages],
+  )
   const found = useMemo(() => {
     const words = fold(query).split(/\s+/).filter(Boolean)
     if (!words.length) return null
-    return entries.filter(({ def, pkg }) => {
-      const hay = fold([...Object.values(def.name), ...(def.words ?? []), ...Object.values(pkg.name)].join(' '))
-      return words.every((w) => hay.includes(w))
-    })
+    return entries.filter(({ hay }) => words.every((w) => hay.includes(w)))
   }, [entries, query])
-  const pick = (keys: string[]) => keys.map((key) => entries.find((e) => e.key === key) ?? (lookup(key) ? { key, def: lookup(key)!, pkg: packages[0] } : null)).filter((e): e is Entry => e !== null)
+  const pick = (keys: string[]) => keys.map((key) => entries.find((e) => e.key === key) ?? (lookup(key) ? { key, def: lookup(key)!, pkg: packages[0], hay: '' } : null)).filter((e): e is Entry => e !== null)
 
   const toggleGroup = (id: string, isOpen: boolean) => {
     const next = { ...groups, [id]: !isOpen }
@@ -117,6 +122,17 @@ export function LibraryPanel({
   }
 
   const grid = (list: Entry[]) => <div className="grid grid-cols-4 gap-1">{list.map(tile)}</div>
+  /** A grid that shows the first shapes and a button for the rest. */
+  const limited = (id: string, list: Entry[]) => (
+    <>
+      {grid(whole[id] ? list : list.slice(0, SHOWN))}
+      {!whole[id] && list.length > SHOWN && (
+        <button type="button" onClick={() => setWhole((w) => ({ ...w, [id]: true }))} className="mt-1 w-full rounded-lg px-2 py-1.5 text-xs text-accent-400 hover:bg-ink-800">
+          {t('library.showAll', { count: list.length })}
+        </button>
+      )}
+    </>
+  )
   const heading = 'px-1 pt-3 pb-1.5 text-[11px] font-semibold tracking-wider text-mist-500 uppercase'
 
   if (!open && !sheet) {
@@ -159,7 +175,7 @@ export function LibraryPanel({
         {found ? (
           <>
             <p className={heading}>{t('library.found', { count: found.length })}</p>
-            {found.length ? grid(found) : <p className="px-1 text-xs text-mist-500">{t('library.nothing')}</p>}
+            {found.length ? limited(`search:${query}`, found) : <p className="px-1 text-xs text-mist-500">{t('library.nothing')}</p>}
           </>
         ) : (
           <>
@@ -185,7 +201,7 @@ export function LibraryPanel({
                     {pkg.scope !== 'builtin' && <span className="rounded-full bg-ink-800 px-1.5 py-px text-[10px] font-medium tracking-normal normal-case">{t(`library.scope.${pkg.scope}`)}</span>}
                     <span className="font-normal tabular-nums">{pkg.shapes.length}</span>
                   </button>
-                  {isOpen && grid(pkg.shapes.map((def) => ({ key: shapeKey(pkg.id, def.id), def, pkg })))}
+                  {isOpen && limited(pkg.id, pkg.shapes.map((def) => ({ key: shapeKey(pkg.id, def.id), def, pkg, hay: '' })))}
                 </section>
               )
             })}
@@ -194,9 +210,14 @@ export function LibraryPanel({
       </div>
       <div className="border-t border-ink-700 px-1 pt-2 text-xs">
         <p className="text-mist-500">{t('library.hint')}</p>
-        <Link to={space ? `/settings?tab=spaces&packages=${space}` : '/settings?tab=spaces'} className="mt-1 inline-block text-accent-400 hover:underline">
-          {t('library.manage')}
-        </Link>
+        <div className="mt-1 flex flex-wrap gap-x-3">
+          <Link to="/account?tab=shapes" className="text-accent-400 hover:underline">
+            {t('library.choose')}
+          </Link>
+          <Link to={space ? `/settings?tab=spaces&packages=${space}` : '/settings?tab=spaces'} className="text-accent-400 hover:underline">
+            {t('library.manage')}
+          </Link>
+        </div>
       </div>
     </aside>
   )

@@ -15,7 +15,11 @@ import re
 from typing import Any
 
 #: The ids of the packages that come with nexcanvas; nobody installs a package under one of them.
-BUILTIN_IDS = frozenset({"basic", "flow", "room", "project", "network"})
+BUILTIN_IDS = frozenset({
+    "basic", "flow", "room", "project", "network", "uml", "bpmn", "house", "signs",
+    "icons", "icons-devices", "icons-office", "icons-home", "icons-nature", "icons-arrows", "icons-people",
+    "icons-media", "icons-signs",
+})
 
 MAX_BYTES = 2_000_000
 MAX_SHAPES = 500
@@ -28,7 +32,7 @@ LANG = re.compile(r"^[a-z]{2,3}(-[A-Z]{2})?$")
 VERSION = re.compile(r"^[0-9A-Za-z.+-]{1,20}$")
 PATH = re.compile(r"^[MmLlHhVvCcSsQqTtAaZz0-9eE.,+\-\s]+$")
 HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
-PAINTS = frozenset({"fill", "line", "soft", "paper", "none"})
+PAINTS = frozenset({"fill", "line", "ink", "soft", "paper", "none"})
 ELEMENTS: dict[str, tuple[str, ...]] = {
     "path": (),
     "rect": ("x", "y", "width", "height"),
@@ -132,6 +136,9 @@ def check_shape(raw: Any, where: str = "A shape") -> dict[str, Any]:
     for key in ("w", "h"):
         if raw.get(key) is not None:
             out[key] = _number(raw[key], 1, 20_000, f"{where}: {key}")
+    if raw.get("word") is not None:
+        # The words a new one starts with (a number on a marker); plain text like a name.
+        out["word"] = _text(raw["word"], 40, f"{where}: the first words")
     for key in ("keep", "quiet", "measure", "hollow"):
         if raw.get(key) is True:
             out[key] = True

@@ -82,7 +82,8 @@
       "unlinked": "Link removed.",
       "text": "Your password to confirm, then off to the provider and back.",
       "link": "Link with the provider"
-    }
+    },
+    "shapes": "Shapes"
   },
   "board": {
     "new": "New board",
@@ -1095,7 +1096,9 @@
     "scope": {
       "server": "Server",
       "space": "Space"
-    }
+    },
+    "showAll": "Show all {{count}}",
+    "choose": "Show and hide packages"
   },
   "packages": {
     "title": "Shape packages",
@@ -1139,5 +1142,19 @@
     "where": "The shape then lies in the shape library of every board in this space. Its colours follow fill and line colour, as with any shape.",
     "save": "Save",
     "saved": "“{{name}}” now lies in the shape library."
+  },
+  "libraryChoice": {
+    "title": "Shapes in the library",
+    "text": "Which packages the shape library on a board shows. Only for you; whatever is already on a board stays there.",
+    "shipped": "With nexcanvas",
+    "shippedText": "Shapes drawn for diagrams, plans and sketches.",
+    "icons": "Icons",
+    "iconsText": "The Lucide symbols nexcanvas draws its buttons with: by theme in two colours, or all of them as lines.",
+    "installed": "Installed",
+    "installedText": "Packages of the server and of your spaces.",
+    "count_one": "{{count}} shape",
+    "count_other": "{{count}} shapes",
+    "allOn": "All on",
+    "allOff": "All off"
   }
 }

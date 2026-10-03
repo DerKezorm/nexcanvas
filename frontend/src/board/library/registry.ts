@@ -8,6 +8,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import { api } from '../../api/client'
 import type { Item } from '../types'
 import { BUILTIN } from './builtin'
+import { loadIconPackages } from './icons'
 import type { Part, ShapeDef, ShapePackage } from './types'
 
 export type Lookup = (key: string) => ShapeDef | undefined
@@ -67,4 +68,20 @@ export function useInstalled(space: number | undefined): { installed: ShapePacka
   }, [space, round])
   const reload = useCallback(() => setRound((n) => n + 1), [])
   return { installed, reload }
+}
+
+/** The icon packages, loaded once the first board opens (they are large, and a board carries the ones it uses). */
+export function useIconPackages(): ShapePackage[] {
+  const [icons, setIcons] = useState<ShapePackage[]>([])
+  useEffect(() => {
+    let alive = true
+    loadIconPackages().then(
+      (list) => alive && setIcons(list),
+      () => undefined,
+    )
+    return () => {
+      alive = false
+    }
+  }, [])
+  return icons
 }

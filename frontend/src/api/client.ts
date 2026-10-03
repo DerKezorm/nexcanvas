@@ -156,6 +156,8 @@ export type Preferences = {
   library_open?: boolean
   library_favorites?: string[]
   library_recent?: string[]
+  /** Packages switched off for the own library, by id. */
+  library_hidden?: string[]
 }
 
 export type Member = { id: number; name: string; display_name: string; role: Role; avatar: string | null }
