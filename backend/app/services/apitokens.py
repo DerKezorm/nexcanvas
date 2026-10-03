@@ -1,19 +1,15 @@
-"""API tokens: programs such as n8n or nexdeck use nexcanvas over ``/api/v1`` (``routers/v1.py``).
+"""API tokens: programs such as nexdeck or n8n read nexcanvas over ``/api/v1`` (``routers/v1.py``).
 
 **Closed until the operator opens it** (``api_tokens_allowed``). Then every account makes tokens of its own, under
 My account, Connections. A token acts as its account and never sees more: every route goes through the same rights as
 the interface, a space the account may not read answers like one that does not exist.
 
-Two levels:
+**Reading only** (design answer 03.10.2026): spaces, boards, the numbers for a dashboard and a small picture of a
+board. No route under ``/api/v1`` changes anything; the level ``read`` is the only one there is.
 
-* **read**: spaces, folders, notes, search, links, tasks, the numbers for a dashboard. Changes nothing.
-* **write**: also makes notes, writes and appends to them, the daily note, the inbox, ticks tasks off. Each change a
-  version with the source ``api``, a conflict copy when the note changed since the program read it or somebody is
-  editing it. **Never** deleting, moving, renaming, members or public pages: no route for that exists under ``/api/v1``.
-
-A token may be limited to some spaces (``ApiToken.spaces``) and may run out (``expires_at``); a week before, its
-account hears about it once (``notify``, occasion ``tokens``). The operator sees every token and may block one for
-good (``blocked_at``); a blocked token answers like none.
+A token may be limited to some spaces (``ApiToken.spaces``) and may run out (``expires_at``); the list marks it a
+week before. The operator sees every token and may block one for good (``blocked_at``); a blocked token answers like
+none.
 
 **The token.** ``nxa_`` and 43 random characters, shown once. Only its SHA-256 is stored, and its first characters to
 tell tokens apart. It travels in ``Authorization: Bearer``, never in an address, and never reaches the log.
@@ -38,7 +34,7 @@ from . import rights, settings_service, totp
 
 logger = logging.getLogger("nexcanvas.api")
 
-LEVELS = ("read", "write")
+LEVELS = ("read",)
 TOKEN_PREFIX = "nxa_"
 #: How many tokens an account may hold.
 MAX_TOKENS = 20
@@ -48,8 +44,6 @@ LIFETIMES = (30, 90, 365)
 PER_MINUTE = 600
 #: ``last_used_at`` is written at most this often.
 USED_EVERY = timedelta(minutes=1)
-#: How long before the end the account hears about it.
-WARN_BEFORE = timedelta(days=7)
 
 
 class TokenError(Exception):
@@ -107,9 +101,6 @@ class Caller:
     token_id: int
     level: str
 
-    @property
-    def writes(self) -> bool:
-        return self.level == "write"
 
 
 def authenticate(db: Session, token: str | None) -> Caller | None:
@@ -138,15 +129,6 @@ def authenticate(db: Session, token: str | None) -> Caller | None:
     if spaces is not None:
         account.key_spaces = frozenset(int(space_id) for space_id in spaces)
     return Caller(account=account, token_id=token_id, level=level)
-
-
-def due_for_warning(db: Session) -> list[ApiToken]:
-    """Tokens that run out within a week and whose account has not heard yet."""
-    now = utcnow()
-    return list(db.scalars(select(ApiToken).where(
-        ApiToken.expires_at.is_not(None), ApiToken.expires_at > now, ApiToken.expires_at <= now + WARN_BEFORE,
-        ApiToken.warned_at.is_(None), ApiToken.blocked_at.is_(None),
-    )))
 
 
 _calls_lock = threading.Lock()

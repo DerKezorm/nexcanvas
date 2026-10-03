@@ -492,7 +492,8 @@
       "backups": "Sicherung",
       "languages": "Sprachen",
       "log": "Log",
-      "shapes": "Formpakete"
+      "shapes": "Formpakete",
+      "api": "API"
     },
     "start": {
       "title": "Startseite",
@@ -695,7 +696,26 @@
     "smtpPort": "Port",
     "detail": "Ausführlichkeit",
     "inviteTitle": "Zu nexcanvas einladen",
-    "inviteText": "Ohne Bereich: Das neue Konto legt eigene Bereiche an oder wird später zu anderen hinzugefügt."
+    "inviteText": "Ohne Bereich: Das neue Konto legt eigene Bereiche an oder wird später zu anderen hinzugefügt.",
+    "apiTokens": {
+      "title": "API-Token",
+      "text": "Konten verbinden nexcanvas mit Programmen wie nexdeck oder n8n. Ein Token liest nur und nie mehr als sein Konto. Ab Werk aus.",
+      "allow": "Konten dürfen API-Token anlegen",
+      "allowHint": "Jedes Konto legt eigene Token unter Mein Konto → Verbindungen an.",
+      "account": "Konto",
+      "token": "Token",
+      "spaces": "Bereiche",
+      "used": "Zuletzt",
+      "allSpaces": "alle",
+      "someSpaces_one": "{{count}} Bereich",
+      "someSpaces_other": "{{count}} Bereiche",
+      "blocked": "gesperrt",
+      "block": "Sperren",
+      "blockNamed": "Token {{name}} von {{account}} sperren",
+      "blockTitle": "Token „{{name}}“ von {{account}} sperren?",
+      "blockText": "Das Token antwortet danach wie keines, für immer. Das Konto sieht es als „vom Betreiber gesperrt“ und kann ein neues anlegen, solange API-Token eingeschaltet sind.",
+      "offHint": "Schaltest du API-Token ab, antwortet jedes Token mit 401. Die Token bleiben stehen und gehen wieder, wenn du einschaltest."
+    }
   },
   "errors": {
     "avatar_not_a_picture": "Das ist kein Bild, das nexcanvas annimmt (JPEG, PNG, WebP, GIF, HEIC oder AVIF).",
@@ -1119,7 +1139,8 @@
     "tabs": {
       "profile": "Profil",
       "security": "Sicherheit",
-      "shapes": "Formen"
+      "shapes": "Formen",
+      "connections": "Verbindungen"
     },
     "profile": {
       "displayName": "Anzeigename",
@@ -1211,5 +1232,43 @@
     "until": "bis {{when}}",
     "withdraw": "Zurückziehen",
     "noEmail": "keine Adresse"
+  },
+  "apiTokens": {
+    "title": "API-Token",
+    "text": "Für Programme wie nexdeck oder n8n. Ein Token liest, was du lesen darfst, beschränkt auf seine Bereiche: Boards, Zahlen fürs Dashboard und ein kleines Bild je Board. Ändern kann ein Token nichts.",
+    "none": "Noch keine Token.",
+    "new": "Neues Token",
+    "name": "Name, damit du es wiedererkennst",
+    "where": "Bereiche",
+    "lifetime": "Läuft ab",
+    "lifetimeDays": {
+      "30": "in 30 Tagen",
+      "90": "in 90 Tagen",
+      "365": "in einem Jahr"
+    },
+    "lifetimeNever": "nie",
+    "make": "Anlegen",
+    "shownOnce": "Token „{{name}}“ angelegt. Es steht nur jetzt hier. Kopier es in dein Programm; nexcanvas speichert nur eine Prüfsumme.",
+    "header": "Als Kopfzeile in nexdeck oder n8n (HTTP Request, Header Auth)",
+    "tryIt": "Zum Ausprobieren",
+    "never": "läuft nie ab",
+    "runsOut": "läuft am {{day}} ab",
+    "ranOut": "abgelaufen am {{day}}",
+    "blocked": "vom Betreiber gesperrt",
+    "delete": "Löschen",
+    "deleteNamed": "Token {{name}} löschen",
+    "off": "Der Betreiber hat API-Token nicht eingeschaltet. Frag ihn, wenn du nexcanvas mit n8n oder nexdeck verbinden willst.",
+    "offOperator": "Einschalten unter Einstellungen → Server → API.",
+    "whatItDoes": "Was die API kann",
+    "whatItDoesText": "Jede Anfrage trägt das Token in der Kopfzeile Authorization: Bearer, die Antworten sind JSON, das Bild eines Boards ist SVG. Alles Weitere steht in docs/api.md.",
+    "readOnly": "Ein Token liest nur. Ändern, Löschen und Teilen gehen nie über ein Token.",
+    "copyNamed": "Kopieren: {{what}}",
+    "done": "Habe ich",
+    "spacesAll": "alle Bereiche",
+    "spacesNone": "kein Bereich mehr",
+    "used": "zuletzt {{when}}",
+    "unused": "nie benutzt",
+    "allSpaces": "Alle Bereiche, die ich lesen darf, auch spätere",
+    "someSpaces": "Nur diese"
   }
 }

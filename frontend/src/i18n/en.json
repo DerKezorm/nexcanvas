@@ -492,7 +492,8 @@
       "backups": "Backups",
       "languages": "Languages",
       "log": "Log",
-      "shapes": "Shape packages"
+      "shapes": "Shape packages",
+      "api": "API"
     },
     "start": {
       "title": "Start page",
@@ -695,7 +696,26 @@
     "smtpPort": "Port",
     "detail": "Detail",
     "inviteTitle": "Invite into nexcanvas",
-    "inviteText": "Without a space: the new account makes its own spaces or is added to others later."
+    "inviteText": "Without a space: the new account makes its own spaces or is added to others later.",
+    "apiTokens": {
+      "title": "API tokens",
+      "text": "Accounts connect nexcanvas with programs such as nexdeck or n8n. A token only reads, and never more than its account. Off by default.",
+      "allow": "Accounts may make API tokens",
+      "allowHint": "Every account makes its own tokens under My account → Connections.",
+      "account": "Account",
+      "token": "Token",
+      "spaces": "Spaces",
+      "used": "Last used",
+      "allSpaces": "all",
+      "someSpaces_one": "{{count}} space",
+      "someSpaces_other": "{{count}} spaces",
+      "blocked": "blocked",
+      "block": "Block",
+      "blockNamed": "Block token {{name}} of {{account}}",
+      "blockTitle": "Block the token “{{name}}” of {{account}}?",
+      "blockText": "The token then answers like none, for good. The account sees it as “blocked by the operator” and may make a new one while API tokens are on.",
+      "offHint": "Switch API tokens off and every token answers 401. The tokens stay and work again when you switch them on."
+    }
   },
   "errors": {
     "avatar_not_a_picture": "That is not a picture nexcanvas takes (JPEG, PNG, WebP, GIF, HEIC or AVIF).",
@@ -1119,7 +1139,8 @@
     "tabs": {
       "profile": "Profile",
       "security": "Security",
-      "shapes": "Shapes"
+      "shapes": "Shapes",
+      "connections": "Connections"
     },
     "profile": {
       "displayName": "Display name",
@@ -1211,5 +1232,43 @@
     "until": "until {{when}}",
     "withdraw": "Withdraw",
     "noEmail": "no address"
+  },
+  "apiTokens": {
+    "title": "API tokens",
+    "text": "For programs such as nexdeck or n8n. A token reads what you may read, limited to its spaces: boards, numbers for a dashboard and a small picture of each board. A token changes nothing.",
+    "none": "No tokens yet.",
+    "new": "New token",
+    "name": "Name, so you know it again",
+    "where": "Spaces",
+    "lifetime": "Runs out",
+    "lifetimeDays": {
+      "30": "in 30 days",
+      "90": "in 90 days",
+      "365": "in a year"
+    },
+    "lifetimeNever": "never",
+    "make": "Make",
+    "shownOnce": "Token “{{name}}” made. It is shown only now. Copy it into your program; nexcanvas keeps only a checksum.",
+    "header": "As a header in nexdeck or n8n (HTTP Request, Header Auth)",
+    "tryIt": "To try it",
+    "never": "never runs out",
+    "runsOut": "runs out on {{day}}",
+    "ranOut": "ran out on {{day}}",
+    "blocked": "blocked by the operator",
+    "delete": "Delete",
+    "deleteNamed": "Delete token {{name}}",
+    "off": "The operator has not switched API tokens on. Ask them if you want to connect nexcanvas with n8n or nexdeck.",
+    "offOperator": "Switch them on under Settings → Server → API.",
+    "whatItDoes": "What the API does",
+    "whatItDoesText": "Every request carries the token in the header Authorization: Bearer, the answers are JSON, a board's picture is SVG. All the rest is in docs/api.md.",
+    "readOnly": "A token only reads. Changing, deleting and sharing never go through a token.",
+    "copyNamed": "Copy: {{what}}",
+    "done": "I have it",
+    "spacesAll": "all spaces",
+    "spacesNone": "no space any more",
+    "used": "last used {{when}}",
+    "unused": "never used",
+    "allSpaces": "All spaces I may read, later ones too",
+    "someSpaces": "Only these"
   }
 }

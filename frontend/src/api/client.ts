@@ -234,6 +234,30 @@ export const spacesApi = {
   invite: (id: number, role: Role, days = 7) => api<Invite & { link: string }>(`/api/spaces/${id}/invites`, { method: 'POST', body: { role, days } }),
 }
 
+export type ApiToken = {
+  id: number
+  name: string
+  level: 'read'
+  prefix: string
+  created_at: string
+  last_used_at: string | null
+  expires_at: string | null
+  blocked: boolean
+  /** The names of the spaces it may see; null: every space its account may read. */
+  spaces: string[] | null
+}
+export type AnyApiToken = Omit<ApiToken, 'spaces'> & { account: string; spaces: number | null }
+
+/** API tokens for programs (`/api/v1`); reading only. */
+export const apiTokensApi = {
+  list: () => api<{ allowed: boolean; tokens: ApiToken[] }>('/api/api-tokens'),
+  make: (name: string, spaces: number[] | null, days: number | null) =>
+    api<{ token: ApiToken; secret: string }>('/api/api-tokens', { method: 'POST', body: { name, spaces, days } }),
+  remove: (id: number) => api<void>(`/api/api-tokens/${id}`, { method: 'DELETE' }),
+  every: () => api<AnyApiToken[]>('/api/admin/api-tokens'),
+  block: (id: number) => api<AnyApiToken>(`/api/admin/api-tokens/${id}/block`, { method: 'POST' }),
+}
+
 export type Invite = { id: number; role: string; email: string; by: string | null; created_at: string; expires_at: string }
 
 export const boardsApi = {

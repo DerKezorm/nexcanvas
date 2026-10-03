@@ -3,11 +3,11 @@
  * (password, second factor, public address, OIDC and authentik), public pages, files, backups, languages and the
  * log. Everything here is the server's; it applies to all.
  */
-import { Box, Download, Files, Globe, History, Info, Mail, RotateCcw, ShieldCheck, Trash2, Upload, Users } from 'lucide-react'
+import { Box, Download, Files, Globe, History, Info, KeyRound, Mail, RotateCcw, ShieldCheck, Trash2, Upload, Users } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, type Me, type SpaceInfo } from '../../api/client'
+import { api, apiTokensApi, type AnyApiToken, type Me, type SpaceInfo } from '../../api/client'
 import { Avatar } from '../../components/Avatar'
 import { MembersDialog } from '../../components/MembersDialog'
 import { forgetAddedLanguages, templateFile } from '../../i18n'
@@ -391,6 +391,82 @@ export function SharesCard({ server }: { server: Server }) {
     <Card id="shares" icon={Globe} title={t('server.public')} text={t('server.publicHint')}>
       <Toggle label={t('server.publicAllowed')} hint={t('server.publicAllowedHint')} checked={s.shares_allowed} onChange={(shares_allowed) => void server.save({ shares_allowed })} />
       <Feedback problem={server.problem} done={server.done} />
+    </Card>
+  )
+}
+
+/** The switch for API tokens, and every token there is: who made it, which spaces, when it was used; blocked for good
+ * on request (every way out needs a latch). Never the token itself. As nexlore's. */
+export function ApiTokensCard({ server }: { server: Server }) {
+  const { t, i18n } = useTranslation()
+  const { busy, problem, run } = useAction()
+  const [tokens, setTokens] = useState<AnyApiToken[] | null>(null)
+  const [blocking, setBlocking] = useState<AnyApiToken | null>(null)
+  const load = useCallback(() => {
+    apiTokensApi.every().then(setTokens, () => setTokens(null))
+  }, [])
+  useEffect(load, [load])
+  const s = server.settings
+  if (!s) return null
+  return (
+    <Card id="api-tokens" icon={KeyRound} title={t('server.apiTokens.title')} text={t('server.apiTokens.text')}>
+      <Toggle label={t('server.apiTokens.allow')} hint={t('server.apiTokens.allowHint')} checked={s.api_tokens_allowed} onChange={(api_tokens_allowed) => void server.save({ api_tokens_allowed })} />
+      {tokens && tokens.length > 0 && (
+        <div className="nc-scroll overflow-x-auto">
+          <table className="w-full text-left text-sm text-mist-200" data-testid="admin-api-tokens">
+            <thead className="text-xs text-mist-500">
+              <tr>
+                <th className="py-1.5 pr-3 font-medium">{t('server.apiTokens.account')}</th>
+                <th className="py-1.5 pr-3 font-medium">{t('server.apiTokens.token')}</th>
+                <th className="py-1.5 pr-3 font-medium">{t('server.apiTokens.spaces')}</th>
+                <th className="py-1.5 pr-3 font-medium">{t('server.apiTokens.used')}</th>
+                <th className="py-1.5" />
+              </tr>
+            </thead>
+            <tbody>
+              {tokens.map((token) => (
+                <tr key={token.id} className="border-t border-ink-700">
+                  <td className="py-1.5 pr-3">{token.account}</td>
+                  <td className="py-1.5 pr-3">
+                    {token.name} <code className="font-mono text-xs text-mist-500">{token.prefix}…</code>
+                  </td>
+                  <td className="py-1.5 pr-3">{token.spaces === null ? t('server.apiTokens.allSpaces') : t('server.apiTokens.someSpaces', { count: token.spaces })}</td>
+                  <td className="py-1.5 pr-3 text-mist-400">
+                    {token.last_used_at ? new Date(token.last_used_at).toLocaleString(i18n.language, { dateStyle: 'short', timeStyle: 'short' }) : t('apiTokens.unused')}
+                  </td>
+                  <td className="py-1.5 text-right">
+                    {token.blocked ? (
+                      <span className="text-xs text-bad-500">{t('server.apiTokens.blocked')}</span>
+                    ) : (
+                      <Button small danger busy={busy} onClick={() => setBlocking(token)} label={t('server.apiTokens.blockNamed', { name: token.name, account: token.account })}>
+                        {t('server.apiTokens.block')}
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="text-xs text-mist-500">{t('server.apiTokens.offHint')}</p>
+      <Feedback problem={problem ?? server.problem} done={server.done} />
+      {blocking && (
+        <Confirm
+          title={t('server.apiTokens.blockTitle', { name: blocking.name, account: blocking.account })}
+          text={t('server.apiTokens.blockText')}
+          confirm={t('server.apiTokens.block')}
+          danger
+          onCancel={() => setBlocking(null)}
+          onConfirm={async () => {
+            await run(async () => {
+              await apiTokensApi.block(blocking.id)
+              load()
+            })
+            setBlocking(null)
+          }}
+        />
+      )}
     </Card>
   )
 }

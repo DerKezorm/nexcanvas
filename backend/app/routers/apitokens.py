@@ -46,7 +46,8 @@ class TokensOut(BaseModel):
 
 class TokenIn(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    level: str = Field(pattern="^(read|write)$")
+    #: Reading only, for now (design answer 03.10.2026); the field stays so a later level fits in.
+    level: str = Field(default="read", max_length=8)
     #: Ids of spaces; left out: every space the account may read, now and later.
     spaces: list[int] | None = Field(default=None, max_length=1000)
     #: 30, 90 or 365; left out: never runs out.
@@ -65,7 +66,7 @@ def _out(db: Any, account: Any, row: ApiToken) -> TokenOut:
         # Only spaces the account may still read: one it lost since tells nothing (and the token does not see it).
         readable = rights.readable_ids(db, account)
         wanted = [space_id for space_id in row.spaces if space_id in readable]
-        names = sorted(db.scalars(select(Space.folder).where(Space.id.in_(wanted)))) if wanted else []
+        names = sorted(db.scalars(select(Space.name).where(Space.id.in_(wanted)))) if wanted else []
     return TokenOut(id=row.id, name=row.name, level=row.level, prefix=row.prefix, created_at=row.created_at,
                     last_used_at=row.last_used_at, expires_at=row.expires_at, blocked=row.blocked_at is not None,
                     spaces=names)

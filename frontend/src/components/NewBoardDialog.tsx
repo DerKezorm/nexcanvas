@@ -33,6 +33,12 @@ export function NewBoardDialog({
   const writable = boards.spaces.filter((s) => s.role === 'write' || s.role === 'manage')
   const [title, setTitle] = useState('')
   const [where, setWhere] = useState<number>(space && writable.some((s) => s.id === space) ? space : (writable[0]?.id ?? 0))
+  // Opened before the spaces arrived: the first one to write in, once they are there (else the choice shows a space
+  // while none is chosen, and nothing can be made).
+  const firstWritable = writable[0]?.id
+  useEffect(() => {
+    if (!where && firstWritable) setWhere(space && writable.some((s) => s.id === space) ? space : firstWritable)
+  }, [where, firstWritable, space, writable])
   const [start, setStart] = useState<Start>({ kind: 'shipped', id: template.startsWith('own:') ? 'blank' : template })
   // The templates this space and the server keep, for the space chosen.
   const own = useOwnTemplates(where ? [where] : [])

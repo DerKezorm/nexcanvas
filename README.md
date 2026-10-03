@@ -118,6 +118,12 @@ links link cards, frames groups, lines between two things edges. Drawings and li
 `nexcanvas` block the others leave alone. Coming in, a text card becomes a note in the nearest of the seven colours,
 a group a frame, and a file card the photo or file of that name from the archive.
 
+## For programs
+
+nexdeck, n8n and scripts can read nexcanvas with an API token: the boards, numbers for a dashboard and a small
+picture of each board. Off until the operator switches it on; every account then makes its own tokens. Reading only.
+The routes are in [docs/api.md](docs/api.md).
+
 ## Security in short
 
 - Passwords are hashed with Argon2id; failed sign-ins lock an account for a while, and a brake per sender slows

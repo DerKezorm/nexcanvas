@@ -16,6 +16,7 @@ import {
   KeyRound,
   MousePointer2,
   Palette,
+  Plug,
   RotateCcw,
   Shapes,
   ShieldCheck,
@@ -34,15 +35,15 @@ import { PackageList } from '../components/ShapePackages'
 import { changeLanguage, languageOptions, templateFile, type LanguageOption } from '../i18n'
 import { applyMode, storedMode, type Mode } from '../lib/theme'
 import { useAuth } from '../state/auth'
-import { AccountsCard, AllSpacesCard, BackupsCard, FilesCard, LanguagesCard, LogCard, MailCard, SharesCard, SignInCard, useServerSettings } from './settings/ServerCards'
+import { AccountsCard, AllSpacesCard, ApiTokensCard, BackupsCard, FilesCard, LanguagesCard, LogCard, MailCard, SharesCard, SignInCard, useServerSettings } from './settings/ServerCards'
 import { Button, Card, Feedback, saveAsFile, TabRow, Toggle, useAction, type Tab } from './settings/ui'
 
 type Top = 'general' | 'looks' | 'spaces' | 'server'
-type Part = 'accounts' | 'signin' | 'shares' | 'files' | 'shapes' | 'backups' | 'languages' | 'log'
+type Part = 'accounts' | 'signin' | 'shares' | 'api' | 'files' | 'shapes' | 'backups' | 'languages' | 'log'
 const TOPS: Top[] = ['general', 'looks', 'spaces', 'server']
-const PARTS: Part[] = ['accounts', 'signin', 'shares', 'files', 'shapes', 'backups', 'languages', 'log']
+const PARTS: Part[] = ['accounts', 'signin', 'shares', 'api', 'files', 'shapes', 'backups', 'languages', 'log']
 const TOP_ICON = { general: Globe, looks: Eye, spaces: Box, server: ShieldCheck }
-const PART_ICON = { accounts: Users, signin: KeyRound, shares: Globe, files: Files, shapes: Shapes, backups: History, languages: Globe, log: Info }
+const PART_ICON = { accounts: Users, signin: KeyRound, shares: Globe, api: Plug, files: Files, shapes: Shapes, backups: History, languages: Globe, log: Info }
 
 export function SettingsPage() {
   const { t } = useTranslation()
@@ -92,6 +93,8 @@ function ServerPart({ part }: { part: Part }) {
       return <SignInCard server={server} />
     case 'shares':
       return <SharesCard server={server} />
+    case 'api':
+      return <ApiTokensCard server={server} />
     case 'files':
       return <FilesCard server={server} />
     case 'shapes':
