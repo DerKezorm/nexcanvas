@@ -1,13 +1,43 @@
 # nexcanvas
 
+[![Website: nexcanvas.nexapps.dev](https://img.shields.io/badge/website-nexcanvas.nexapps.dev-ff8a70?style=for-the-badge)](https://nexcanvas.nexapps.dev)
+
 A whiteboard for your own server, in the spirit of Apple Freeform: sticky notes, shapes, text, lines, pen and
 highlighter, photos and PDFs on an endless board, edited by several people at the same time. Self-hosted, for
 yourself, a family or a small team.
 
 nexcanvas is one of the nex apps and looks like them: coral, dark and light. Whoever knows nexlore finds the same
-frame here, with the same accounts, second factor, sign-in through a provider, log, languages and backups.
+frame here, with the same accounts, second factor, sign-in through a provider, log, languages and backups. More on
+the project site, **[nexcanvas.nexapps.dev](https://nexcanvas.nexapps.dev)**.
 
-![A board with frames, notes, a turned note and a photo](docs/screenshots/board.png)
+![A network plan with VLANs, the shape library open on the left](docs/screenshots/board.png)
+
+*A network plan from a template. On the left the shape library: packages as groups, search, favorites and recent
+shapes; drag a shape onto the board or click it and draw it to size. Lines dock at the edge a shape really has.*
+
+## Screenshots
+
+![A floor plan of a flat with furniture to scale, on a grid](docs/screenshots/floorplan.png)
+
+*A floor plan to scale, one unit a centimetre: walls, doors, windows and furniture from the floor plan package, a
+dimension line, the board on a grid that things snap to.*
+
+![A flowchart with a decision and a loop back](docs/screenshots/flowchart.png)
+
+*A flowchart. Every shape carries its text; the "+" on a selected shape adds the next one and joins it, Tab adds a
+child and Shift+Tab a sibling.*
+
+![The templates, grouped](docs/screenshots/templates.png)
+
+*Over thirty templates in groups (to begin, flow and process, project, rooms, network, thinking, organisation), plus
+your own: save a board as a template, with its content or only the skeleton.*
+
+<p>
+  <img src="docs/screenshots/light.png" alt="A home network plan in the light theme" width="68%">
+  <img src="docs/screenshots/phone.png" alt="A mind map on a phone" width="28%">
+</p>
+
+*Light and dark, and on the phone with every tool at the bottom of the screen.*
 
 ## What it does
 
@@ -23,12 +53,22 @@ frame here, with the same accounts, second factor, sign-in through a provider, l
   stays with that page.
 - **Frames and scenes.** A frame is a named area that takes along what lies in it. The scene list jumps from frame
   to frame, and presenting shows one frame after the other on the whole screen, also on a public page.
+- **A shape library like Visio's.** Over 350 shapes of its own in packages: basic shapes, flowchart, BPMN, UML and
+  software, floor plan (to scale), house and electrics, project management, network, signs and arrows, plus the
+  Lucide icons in themed packages. A board carries the drawings of the shapes it uses, so it looks the same on a
+  server without that package. Spaces and the operator install packages as files, add SVGs or save a shape from
+  the board; each account hides the packages it does not need.
+- **Templates.** Over thirty, from kanban and retro to floor plan, rack layout, Gantt schedule and business model
+  canvas, and your own ones for a space or the whole server.
+- **Backgrounds.** Plain, dots, squares, lines, millimetre paper or isometric, on paper white, cream, chalkboard,
+  blueprint or a colour of your own, the same for everybody on the board.
 - **Turn, group, line up.** Turn anything around its middle, group things so they move as one, line several up or
   spread them evenly.
 - **Export.** The board, the selection or every frame as a picture (PNG) or a PDF, one page per frame.
 - **JSON Canvas.** A board saves as a `.canvas` file the way Obsidian writes it, with its photos and files in a ZIP
-  archive, and a canvas from Obsidian or nexlore comes in. What only nexcanvas knows (shapes, drawings, turned
-  things) travels along unseen and comes back whole.
+  archive, and a canvas from Obsidian or nexlore comes in, into an open board or as a new one. What only nexcanvas
+  knows (shapes, drawings, turned things, the background) travels along unseen and comes back whole, so a board
+  moves from one nexcanvas to another as a file.
 - **Spaces and rights.** Boards live in spaces; each member of a space reads, writes or manages there. A space
   somebody may not read answers like one that does not exist. A board can get a public page, read only, with an end
   date and a password if you like.
@@ -45,7 +85,7 @@ frame here, with the same accounts, second factor, sign-in through a provider, l
 ```yaml
 services:
   nexcanvas:
-    build: .
+    image: ghcr.io/derkezorm/nexcanvas:latest
     container_name: nexcanvas
     restart: unless-stopped
     ports:
@@ -59,8 +99,11 @@ services:
 ```
 
 ```
-docker compose up -d --build
+docker compose up -d
 ```
+
+Built from source instead: clone this repository, put `build: .` in place of `image:` and run
+`docker compose up -d --build`.
 
 Open `http://<your-host>:8500`. The first account you create there is the operator. It needs the **setup code**
 from the server's log, so that nobody who reaches a fresh instance first can take it:
@@ -75,6 +118,25 @@ shows the setup code, new at every start until nexcanvas is set up. To choose it
 **Put nexcanvas behind a reverse proxy with TLS** before you use it from anywhere but your own desk, and let the
 proxy pass WebSockets through: boards are edited live over `/api/boards/<id>/live`.
 
+## nexcanvas on the internet
+
+nexcanvas is made to be reachable from outside, for yourself on the road or for a small team. Before you open it:
+
+1. **Set it up first**, from your own network, with the setup code from the log. Only then forward a port.
+2. **TLS at a reverse proxy**, and nexcanvas reachable only through it: publish the port as `127.0.0.1:8500:8000`
+   when the proxy runs on the same host, or keep both on a Docker network without a published port. Pass WebSockets
+   through, and send HSTS from the proxy.
+3. **Tell nexcanvas about the proxy**: `NEXCANVAS_PUBLIC_URL` (the address people use), `NEXCANVAS_TRUSTED_PROXIES`
+   (the proxy's address or network; without it every sign-in seems to come from the proxy and the brake against
+   guessing cannot tell people apart), and `NEXCANVAS_COOKIE_SECURE: "on"`.
+4. **A second factor**: set up your own under My account, Security. Or sign in through your OpenID Connect provider.
+5. **Leave the switches closed you do not need**: public pages and API tokens are off until you open them.
+6. **Optionally keep the operator's settings at home**: `NEXCANVAS_OPERATOR_NETWORKS: "192.168.0.0/16"` refuses them
+   from anywhere else (behind a proxy only together with `NEXCANVAS_TRUSTED_PROXIES`).
+7. **Backups somewhere else**: they hold everything, photos and files included. Copy one off the machine now and
+   then, as carefully as the data directory, and try a restore with "Check".
+8. **Pin a version** instead of `latest`, update on purpose, back up before.
+
 ## Where things are stored
 
 Everything lives in `/data`: the SQLite database `nexcanvas.db` (accounts, spaces, boards and their versions),
@@ -88,8 +150,8 @@ downloaded copies as carefully as the data directory itself.
 
 ## Updating
 
-Pull the new code and run `docker compose up -d --build`. nexcanvas adds what the database lacks at the start;
-nothing needs doing by hand. Make a backup before a big jump anyway.
+With an image: `docker compose pull && docker compose up -d`. Built from source: pull the new code and run
+`docker compose up -d --build`. nexcanvas adds what the database lacks at the start; nothing needs doing by hand. Make a backup before a big jump anyway.
 
 ## Environment
 
@@ -153,3 +215,8 @@ connection included, to the backend. Tests: `python -m pytest -q` in `backend`, 
 ## License
 
 AGPL-3.0.
+
+The buttons and the icon packages of the shape library use the [Lucide](https://lucide.dev) icons (ISC, partly MIT
+from Feather); their notice is in `frontend/public/licenses/lucide.txt` and ships with the app at
+`/licenses/lucide.txt`. Everything else nexcanvas ships or depends on, with its licence, is listed in
+[THIRD-PARTY.md](THIRD-PARTY.md).

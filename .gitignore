@@ -12,6 +12,8 @@ __pycache__/
 .ruff_cache/
 
 # Runtime data: database, media, backups, logs, user languages. Never in the repo.
-data/
-data-*/
+/data/
+/data-*/
+backend/data/
+backend/data-*/
 .env
