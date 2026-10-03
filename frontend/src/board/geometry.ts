@@ -97,17 +97,97 @@ export interface LineGeometry {
   d: string
 }
 
-/** Like edgePoint, but on the curve of a round item, so lines touch circles instead of their corners. */
-function attach(item: Item, toward: Point, gap = 6): { p: Point; n: Point } {
-  if (item.rot || item.kind === 'frame') return edgePoint(outer(item), toward, gap)
-  if (item.kind !== 'shape' || item.shape !== 'ellipse') return edgePoint(item, toward, gap)
+/** The outline of a shape as corners in its own box (w by h from 0,0); null for the ellipse, which is a curve. */
+export function shapeOutline(kind: ShapeKind, w: number, h: number): Point[] | null {
+  switch (kind) {
+    case 'ellipse':
+      return null
+    case 'triangle':
+      return [{ x: w / 2, y: 0 }, { x: w, y: h }, { x: 0, y: h }]
+    case 'diamond':
+      return [{ x: w / 2, y: 0 }, { x: w, y: h / 2 }, { x: w / 2, y: h }, { x: 0, y: h / 2 }]
+    case 'hexagon':
+      return [{ x: w * 0.25, y: 0 }, { x: w * 0.75, y: 0 }, { x: w, y: h / 2 }, { x: w * 0.75, y: h }, { x: w * 0.25, y: h }, { x: 0, y: h / 2 }]
+    case 'star': {
+      const pts: Point[] = []
+      for (let i = 0; i < 10; i++) {
+        const angle = -Math.PI / 2 + (i * Math.PI) / 5
+        const r = i % 2 === 0 ? 0.5 : 0.21
+        pts.push({ x: w / 2 + Math.cos(angle) * w * r, y: h / 2 + Math.sin(angle) * h * r * 1.05 + h * 0.04 })
+      }
+      return pts
+    }
+    case 'arrow':
+      return [{ x: 0, y: h * 0.3 }, { x: w * 0.62, y: h * 0.3 }, { x: w * 0.62, y: 0 }, { x: w, y: h / 2 }, { x: w * 0.62, y: h }, { x: w * 0.62, y: h * 0.7 }, { x: 0, y: h * 0.7 }]
+    case 'speech':
+      // The bubble without its tail: a line meets the box the words are in.
+      return [{ x: 0, y: 0 }, { x: w, y: 0 }, { x: w, y: h * 0.78 }, { x: 0, y: h * 0.78 }]
+    default:
+      return [{ x: 0, y: 0 }, { x: w, y: 0 }, { x: w, y: h }, { x: 0, y: h }]
+  }
+}
+
+/**
+ * Where the ray from `from` towards `to` leaves a closed outline: the farthest crossing, so a line from outside meets
+ * the shape where it is seen and not a dent of it (the inner corner of a star). Null when the ray misses.
+ */
+function leave(outline: Point[], from: Point, to: Point): { p: Point; n: Point } | null {
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  let best: { t: number; n: Point } | null = null
+  for (let i = 0; i < outline.length; i++) {
+    const a = outline[i]
+    const b = outline[(i + 1) % outline.length]
+    const ex = b.x - a.x
+    const ey = b.y - a.y
+    const den = dx * ey - dy * ex
+    if (Math.abs(den) < 1e-9) continue
+    const t = ((a.x - from.x) * ey - (a.y - from.y) * ex) / den
+    const u = ((a.x - from.x) * dy - (a.y - from.y) * dx) / den
+    if (t < 0 || u < 0 || u > 1) continue
+    if (!best || t > best.t) {
+      // The edge's normal, turned to point away from the middle.
+      const len = Math.hypot(ex, ey) || 1
+      let n = { x: ey / len, y: -ex / len }
+      if (n.x * dx + n.y * dy < 0) n = { x: -n.x, y: -n.y }
+      best = { t, n }
+    }
+  }
+  return best ? { p: { x: from.x + dx * best.t, y: from.y + dy * best.t }, n: best.n } : null
+}
+
+/**
+ * Where a line coming from `toward` meets an item: on the edge of the shape as drawn (the curve of an ellipse, the
+ * slope of a triangle), turned with a turned item, and which way the edge faces there. Lines touch; `gap` keeps them
+ * off by some units.
+ */
+export function attach(item: Item, toward: Point, gap = 0): { p: Point; n: Point } {
   const c = center(item)
-  const dx = toward.x - c.x
-  const dy = toward.y - c.y
-  const len = Math.hypot(dx, dy) || 1
-  const k = 1 / Math.sqrt((dx / (item.w / 2)) ** 2 + (dy / (item.h / 2)) ** 2 || 1)
-  const u = { x: dx / len, y: dy / len }
-  return { p: { x: c.x + dx * k + u.x * gap, y: c.y + dy * k + u.y * gap }, n: u }
+  const rot = item.rot ?? 0
+  // Worked out in the item's own upright frame, the answer turned back out of it.
+  const q = rot ? turn(toward, c, -rot) : toward
+  const dx = q.x - c.x
+  const dy = q.y - c.y
+  let hit: { p: Point; n: Point }
+  if (dx === 0 && dy === 0) hit = { p: c, n: { x: 0, y: -1 } }
+  else if (item.kind === 'shape' && item.shape === 'ellipse') {
+    const k = 1 / Math.sqrt((dx / (item.w / 2)) ** 2 + (dy / (item.h / 2)) ** 2)
+    const px = dx * k
+    const py = dy * k
+    // The normal of an ellipse: the gradient of (x/a)^2 + (y/b)^2 at that point.
+    const nx = px / (item.w / 2) ** 2
+    const ny = py / (item.h / 2) ** 2
+    const nl = Math.hypot(nx, ny) || 1
+    hit = { p: { x: c.x + px, y: c.y + py }, n: { x: nx / nl, y: ny / nl } }
+  } else {
+    const outline = item.kind === 'shape' ? shapeOutline(item.shape, item.w, item.h) : null
+    const crossing = outline ? leave(outline.map((o) => ({ x: item.x + o.x, y: item.y + o.y })), c, q) : null
+    hit = crossing ?? edgePoint(item, q, 0)
+  }
+  const p = { x: hit.p.x + hit.n.x * gap, y: hit.p.y + hit.n.y * gap }
+  if (!rot) return { p, n: hit.n }
+  const n = turn(hit.n, { x: 0, y: 0 }, rot)
+  return { p: turn(p, c, rot), n }
 }
 
 function endTarget(end: End, items: Map<string, Item>): Point {

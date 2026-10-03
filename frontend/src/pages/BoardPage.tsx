@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
+import { BranchMenu, rememberChoice } from '../board/canvas/BranchMenu'
 import { ContextBar, type ContextActions } from '../board/canvas/ContextBar'
 import { ExportDialog } from '../board/canvas/ExportDialog'
 import { ScenesPanel } from '../board/canvas/ScenesPanel'
@@ -15,7 +16,8 @@ import { Toolbar, type Tool, type ToolState } from '../board/canvas/Toolbar'
 import { useLiveDoc } from '../board/canvas/useLiveDoc'
 import { VersionsDialog } from '../board/canvas/VersionsDialog'
 import { Peers, PeerPointers, personColor } from '../board/canvas/Peers'
-import { bounds, center, contains, intersects, lineGeometry, normalize, outer, toBoard, toScreen, turn, type Point, type Rect } from '../board/geometry'
+import { branchItem, placeBeside, sideToward, type BranchChoice, type Side } from '../board/branch'
+import { bounds, center, contains, intersects, lineGeometry, normalize, outer, shapePath, toBoard, toScreen, turn, type Point, type Rect } from '../board/geometry'
 import { outline } from '../board/ink'
 import { drawOrder, framesInOrder, waitingInk } from '../board/order'
 import { Stage, useStageKeys, wholeScreen } from '../board/canvas/Stage'
@@ -68,13 +70,25 @@ function freshGroups<T extends Item>(copies: T[]): T[] {
     return { ...c, group: map.get(c.group) }
   })
 }
+/** The box a drag makes: corner to corner, or out of the middle with Alt; Shift (and a note) keeps it square. */
+function dragBox(start: Point, p: Point, square: boolean, fromMiddle: boolean): Rect {
+  let dx = p.x - start.x
+  let dy = p.y - start.y
+  if (square) {
+    const side = Math.max(Math.abs(dx), Math.abs(dy))
+    dx = (dx < 0 ? -1 : 1) * side
+    dy = (dy < 0 ? -1 : 1) * side
+  }
+  if (fromMiddle) return { x: start.x - Math.abs(dx), y: start.y - Math.abs(dy), w: Math.abs(dx) * 2, h: Math.abs(dy) * 2 }
+  return normalize(start, { x: start.x + dx, y: start.y + dy })
+}
+
 const LONG_PRESS_MS = 500
 const MIN_ZOOM = 0.1
 const MAX_ZOOM = 4
 const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z))
 
 type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
-type Side = 'top' | 'right' | 'bottom' | 'left'
 
 type Gesture =
   | { kind: 'pan'; start: Point; view: View }
@@ -151,7 +165,13 @@ function Editor({ board }: { board: Board }) {
   const [selected, setSelected] = useState<string[]>([])
   const [editing, setEditing] = useState<string | null>(null)
   const [marquee, setMarquee] = useState<Rect | null>(null)
-  const [draft, setDraft] = useState<{ ink?: number[][]; rect?: Rect; line?: { a: Point; b: Point; target?: string } } | null>(null)
+  const [draft, setDraft] = useState<{ ink?: number[][]; rect?: Rect; as?: 'shape' | 'note' | 'frame'; line?: { a: Point; b: Point; target?: string } } | null>(null)
+  /** The choice behind a "+": from which item, on which side, where it opened, and where to put the new one when the
+   * "+" was dragged there. */
+  const [branch, setBranch] = useState<{ from: string; side: Side; screen: Point; place?: Point } | null>(null)
+  const closeBranch = useCallback(() => setBranch(null), [])
+  /** The last click on a "+": a second one on the same soon after adds the same again, as a double click. */
+  const lastPlus = useRef<{ for: string; side: Side; at: number } | null>(null)
   const [guides, setGuides] = useState<{ x: number[]; y: number[] }>({ x: [], y: [] })
   const [share, setShare] = useState(false)
   const [versions, setVersions] = useState(false)
@@ -306,6 +326,30 @@ function Editor({ board }: { board: Board }) {
       }
     },
     [doc],
+  )
+
+  /** Adds what was chosen at the "+": beside `from` on `side` (or at `place`), joined to it by a line, ready to write in.
+   * `like` is the item whose kind "the same" repeats, when that is not `from` (a sibling repeats the selected item). */
+  const grow = useCallback(
+    (from: string, side: Side, choice: BranchChoice, place?: Point, like?: Item) => {
+      const d = doc.ref.current
+      const src = d.items.find((i) => i.id === from)
+      if (!src) return
+      const made = branchItem(like ?? src, choice, tools.note)
+      const others = d.items.filter((i) => i.kind !== 'ink' && i.kind !== 'frame').map(outer)
+      const at = place ? { x: place.x - made.w / 2, y: place.y - made.h / 2 } : placeBeside(outer(src), side, made, others)
+      const item = { ...made, x: at.x, y: at.y } as Item
+      const line: LineItem = { id: uid(), kind: 'line', a: { item: src.id, x: 0, y: 0 }, b: { item: item.id, x: 0, y: 0 }, color: 'auto', width: 2, arrow: 'end', curve: true }
+      doc.commit((dd) => ({ items: [...dd.items, item], lines: [...dd.lines, line] }))
+      rememberChoice(choice)
+      // A click on a "+" after this one starts afresh: it asks again instead of counting as a double click.
+      lastPlus.current = null
+      setBranch(null)
+      setSelected([item.id])
+      setEditing(item.id)
+      freshText.current = null
+    },
+    [doc, tools.note],
   )
 
   const removeIds = useCallback(
@@ -781,7 +825,7 @@ function Editor({ board }: { board: Board }) {
         return
       }
       case 'create':
-        if (g.tool === 'shape' || g.tool === 'frame') setDraft({ rect: normalize(g.start, p) })
+        if (g.tool !== 'text') setDraft({ rect: dragBox(g.start, p, e.shiftKey || g.tool === 'note', e.altKey), as: g.tool })
         return
       case 'draw': {
         const last = g.points[g.points.length - 1]
@@ -850,10 +894,11 @@ function Editor({ board }: { board: Board }) {
         setMarquee(null)
         return
       case 'create': {
-        const drag = normalize(g.start, p)
+        const drag = dragBox(g.start, p, e.shiftKey || g.tool === 'note', e.altKey)
         const dragged = drag.w * viewRef.current.zoom > 8 && drag.h * viewRef.current.zoom > 8
         if (g.tool === 'note') {
-          add({ id: uid(), kind: 'note', x: p.x - 90, y: p.y - 90, w: 180, h: 180, color: tools.note, text: '' }, true)
+          const r = dragged ? { ...drag, w: Math.max(60, drag.w), h: Math.max(60, drag.h) } : { x: p.x - 90, y: p.y - 90, w: 180, h: 180 }
+          add({ id: uid(), kind: 'note', ...r, color: tools.note, text: '' }, true)
         } else if (g.tool === 'frame') {
           const r = dragged ? drag : { x: p.x - 320, y: p.y - 200, w: 640, h: 400 }
           const number = doc.ref.current.items.filter((i) => i.kind === 'frame').length + 1
@@ -892,27 +937,27 @@ function Editor({ board }: { board: Board }) {
       case 'line': {
         setDraft(null)
         const moved = Math.hypot(s.x - g.startScreen.x, s.y - g.startScreen.y)
-        // A click on a side handle adds a connected copy there, as in a mind map.
+        // A click on a "+" asks what to add there, as Freeform's quick shapes; Alt, or a second click on the same "+"
+        // right after, adds the same again at once.
         if (moved < 4 && g.from && g.side) {
-          const src = byId.get(g.from)
-          if (!src) return
-          const gap = 90
-          const off = { top: { x: 0, y: -(src.h + gap) }, bottom: { x: 0, y: src.h + gap }, left: { x: -(src.w + gap), y: 0 }, right: { x: src.w + gap, y: 0 } }[g.side]
-          const copy: Item =
-            src.kind === 'note' ? { ...src, id: uid(), x: src.x + off.x, y: src.y + off.y, text: '', locked: false }
-            : src.kind === 'shape' ? { ...src, id: uid(), x: src.x + off.x, y: src.y + off.y, text: '', locked: false }
-            : { id: uid(), kind: 'note', x: src.x + off.x, y: src.y + off.y, w: 180, h: 180, color: tools.note, text: '' }
-          const line: LineItem = { id: uid(), kind: 'line', a: { item: src.id, x: 0, y: 0 }, b: { item: copy.id, x: 0, y: 0 }, color: 'auto', width: 2, arrow: 'end', curve: true }
-          doc.commit((d) => ({ items: [...d.items, copy], lines: [...d.lines, line] }))
-          setSelected([copy.id])
-          if (copy.kind === 'note' || copy.kind === 'shape') {
-            setEditing(copy.id)
-            freshText.current = null
+          const now = e.timeStamp
+          const last = lastPlus.current
+          if (e.altKey || (last && last.for === g.from && last.side === g.side && now - last.at < 450)) {
+            lastPlus.current = null
+            grow(g.from, g.side, { kind: 'same' })
+            return
           }
+          lastPlus.current = { for: g.from, side: g.side, at: now }
+          setBranch({ from: g.from, side: g.side, screen: s })
           return
         }
         if (moved < 8) return
         const target = itemAt(p, g.from)
+        // A "+" dragged onto the empty board: what goes there is asked, and it lands where the pointer let go.
+        if (!target && g.from && g.side) {
+          setBranch({ from: g.from, side: g.side, screen: s, place: p })
+          return
+        }
         const line: LineItem = { id: uid(), kind: 'line', a: g.a, b: { item: target, x: p.x, y: p.y }, color: 'auto', width: 2, arrow: 'end', curve: !!(g.a.item && target) }
         doc.commit((d) => ({ ...d, lines: [...d.lines, line] }))
         setSelected([line.id])
@@ -930,7 +975,7 @@ function Editor({ board }: { board: Board }) {
   const under = (e: { clientX: number; clientY: number }): HTMLElement => {
     for (const el of document.elementsFromPoint(e.clientX, e.clientY)) {
       if (el instanceof HTMLElement || el instanceof SVGElement) {
-        if (el.closest('[data-ui]') || el.closest('[data-item]') || el.closest('[data-line]')) return el as HTMLElement
+        if (el.closest('[data-ui]') || el.closest('[data-handle]') || el.closest('[data-item]') || el.closest('[data-line]')) return el as HTMLElement
       }
     }
     return root.current as HTMLElement
@@ -955,7 +1000,8 @@ function Editor({ board }: { board: Board }) {
   const openAt = (e: { clientX: number; clientY: number }) => {
     if (readOnly) return
     const target = under(e)
-    if (target.closest('[data-ui]')) return
+    // A double click on a handle (the "+" adds the same again) is not one on the board.
+    if (target.closest('[data-ui]') || target.closest('[data-handle]')) return
     const id = target.closest<HTMLElement>('[data-item]')?.dataset.item
     const item = id ? byId.get(id) : undefined
     if (item?.kind === 'frame' && !item.locked) {
@@ -1081,6 +1127,17 @@ function Editor({ board }: { board: Board }) {
         setTool('select')
         return
       }
+      if (e.key === 'Tab' && selected.length === 1 && !readOnly) {
+        const item = byId.get(selected[0])
+        if (item && (item.kind === 'note' || item.kind === 'shape' || item.kind === 'text')) {
+          e.preventDefault()
+          const into = doc.ref.current.lines.find((l) => l.b.item === item.id && l.a.item && byId.has(l.a.item))
+          const parent = into?.a.item ? byId.get(into.a.item) : undefined
+          if (e.shiftKey && parent) grow(parent.id, sideToward(outer(parent), outer(item)), { kind: 'same' }, undefined, item)
+          else grow(item.id, parent ? sideToward(outer(parent), outer(item)) : 'right', { kind: 'same' })
+          return
+        }
+      }
       if (e.key === 'Enter' && selected.length === 1) {
         const item = byId.get(selected[0])
         if (item && (item.kind === 'note' || item.kind === 'shape' || item.kind === 'text') && !readOnly) {
@@ -1166,7 +1223,7 @@ function Editor({ board }: { board: Board }) {
       window.removeEventListener('keyup', up)
       window.removeEventListener('paste', paste)
     }
-  }, [selected, byId, doc, duplicate, removeIds, setTool, zoomAt, size, fit, readOnly, share, keys, asking, middle, addFiles, addLink, add, tools.note, group, ungroup, presenting, exporting, versions, waiting])
+  }, [selected, byId, doc, duplicate, removeIds, setTool, zoomAt, size, fit, readOnly, share, keys, asking, middle, addFiles, addLink, add, tools.note, group, ungroup, presenting, exporting, versions, waiting, grow])
 
   // ---------- context actions ----------
 
@@ -1387,7 +1444,17 @@ function Editor({ board }: { board: Board }) {
               <path d={outline(draft.ink, tools.tool === 'marker' ? tools.penSize * 4 : tools.penSize, tools.tool === 'marker', false)} fill={paint(tools.pen)} opacity={tools.tool === 'marker' ? 0.42 : 1} />
             </svg>
           )}
-          {draft?.rect && <div className="pointer-events-none absolute rounded-md border-2 border-dashed border-accent-500 bg-accent-500/10" style={{ left: draft.rect.x, top: draft.rect.y, width: draft.rect.w, height: draft.rect.h }} />}
+          {draft?.rect && draft.as === 'shape' && (
+            <svg className="pointer-events-none absolute overflow-visible" style={{ left: draft.rect.x, top: draft.rect.y }} width={Math.max(1, draft.rect.w)} height={Math.max(1, draft.rect.h)} data-testid="draft" data-draft={tools.shape}>
+              <path d={shapePath(tools.shape, Math.max(1, draft.rect.w), Math.max(1, draft.rect.h))} fill="#60a5fa" fillOpacity={0.5} stroke="var(--color-accent-500)" strokeWidth={1.5 / view.zoom} />
+            </svg>
+          )}
+          {draft?.rect && draft.as === 'note' && (
+            <div className="pointer-events-none absolute rounded-[3px] opacity-70 shadow-lg shadow-black/30" style={{ left: draft.rect.x, top: draft.rect.y, width: draft.rect.w, height: draft.rect.h, background: NOTE_COLORS[tools.note] }} data-testid="draft" data-draft="note" />
+          )}
+          {draft?.rect && draft.as === 'frame' && (
+            <div className="pointer-events-none absolute rounded-xl border-2 border-accent-500/70 bg-ink-850/40" style={{ left: draft.rect.x, top: draft.rect.y, width: draft.rect.w, height: draft.rect.h }} data-testid="draft" data-draft="frame" />
+          )}
           {draft?.line && (
             <svg className="pointer-events-none absolute top-0 left-0 overflow-visible" width={1} height={1}>
               <path d={`M${draft.line.a.x} ${draft.line.a.y}L${draft.line.b.x} ${draft.line.b.y}`} stroke="var(--color-accent-500)" strokeWidth={2 / view.zoom} strokeDasharray={`${6 / view.zoom} ${4 / view.zoom}`} />
@@ -1476,6 +1543,9 @@ function Editor({ board }: { board: Board }) {
           <div data-ui>
             <ContextBar items={selItems} lines={selLines} at={barAt} actions={actions} docked={phone} />
           </div>
+        )}
+        {branch && byId.get(branch.from) && !readOnly && (
+          <BranchMenu at={branch.screen} from={byId.get(branch.from)!} onPick={(choice) => grow(branch.from, branch.side, choice, branch.place)} onClose={closeBranch} />
         )}
 
         {/* Floating controls. data-ui keeps the board from treating clicks on them as board clicks. */}

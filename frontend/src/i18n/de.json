@@ -222,7 +222,16 @@
     "pages_other": "{{count}} Seiten",
     "emptyTitle": "Ein leeres Board",
     "emptyHint": "Oben ein Werkzeug wählen, doppelklicken für Text, oder Fotos und Dateien hierher ziehen.",
-    "rotate": "Drehen (Umschalt: in 15°-Schritten)"
+    "rotate": "Drehen (Umschalt: in 15°-Schritten)",
+    "branch": {
+      "title": "Anhängen",
+      "same": "Dasselbe noch einmal",
+      "note": "Notiz",
+      "text": "Text",
+      "recent": "Zuletzt",
+      "shapes": "Formen",
+      "hint": "Doppelklick oder Alt+Klick auf +: dasselbe noch einmal. Tab: neues Kind, Umschalt+Tab: Geschwister."
+    }
   },
   "tools": {
     "select": "Auswählen",
@@ -321,7 +330,11 @@
     "del": "Entf",
     "ctrlWheel": "Strg + Mausrad",
     "space": "Leertaste",
-    "rotateSteps": "Beim Drehen halten: 15°-Schritte"
+    "rotateSteps": "Beim Drehen halten: 15°-Schritte",
+    "child": "Neues Element anhängen",
+    "sibling": "Daneben anhängen (Geschwister)",
+    "drawSquare": "Beim Aufziehen halten: gleiche Seiten",
+    "drawMiddle": "Beim Aufziehen halten: aus der Mitte"
   },
   "share": {
     "button": "Teilen",

@@ -1,6 +1,7 @@
 /** The arithmetic behind turning, the order things are drawn in, and the PDF writer. */
 
-import { bounds, outer, turn } from './geometry'
+import { attach, bounds, lineGeometry, outer, turn } from './geometry'
+import { branchItem, placeBeside, sideToward } from './branch'
 import { arrange } from './arrange'
 import { drawOrder, waitingInk } from './order'
 import { pdfOfPictures } from './pdf'
@@ -110,5 +111,89 @@ describe('lining up and spreading', () => {
     const frame: Item = { id: 'f', kind: 'frame', x: -500, y: 0, w: 10, h: 10, title: '', color: 'auto' }
     const moves = arrange([frame, box('a', 0, 0), box('b', 50, 0, 100, 50, { locked: true }), box('c', 90, 0)], new Set(['f', 'a', 'b', 'c']), 'left')
     expect([...moves.keys()]).toEqual(['c'])
+  })
+})
+
+describe('lines meet the shape as drawn', () => {
+  const shape = (kind: string, extra: Partial<Item> = {}): Item => ({ id: 's', kind: 'shape', x: 0, y: 0, w: 200, h: 100, shape: kind, fill: '#60a5fa', stroke: 'none', text: '', ...extra }) as Item
+
+  it('touches a box at its edge, without a gap', () => {
+    const hit = attach(note('a', { w: 200, h: 100 }), { x: 500, y: 50 })
+    expect(hit.p.x).toBeCloseTo(200)
+    expect(hit.p.y).toBeCloseTo(50)
+    expect(hit.n).toEqual({ x: 1, y: 0 })
+  })
+
+  it('meets an ellipse on its curve, not on the box around it', () => {
+    const hit = attach(shape('ellipse'), { x: 300, y: 150 })
+    // On the curve: (x - 100)^2 / 100^2 + (y - 50)^2 / 50^2 = 1, and short of the corner of the box.
+    expect(((hit.p.x - 100) / 100) ** 2 + ((hit.p.y - 50) / 50) ** 2).toBeCloseTo(1)
+    expect(hit.p.x).toBeLessThan(200)
+    expect(hit.p.y).toBeLessThan(100)
+  })
+
+  it('meets a diamond on its slanted side', () => {
+    const hit = attach(shape('diamond'), { x: 300, y: 150 })
+    // The lower right side runs from (200, 50) to (100, 100): x / 2 + y = 150 on it.
+    expect(hit.p.x / 2 + hit.p.y).toBeCloseTo(150)
+  })
+
+  it('meets a triangle at its slope, not at the empty corner of the box', () => {
+    const hit = attach(shape('triangle'), { x: -300, y: 0 })
+    expect(hit.p.x).toBeGreaterThan(0)
+  })
+
+  it('meets an arrow where it is seen: the head, not the shaft it passes', () => {
+    // From the middle up and to the right the ray leaves the shaft, enters the head and leaves it again.
+    const hit = attach(shape('arrow'), { x: 600, y: -550 })
+    expect(hit.p.x).toBeGreaterThan(124)
+  })
+
+  it('turns with a turned item', () => {
+    const upright = attach(note('a', { w: 200, h: 100 }), { x: 100, y: -500 })
+    const turned = attach(note('a', { w: 200, h: 100, rot: 90 }), { x: 100, y: -500 })
+    // Turned a quarter, the item stands on its short side: the line from above meets it 100 above the middle, not 50.
+    expect(upright.p.y).toBeCloseTo(0)
+    expect(turned.p.y).toBeCloseTo(-50)
+  })
+
+  it('places the ends of a line on both items', () => {
+    const items = new Map<string, Item>([
+      ['a', note('a', { x: 0, y: 0, w: 100, h: 100 })],
+      ['b', note('b', { x: 300, y: 0, w: 100, h: 100 })],
+    ])
+    const g = lineGeometry({ id: 'l', kind: 'line', a: { item: 'a', x: 0, y: 0 }, b: { item: 'b', x: 0, y: 0 }, color: 'auto', width: 2, arrow: 'end', curve: false }, items)
+    expect(g.a).toEqual({ x: 100, y: 50 })
+    expect(g.b).toEqual({ x: 300, y: 50 })
+  })
+})
+
+describe('growing from the plus', () => {
+  const box = (x: number, y: number) => ({ x, y, w: 100, h: 100 })
+
+  it('puts the new item beside the source, the middles in line', () => {
+    expect(placeBeside(box(0, 0), 'right', { w: 100, h: 60 }, [box(0, 0)])).toEqual({ x: 190, y: 20 })
+    expect(placeBeside(box(0, 0), 'top', { w: 100, h: 60 }, [box(0, 0)])).toEqual({ x: 0, y: -150 })
+  })
+
+  it('moves along the side when the place is taken', () => {
+    const taken = [box(0, 0), box(190, 0)]
+    const at = placeBeside(box(0, 0), 'right', { w: 100, h: 100 }, taken)
+    expect(at.x).toBe(190)
+    expect(at.y).toBe(130)
+  })
+
+  it('makes the chosen kind, a shape keeping the size and colour of the shape it grows from', () => {
+    const src = { id: 's', kind: 'shape', x: 0, y: 0, w: 240, h: 90, shape: 'ellipse', fill: '#4ade80', stroke: 'none', text: 'Topic' } as Item
+    const made = branchItem(src, { kind: 'shape', shape: 'diamond' }, 'yellow')
+    expect(made).toMatchObject({ kind: 'shape', shape: 'diamond', w: 240, h: 90, fill: '#4ade80', text: '' })
+    expect(branchItem(src, { kind: 'same' }, 'yellow')).toMatchObject({ kind: 'shape', shape: 'ellipse', text: '' })
+    expect(branchItem(src, { kind: 'note' }, 'pink')).toMatchObject({ kind: 'note', color: 'pink' })
+    expect(branchItem(src, { kind: 'same' }, 'yellow').id).not.toBe('s')
+  })
+
+  it('knows on which side an item lies', () => {
+    expect(sideToward(box(0, 0), box(300, 20))).toBe('right')
+    expect(sideToward(box(0, 0), box(10, -300))).toBe('top')
   })
 })

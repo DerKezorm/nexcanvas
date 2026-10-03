@@ -32,8 +32,12 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
       ['Ctrl A', 'menu.selectAll'],
       ['Entf', 'context.delete'],
       ['Enter', 'keys.write'],
+      ['Tab', 'keys.child'],
+      ['Shift Tab', 'keys.sibling'],
       ['← ↑ → ↓', 'keys.nudge'],
       ['Alt', 'keys.noSnap'],
+      ['Shift', 'keys.drawSquare'],
+      ['Alt', 'keys.drawMiddle'],
     ],
   },
   {

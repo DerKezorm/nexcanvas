@@ -222,7 +222,16 @@
     "pages_other": "{{count}} pages",
     "emptyTitle": "An empty board",
     "emptyHint": "Pick a tool at the top, double-click for text, or drop photos and files here.",
-    "rotate": "Turn (Shift: in steps of 15°)"
+    "rotate": "Turn (Shift: in steps of 15°)",
+    "branch": {
+      "title": "Add",
+      "same": "The same again",
+      "note": "Note",
+      "text": "Text",
+      "recent": "Recent",
+      "shapes": "Shapes",
+      "hint": "Double click or Alt+click on +: the same again. Tab: a new child, Shift+Tab: a sibling."
+    }
   },
   "tools": {
     "select": "Select",
@@ -321,7 +330,11 @@
     "del": "Del",
     "ctrlWheel": "Ctrl + wheel",
     "space": "Space",
-    "rotateSteps": "Hold while turning: steps of 15°"
+    "rotateSteps": "Hold while turning: steps of 15°",
+    "child": "Add a new item to it",
+    "sibling": "Add one beside it (sibling)",
+    "drawSquare": "Hold while drawing: equal sides",
+    "drawMiddle": "Hold while drawing: out of the middle"
   },
   "share": {
     "button": "Share",
