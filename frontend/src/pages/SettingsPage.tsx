@@ -19,6 +19,7 @@ import {
   MousePointer2,
   Palette,
   RotateCcw,
+  Shapes,
   Shield,
   ShieldCheck,
   Upload,
@@ -32,7 +33,9 @@ import { useSearchParams } from 'react-router-dom'
 import { api, authApi, type Me, type Methods, type Preferences } from '../api/client'
 import { useBoards, type Space } from '../board/store'
 import { Avatar } from '../components/Avatar'
+import { Dialog } from '../components/Dialog'
 import { MembersDialog } from '../components/MembersDialog'
+import { PackageList } from '../components/ShapePackages'
 import { changeLanguage, languageOptions, templateFile, type LanguageOption } from '../i18n'
 import { applyTheme, storedTheme, type Theme } from '../lib/theme'
 import { useAuth } from '../state/auth'
@@ -40,11 +43,11 @@ import { AccountsCard, AllSpacesCard, BackupsCard, FilesCard, LanguagesCard, Log
 import { Button, Card, Feedback, Input, saveAsFile, Select, TabRow, Toggle, useAction, type Tab } from './settings/ui'
 
 type Top = 'general' | 'looks' | 'spaces' | 'server'
-type Part = 'accounts' | 'signin' | 'shares' | 'files' | 'backups' | 'languages' | 'log'
+type Part = 'accounts' | 'signin' | 'shares' | 'files' | 'shapes' | 'backups' | 'languages' | 'log'
 const TOPS: Top[] = ['general', 'looks', 'spaces', 'server']
-const PARTS: Part[] = ['accounts', 'signin', 'shares', 'files', 'backups', 'languages', 'log']
+const PARTS: Part[] = ['accounts', 'signin', 'shares', 'files', 'shapes', 'backups', 'languages', 'log']
 const TOP_ICON = { general: Globe, looks: Eye, spaces: Box, server: ShieldCheck }
-const PART_ICON = { accounts: Users, signin: KeyRound, shares: Globe, files: Files, backups: History, languages: Globe, log: Info }
+const PART_ICON = { accounts: Users, signin: KeyRound, shares: Globe, files: Files, shapes: Shapes, backups: History, languages: Globe, log: Info }
 
 export function SettingsPage() {
   const { t } = useTranslation()
@@ -79,6 +82,7 @@ export function SettingsPage() {
 
 /** One part of the server, for the operator. */
 function ServerPart({ part }: { part: Part }) {
+  const { t } = useTranslation()
   const server = useServerSettings()
   switch (part) {
     case 'accounts':
@@ -95,6 +99,12 @@ function ServerPart({ part }: { part: Part }) {
       return <SharesCard server={server} />
     case 'files':
       return <FilesCard server={server} />
+    case 'shapes':
+      return (
+        <Card id="shape-packages" icon={Shapes} title={t('packages.serverTitle')} text={t('packages.serverText')}>
+          <PackageList space={null} canChange />
+        </Card>
+      )
     case 'backups':
       return <BackupsCard server={server} />
     case 'languages':
@@ -237,6 +247,9 @@ function Spaces() {
   const { t } = useTranslation()
   const boards = useBoards()
   const [members, setMembers] = useState<Space | null>(null)
+  const [params, setParams] = useSearchParams()
+  const asked = Number(params.get('packages')) || null
+  const packagesOf = boards.spaces.find((s) => s.id === asked) ?? null
   const [bin, setBin] = useState<{ id: number; name: string; color: string; deleted_at: string }[]>([])
   const action = useAction()
   useEffect(() => {
@@ -258,6 +271,12 @@ function Spaces() {
                   <Avatar key={m.id} person={m} className="h-6 w-6 text-[11px]" ring />
                 ))}
               </span>
+              {s.role === 'manage' && (
+                <Button small onClick={() => setParams({ tab: 'spaces', packages: String(s.id) }, { replace: true })}>
+                  <Shapes className="h-3.5 w-3.5" strokeWidth={1.8} />
+                  {t('packages.title')}
+                </Button>
+              )}
               <Button small onClick={() => setMembers(s)}>
                 <Users className="h-3.5 w-3.5" strokeWidth={1.8} />
                 {t('share.manage')}
@@ -294,6 +313,12 @@ function Spaces() {
         </Card>
       )}
       {members && <MembersDialog space={members} onClose={() => setMembers(null)} />}
+      {packagesOf && (
+        <Dialog title={t('packages.spaceTitle', { space: packagesOf.name })} onClose={() => setParams({ tab: 'spaces' }, { replace: true })} wide>
+          <p className="mb-3 text-sm text-mist-500">{t('packages.spaceText')}</p>
+          <PackageList space={packagesOf.id} canChange={packagesOf.role === 'manage'} />
+        </Dialog>
+      )}
     </>
   )
 }

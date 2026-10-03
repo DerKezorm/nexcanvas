@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { WebsocketProvider } from 'y-websocket'
 import * as Y from 'yjs'
 
+import type { ShapeDef } from '../library/types'
 import type { Background, Doc, Item, LineItem } from '../types'
 
 export type LiveStatus = 'connecting' | 'live' | 'offline' | 'gone'
@@ -83,11 +84,15 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string })
   const lines = useMemo(() => ydoc.getMap<unknown>('lines'), [ydoc])
   const texts = useMemo(() => ydoc.getMap<Y.Text>('texts'), [ydoc])
   const meta = useMemo(() => ydoc.getMap<unknown>('meta'), [ydoc])
+  /** The shapes of packages the board uses, by `package/shape`: carried along so everybody can draw them. */
+  const defMap = useMemo(() => ydoc.getMap<unknown>('defs'), [ydoc])
   const undoManager = useMemo(
     () => new Y.UndoManager([items, lines, texts, meta], { trackedOrigins: new Set([LOCAL]), captureTimeout: CAPTURE_MS }),
     [items, lines, texts, meta],
   )
   const [background, setShownBackground] = useState<Background | undefined>(undefined)
+  const [defs, setDefs] = useState<Record<string, ShapeDef>>({})
+  const shownDefs = useRef<Record<string, ShapeDef>>({})
   const [doc, setDoc] = useState<Doc>(EMPTY)
   const current = useRef<Doc>(EMPTY)
   const [status, setStatus] = useState<LiveStatus>('connecting')
@@ -106,6 +111,15 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string })
       setDoc(next)
       const own = meta.get('background')
       setShownBackground(own && typeof own === 'object' ? (own as Background) : undefined)
+      // A new object only when the board's shapes changed, so drawing everything again stays rare.
+      if (defMap.size !== Object.keys(shownDefs.current).length) {
+        const next: Record<string, ShapeDef> = {}
+        defMap.forEach((value, key) => {
+          if (value && typeof value === 'object') next[key] = value as ShapeDef
+        })
+        shownDefs.current = next
+        setDefs(next)
+      }
     }
     const changed = () => {
       if (!frame) frame = requestAnimationFrame(redraw)
@@ -122,7 +136,7 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string })
       undoManager.off('stack-cleared', stacks)
       if (frame) cancelAnimationFrame(frame)
     }
-  }, [ydoc, items, lines, texts, meta, undoManager])
+  }, [ydoc, items, lines, texts, meta, defMap, undoManager])
 
   useEffect(() => {
     const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws'
@@ -250,6 +264,17 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string })
     },
     [ydoc, meta, undoManager],
   )
+  /** Carries shapes of packages along with the board (once each; a shape already there stays as it was drawn). */
+  const addDefs = useCallback(
+    (more: Record<string, ShapeDef>) => {
+      const missing = Object.entries(more).filter(([key]) => !defMap.has(key))
+      if (!missing.length) return
+      ydoc.transact(() => {
+        for (const [key, def] of missing) defMap.set(key, def)
+      }, 'defs')
+    },
+    [ydoc, defMap],
+  )
   const checkpoint = useCallback(() => undoManager.stopCapturing(), [undoManager])
   const forget = useCallback(() => undefined, [])
   const undo = useCallback(() => {
@@ -301,6 +326,8 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string })
     doc,
     background,
     setBackground,
+    defs,
+    addDefs,
     ref: current,
     commit,
     live,

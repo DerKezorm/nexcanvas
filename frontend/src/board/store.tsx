@@ -33,6 +33,7 @@ export function toBoard(info: BoardInfo): Board {
     items: picture.items as unknown as Item[],
     lines: picture.lines as unknown as LineItem[],
     background: (picture as { background?: Background }).background,
+    defs: (picture as { defs?: Board['defs'] }).defs,
   }
 }
 

@@ -1,6 +1,7 @@
 import { memo } from 'react'
 
 import { arrowAngle, lineGeometry, type Point } from '../geometry'
+import { outlineFor, useLibrary } from '../library/registry'
 import { paint } from '../palette'
 import type { Item, LineItem } from '../types'
 
@@ -14,10 +15,11 @@ function head(tip: Point, from: Point, size: number): string {
 /** All lines of the board in one SVG at the board origin; each answers to the pointer along its path. */
 export const Lines = memo(function Lines({ lines, items, selected }: { lines: LineItem[]; items: Item[]; selected: Set<string> }) {
   const byId = new Map(items.map((i) => [i.id, i]))
+  const outlineOf = outlineFor(useLibrary().lookup)
   return (
     <svg className="absolute top-0 left-0 overflow-visible" width={1} height={1} style={{ pointerEvents: 'none' }} aria-hidden="true">
       {lines.map((line) => {
-        const g = lineGeometry(line, byId)
+        const g = lineGeometry(line, byId, outlineOf)
         const color = paint(line.color)
         const size = 8 + line.width * 2.5
         return (

@@ -388,7 +388,8 @@
       "files": "Dateien",
       "backups": "Sicherung",
       "languages": "Sprachen",
-      "log": "Log"
+      "log": "Log",
+      "shapes": "Formpakete"
     },
     "start": {
       "title": "Startseite",
@@ -738,7 +739,12 @@
     "forbidden": "Dein Recht in diesem Bereich erlaubt das nicht.",
     "setup_code_wrong": "Der Einrichtungscode stimmt nicht. Er steht im Log des Servers.",
     "invalid_canvas": "Das ist keine JSON-Canvas-Datei (.canvas) und kein Archiv mit einer (.zip).",
-    "empty_canvas": "Auf dieser Leinwand ist nichts zum Hereinholen."
+    "empty_canvas": "Auf dieser Leinwand ist nichts zum Hereinholen.",
+    "invalid_package": "Das Formpaket passt nicht zum Format: {{reason}}",
+    "too_many_packages": "Hier liegen schon 50 Pakete.",
+    "packages_not_svg": "Das ist keine SVG-Datei.",
+    "packages_empty_svg": "In der SVG-Datei ist nichts, was sich zeichnen lässt.",
+    "packages_not_json": "Das ist keine Paketdatei (JSON)."
   },
   "auth": {
     "name": "Name",
@@ -923,5 +929,68 @@
       "chalk": "Tafelgrün",
       "blueprint": "Blaupause"
     }
+  },
+  "library": {
+    "title": "Formen",
+    "open": "Formen öffnen",
+    "fold": "Formen einklappen",
+    "search": "Formen suchen",
+    "found_one": "Ein Treffer",
+    "found_other": "{{count}} Treffer",
+    "nothing": "Keine Form passt.",
+    "favorites": "Favoriten",
+    "recent": "Zuletzt",
+    "hint": "Ziehen legt ab, ein Klick wählt zum Aufziehen.",
+    "manage": "Formpakete verwalten",
+    "all": "Alle Formen …",
+    "star": "„{{name}}“ zu den Favoriten",
+    "unstar": "„{{name}}“ aus den Favoriten",
+    "scope": {
+      "server": "Server",
+      "space": "Bereich"
+    }
+  },
+  "packages": {
+    "title": "Formpakete",
+    "serverTitle": "Formpakete für alle",
+    "serverText": "Diese Pakete sieht jeder auf diesem Server in der Formenleiste, neben den mitgelieferten.",
+    "spaceTitle": "Formpakete in „{{space}}“",
+    "spaceText": "Wer in diesem Bereich ist, findet diese Pakete in der Formenleiste jedes Boards hier. Ändern dürfen die Verwalter.",
+    "none": "Noch keine eigenen Pakete.",
+    "shapes_one": "eine Form",
+    "shapes_other": "{{count}} Formen",
+    "on": "An",
+    "addSvg": "SVG hinzufügen",
+    "download": "Herunterladen",
+    "remove": "Entfernen",
+    "removeShape": "„{{name}}“ entfernen",
+    "empty": "Noch leer. Formen kommen per „SVG hinzufügen“ oder „Als Form speichern“ auf einem Board.",
+    "newName": "Neues Paket",
+    "newPlaceholder": "Zum Beispiel Büro Hamburg",
+    "new": "Anlegen",
+    "import": "Datei importieren",
+    "made": "Paket angelegt.",
+    "imported": "Paket importiert.",
+    "svgAdded_one": "Eine Form hinzugefügt.",
+    "svgAdded_other": "{{count}} Formen hinzugefügt.",
+    "removeTitle": "„{{name}}“ entfernen?",
+    "removeText": "Das Paket verschwindet aus der Formenleiste. Formen, die schon auf Boards liegen, bleiben dort, wie sie sind.",
+    "boardsKeep": "Ein Board trägt jede Form mit, die darauf liegt: Ändern oder Entfernen eines Pakets ändert keine fertigen Boards."
+  },
+  "saveShape": {
+    "menu": "Als Form speichern",
+    "title": "Als Form speichern",
+    "name": "Name der Form",
+    "placeholder": "Meine Form",
+    "package": "In Paket",
+    "newPackage": "Neues Paket „Eigene Formen“",
+    "ownDe": "Eigene Formen",
+    "ownEn": "Own shapes",
+    "left_one": "Ein Text, Bild oder Rahmen kommt nicht mit.",
+    "left_other": "{{count}} Texte, Bilder oder Rahmen kommen nicht mit.",
+    "nothing": "In der Auswahl ist nichts mit Linien oder Flächen.",
+    "where": "Die Form liegt danach in der Formenleiste aller Boards dieses Bereichs. Ihre Farben richten sich nach Füllung und Linienfarbe, wie bei jeder Form.",
+    "save": "Speichern",
+    "saved": "„{{name}}“ liegt jetzt in der Formenleiste."
   }
 }

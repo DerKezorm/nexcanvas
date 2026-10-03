@@ -388,7 +388,8 @@
       "files": "Files",
       "backups": "Backups",
       "languages": "Languages",
-      "log": "Log"
+      "log": "Log",
+      "shapes": "Shape packages"
     },
     "start": {
       "title": "Start page",
@@ -738,7 +739,12 @@
     "forbidden": "Your right in this space does not allow this.",
     "setup_code_wrong": "The setup code is wrong. It stands in the server log.",
     "invalid_canvas": "This is not a JSON Canvas file (.canvas) or an archive with one (.zip).",
-    "empty_canvas": "There is nothing on this canvas to bring in."
+    "empty_canvas": "There is nothing on this canvas to bring in.",
+    "invalid_package": "The shape package does not fit the format: {{reason}}",
+    "too_many_packages": "There are 50 packages here already.",
+    "packages_not_svg": "This is no SVG file.",
+    "packages_empty_svg": "The SVG file holds nothing that can be drawn.",
+    "packages_not_json": "This is no package file (JSON)."
   },
   "auth": {
     "name": "Name",
@@ -923,5 +929,68 @@
       "chalk": "Chalkboard",
       "blueprint": "Blueprint"
     }
+  },
+  "library": {
+    "title": "Shapes",
+    "open": "Open shapes",
+    "fold": "Fold shapes",
+    "search": "Search shapes",
+    "found_one": "One match",
+    "found_other": "{{count}} matches",
+    "nothing": "No shape matches.",
+    "favorites": "Favourites",
+    "recent": "Recent",
+    "hint": "Drag to place, click to choose and draw.",
+    "manage": "Manage shape packages",
+    "all": "All shapes …",
+    "star": "Add “{{name}}” to favourites",
+    "unstar": "Remove “{{name}}” from favourites",
+    "scope": {
+      "server": "Server",
+      "space": "Space"
+    }
+  },
+  "packages": {
+    "title": "Shape packages",
+    "serverTitle": "Shape packages for everybody",
+    "serverText": "Everybody on this server sees these packages in the shape library, next to the shipped ones.",
+    "spaceTitle": "Shape packages in “{{space}}”",
+    "spaceText": "Everybody in this space finds these packages in the shape library of every board here. Managers may change them.",
+    "none": "No packages of your own yet.",
+    "shapes_one": "one shape",
+    "shapes_other": "{{count}} shapes",
+    "on": "On",
+    "addSvg": "Add SVG",
+    "download": "Download",
+    "remove": "Remove",
+    "removeShape": "Remove “{{name}}”",
+    "empty": "Empty so far. Shapes come in with \"Add SVG\" or \"Save as shape\" on a board.",
+    "newName": "New package",
+    "newPlaceholder": "For example Office Hamburg",
+    "new": "Create",
+    "import": "Import file",
+    "made": "Package created.",
+    "imported": "Package imported.",
+    "svgAdded_one": "One shape added.",
+    "svgAdded_other": "{{count}} shapes added.",
+    "removeTitle": "Remove “{{name}}”?",
+    "removeText": "The package leaves the shape library. Shapes already on boards stay there as they are.",
+    "boardsKeep": "A board carries every shape on it: changing or removing a package changes no finished board."
+  },
+  "saveShape": {
+    "menu": "Save as shape",
+    "title": "Save as shape",
+    "name": "Name of the shape",
+    "placeholder": "My shape",
+    "package": "Into package",
+    "newPackage": "New package \"Own shapes\"",
+    "ownDe": "Eigene Formen",
+    "ownEn": "Own shapes",
+    "left_one": "One text, photo or frame does not come along.",
+    "left_other": "{{count}} texts, photos or frames do not come along.",
+    "nothing": "Nothing in the selection has lines or areas.",
+    "where": "The shape then lies in the shape library of every board in this space. Its colours follow fill and line colour, as with any shape.",
+    "save": "Save",
+    "saved": "“{{name}}” now lies in the shape library."
   }
 }

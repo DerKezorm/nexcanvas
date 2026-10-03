@@ -5,6 +5,8 @@
  * The order of `items` is the stacking order: the last one lies on top.
  */
 
+import type { ShapeDef } from './library/types'
+
 export type NoteColor = 'yellow' | 'orange' | 'pink' | 'violet' | 'blue' | 'green' | 'gray'
 
 export type ShapeKind = 'rect' | 'round' | 'ellipse' | 'triangle' | 'diamond' | 'hexagon' | 'star' | 'arrow' | 'speech'
@@ -35,6 +37,8 @@ export interface NoteItem extends Box {
 export interface ShapeItem extends Box {
   kind: 'shape'
   shape: ShapeKind
+  /** A shape of a package (`package/shape`); `shape` is then what an older page draws instead. */
+  lib?: string
   /** A color from the palette, or `none`. */
   fill: string
   stroke: string
@@ -133,6 +137,8 @@ export interface Doc {
   lines: LineItem[]
   /** Kept apart in the live document (`useLiveDoc`); here for pictures, templates and copies. */
   background?: Background
+  /** The shapes of packages the board uses, so everybody sees them without having the package. */
+  defs?: Record<string, ShapeDef>
 }
 
 export interface View {

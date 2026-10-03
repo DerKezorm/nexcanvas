@@ -148,7 +148,15 @@ export type Me = {
   preferences?: Preferences
 }
 
-export type Preferences = { snap: boolean; dots: boolean; tool_back: boolean; start: 'boards' | 'last' }
+export type Preferences = {
+  snap: boolean
+  dots: boolean
+  tool_back: boolean
+  start: 'boards' | 'last'
+  library_open?: boolean
+  library_favorites?: string[]
+  library_recent?: string[]
+}
 
 export type Member = { id: number; name: string; display_name: string; role: Role; avatar: string | null }
 

@@ -252,7 +252,7 @@ export function ContextBar({ items, lines, at, actions, docked = false }: {
           {panel === 'shape' && (
             <div className="grid grid-cols-5 gap-1">
               {SHAPES.map(({ kind, Icon }) => (
-                <button key={kind} type="button" className="nc-tool h-8 w-8" aria-pressed={first?.kind === 'shape' && first.shape === kind} title={t(`shapes.${kind}`)} aria-label={t(`shapes.${kind}`)} onClick={() => actions.change((x) => (x.kind === 'shape' ? { ...x, shape: kind } : x))}>
+                <button key={kind} type="button" className="nc-tool h-8 w-8" aria-pressed={first?.kind === 'shape' && first.shape === kind && !first.lib} title={t(`shapes.${kind}`)} aria-label={t(`shapes.${kind}`)} onClick={() => actions.change((x) => (x.kind === 'shape' ? { ...x, shape: kind, lib: undefined } : x))}>
                   <Icon className="h-4 w-4" />
                 </button>
               ))}

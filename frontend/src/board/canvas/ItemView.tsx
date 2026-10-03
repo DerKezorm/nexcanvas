@@ -6,6 +6,8 @@ import { useMediaUrl } from './media'
 import { ItemActions, PdfPage } from './PdfPage'
 
 import { shapePath, shapeTextBox } from '../geometry'
+import { LibShape } from '../library/LibShape'
+import { useLibrary } from '../library/registry'
 import { inkPath } from '../ink'
 import { NOTE_COLORS, paint, textOn } from '../palette'
 import type { FrameItem, Item, TextSize } from '../types'
@@ -33,9 +35,12 @@ interface Props {
 
 /** One item on the board, in board coordinates. The board's transform scales it. */
 export const ItemView = memo(function ItemView({ item, editing, onText, onDone, onMeasure }: Props) {
+  const { lookup } = useLibrary()
+  const def = item.kind === 'shape' && item.lib ? lookup(item.lib) : undefined
   // Drawings and empty frames only answer on their lines, so what lies under them stays reachable.
   // Frames answer only on their edge and their name, so what lies in them can be picked and a selection rectangle drawn.
-  const thin = item.kind === 'ink' || item.kind === 'frame' || (item.kind === 'shape' && item.fill === 'none')
+  // A shape of a package answers on all of it (a bed is a bed, filled or not), a container only on its lines.
+  const thin = item.kind === 'ink' || item.kind === 'frame' || (item.kind === 'shape' && item.fill === 'none' && (!def || def.hollow === true))
   const style = {
     left: item.x,
     top: item.y,
@@ -156,6 +161,7 @@ function Frame({ item, editing, onDone }: { item: FrameItem; editing: boolean; o
 
 function Body({ item, editing, onText, onDone, onMeasure }: Props) {
   const { t } = useTranslation()
+  const { lookup } = useLibrary()
   const mediaUrl = useMediaUrl()
   const box = useRef<HTMLDivElement>(null)
 
@@ -182,6 +188,35 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
       )
     }
     case 'shape': {
+      const def = item.lib ? lookup(item.lib) : undefined
+      if (def) {
+        const box = def.text ?? { x: 0, y: 0, w: 1, h: 1 }
+        const inside = box.x >= 0 && box.y >= 0 && box.x + box.w <= 1.001 && box.y + box.h <= 1.001
+        // Words on the fill read as on a shape; words beside the drawing (under a router) read as on the board.
+        const color = inside && item.fill !== 'none' ? textOn(item.fill) : 'var(--color-mist-100)'
+        const size = Math.max(12, Math.min(20, Math.min(item.w, item.h * (inside ? 1 : 3)) / 4.5))
+        const shown = item.text || (def.measure ? `${Math.round(item.w)} cm` : '')
+        const quiet = def.quiet && !item.text && !editing
+        return (
+          <>
+            <LibShape def={def} w={item.w} h={item.h} colors={{ fill: item.fill, line: item.stroke }} />
+            {!quiet && (
+              <div
+                className="absolute flex items-center justify-center text-center font-medium"
+                style={{ left: box.x * item.w, top: box.y * item.h, width: box.w * item.w, height: box.h * item.h, color, fontSize: size, lineHeight: 1.2 }}
+              >
+                {editing ? (
+                  <Editor id={item.id} value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="h-full w-full text-center font-medium" style={{ color, fontSize: size, lineHeight: 1.2 }} />
+                ) : (
+                  <span className="pointer-events-none line-clamp-4 px-1 break-words whitespace-pre-wrap" data-measure={def.measure && !item.text ? '' : undefined}>
+                    {shown}
+                  </span>
+                )}
+              </div>
+            )}
+          </>
+        )
+      }
       const tb = shapeTextBox(item.shape, item.w, item.h)
       const color = textOn(item.fill)
       const size = Math.max(12, Math.min(22, Math.min(item.w, item.h) / 4.5))

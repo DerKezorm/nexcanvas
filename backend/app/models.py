@@ -16,6 +16,7 @@ from typing import Any, ClassVar
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     ForeignKey,
     Index,
@@ -299,6 +300,21 @@ class Share(Base):
     password_hash: Mapped[str] = mapped_column(String(255), default="")
 
 
+class ShapePackage(Base):
+    """A package of shapes (block 4), installed for one space or, without a space, for the whole server. ``data`` is
+    the package as ``services/shapepacks`` checked it; nothing else is ever kept."""
+
+    __tablename__ = "shape_packages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    space_id: Mapped[int | None] = mapped_column(ForeignKey("spaces.id", ondelete="CASCADE"), nullable=True, index=True)
+    data: Mapped[Any] = mapped_column(JSON)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+
 class ApiToken(Base):
     """A token an account made for programs (``/api/v1``). Only the SHA-256 is stored."""
 
@@ -342,6 +358,7 @@ __all__ = [
     "Media",
     "Membership",
     "Setting",
+    "ShapePackage",
     "Share",
     "Space",
     "SpaceNotice",

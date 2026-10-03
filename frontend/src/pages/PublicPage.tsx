@@ -14,13 +14,14 @@ import { Stage, useStageKeys, wholeScreen } from '../board/canvas/Stage'
 import { Lines } from '../board/canvas/Lines'
 import { MediaBase } from '../board/canvas/media'
 import { backgroundStyle, effectiveBackground, inkVariables } from '../board/background'
+import { LibraryContext, makeLookup } from '../board/library/registry'
 import { bounds, type Rect } from '../board/geometry'
 import type { Background, Doc, Item, LineItem, View } from '../board/types'
 import { Logo } from '../components/Logo'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
 import { errorText } from '../lib/errors'
 
-type Page = { title: string; picture?: { items: Item[]; lines: LineItem[]; background?: Background }; password?: boolean; token?: string }
+type Page = { title: string; picture?: { items: Item[]; lines: LineItem[]; background?: Background; defs?: Doc['defs'] }; password?: boolean; token?: string }
 
 const nothing = () => undefined
 
@@ -125,6 +126,8 @@ export function PublicPage() {
   const byId = new Map(doc.items.map((i) => [i.id, i]))
   return (
     <MediaBase.Provider value={`/api/public/${encodeURIComponent(page.token ?? token)}/media/`}>
+    {/* Shapes of packages come with the board's picture; nothing is looked up anywhere else. */}
+    <LibraryContext.Provider value={{ lookup: makeLookup([], doc.defs), packages: [], reload: () => undefined }}>
       <div className="flex h-dvh flex-col">
         <header className={'flex shrink-0 items-center gap-3 border-b border-ink-700/80 px-4 py-2.5 ' + (presenting !== null ? 'hidden' : '')}>
           <Logo className="h-7 w-7" />
@@ -210,6 +213,7 @@ export function PublicPage() {
           {byId.size === 0 && <p className="absolute inset-0 grid place-items-center text-sm text-mist-600">{t('public.empty')}</p>}
         </div>
       </div>
+    </LibraryContext.Provider>
     </MediaBase.Provider>
   )
 }

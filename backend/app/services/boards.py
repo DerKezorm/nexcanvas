@@ -30,6 +30,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from ..models import Account, Board, BoardUpdate, BoardVersion, utcnow
+from . import shapepacks
 
 logger = logging.getLogger("nexcanvas.boards")
 
@@ -90,7 +91,28 @@ def empty_doc() -> Doc:
     doc.get("lines", type=Map)
     doc.get("texts", type=Map)
     doc.get("meta", type=Map)
+    doc.get("defs", type=Map)
     return doc
+
+
+#: A shape of a package as a board knows it (block 4): ``package/shape``.
+DEF_KEY = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}/[a-z0-9][a-z0-9-]{0,39}$")
+MAX_DEFS = 300
+
+
+def clean_defs(value: Any) -> dict[str, dict[str, Any]]:
+    """The shapes of packages a board carries, each checked as a package's shape is; the rest left out."""
+    out: dict[str, dict[str, Any]] = {}
+    if not isinstance(value, dict):
+        return out
+    for key, raw in list(value.items())[:MAX_DEFS]:
+        if not isinstance(key, str) or not DEF_KEY.match(key):
+            continue
+        try:
+            out[key] = shapepacks.check_shape(raw)
+        except shapepacks.PackError:
+            continue
+    return out
 
 
 def clean_background(value: Any) -> dict[str, str] | None:
@@ -130,6 +152,9 @@ def doc_from_json(content: dict[str, Any] | None) -> Doc:
         background = clean_background(content.get("background"))
         if background:
             doc.get("meta", type=Map)["background"] = background
+        defs = doc.get("defs", type=Map)
+        for key, shape in clean_defs(content.get("defs")).items():
+            defs[key] = shape
     return doc
 
 
@@ -150,6 +175,9 @@ def snapshot_of(doc: Doc) -> dict[str, Any]:
     background = clean_background((doc.get("meta", type=Map).to_py() or {}).get("background"))
     if background:
         picture["background"] = background
+    defs = clean_defs(doc.get("defs", type=Map).to_py() or {})
+    if defs:
+        picture["defs"] = defs
     return picture
 
 
@@ -296,8 +324,14 @@ def restore_version(db: Session, board: Board, version: BoardVersion) -> bytes:
     old_lines = old.get("lines", type=Map).to_py() or {}
     old_texts = old.get("texts", type=Map).to_py() or {}
     meta = present.get("meta", type=Map)
+    defs = present.get("defs", type=Map)
+    old_defs = old.get("defs", type=Map).to_py() or {}
     old_background = (old.get("meta", type=Map).to_py() or {}).get("background")
     with present.transaction():
+        # Shapes the old state used come back with it; the ones added since stay, a board may show them again.
+        for key, value in old_defs.items():
+            if key not in defs:
+                defs[key] = value
         if old_background is None:
             if "background" in meta:
                 del meta["background"]

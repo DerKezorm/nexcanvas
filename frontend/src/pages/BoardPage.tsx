@@ -6,6 +6,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { backgroundStyle, effectiveBackground, gridStep, inkVariables } from '../board/background'
 import { BackgroundDialog } from '../board/canvas/BackgroundDialog'
 import { BranchMenu, rememberChoice } from '../board/canvas/BranchMenu'
+import { BUILTIN } from '../board/library/builtin'
+import { LibShape } from '../board/library/LibShape'
+import { LibraryPanel, SHAPE_DRAG } from '../board/library/LibraryPanel'
+import { SaveShapeDialog } from '../board/library/SaveShapeDialog'
+import { LibraryContext, makeLookup, outlineFor, shipped, useInstalled, type Library } from '../board/library/registry'
 import { ContextBar, type ContextActions } from '../board/canvas/ContextBar'
 import { ExportDialog } from '../board/canvas/ExportDialog'
 import { ScenesPanel } from '../board/canvas/ScenesPanel'
@@ -27,7 +32,7 @@ import { arrange } from '../board/arrange'
 import { NOTE_COLORS, paint } from '../board/palette'
 import { toBoard as boardFromInfo, useBoards } from '../board/store'
 import type { Board, Doc, End, InkItem, Item, LineItem, View } from '../board/types'
-import { ApiError, boardsApi, mediaApi } from '../api/client'
+import { ApiError, authApi, boardsApi, mediaApi, type Me } from '../api/client'
 import { errorText } from '../lib/errors'
 import { useAuth } from '../state/auth'
 import { Dialog } from '../components/Dialog'
@@ -73,13 +78,14 @@ function freshGroups<T extends Item>(copies: T[]): T[] {
   })
 }
 /** The box a drag makes: corner to corner, or out of the middle with Alt; Shift (and a note) keeps it square. */
-function dragBox(start: Point, p: Point, square: boolean, fromMiddle: boolean): Rect {
+function dragBox(start: Point, p: Point, square: boolean, fromMiddle: boolean, ratio = 1): Rect {
   let dx = p.x - start.x
   let dy = p.y - start.y
   if (square) {
-    const side = Math.max(Math.abs(dx), Math.abs(dy))
-    dx = (dx < 0 ? -1 : 1) * side
-    dy = (dy < 0 ? -1 : 1) * side
+    // Equal sides, or the shape's own proportions (`ratio` is width by height).
+    const w = Math.max(Math.abs(dx), Math.abs(dy) * ratio)
+    dx = (dx < 0 ? -1 : 1) * w
+    dy = (dy < 0 ? -1 : 1) * (w / ratio)
   }
   if (fromMiddle) return { x: start.x - Math.abs(dx), y: start.y - Math.abs(dy), w: Math.abs(dx) * 2, h: Math.abs(dy) * 2 }
   return normalize(start, { x: start.x + dx, y: start.y + dy })
@@ -182,6 +188,26 @@ function Editor({ board }: { board: Board }) {
   const [presenting, setPresenting] = useState<number | null>(null)
   const [exporting, setExporting] = useState<'board' | 'selection' | null>(null)
   const [choosingBackground, setChoosingBackground] = useState(false)
+  const { installed, reload: reloadPackages } = useInstalled(board.space)
+  const library = useMemo<Library>(
+    () => ({ lookup: makeLookup(installed, doc.defs), packages: [...BUILTIN, ...installed.filter((p) => p.enabled !== false)], reload: reloadPackages }),
+    [installed, doc.defs, reloadPackages],
+  )
+  const outlineOf = useMemo(() => outlineFor(library.lookup), [library])
+  const { setMe } = useAuth()
+  const [libraryOpen, setLibraryOpen] = useState(me?.preferences?.library_open ?? true)
+  const [librarySheet, setLibrarySheet] = useState(false)
+  /** What is selected, on its way into a package as one shape. */
+  const [savingShape, setSavingShape] = useState<Item[] | null>(null)
+  const favorites = useMemo(() => me?.preferences?.library_favorites ?? [], [me])
+  const recent = useMemo(() => me?.preferences?.library_recent ?? [], [me])
+  /** The account's library preferences, kept with it (open or folded, starred, last taken). */
+  const keepLibrary = useCallback(
+    (change: { library_open?: boolean; library_favorites?: string[]; library_recent?: string[] }) => {
+      authApi.preferences(change).then((next) => me && setMe({ ...me, preferences: next } as Me), () => undefined)
+    },
+    [me, setMe],
+  )
   /** The board's own background, or the account's default where it has none. */
   const bg = effectiveBackground(doc.background, prefs.dots)
   const [keys, setKeys] = useState(false)
@@ -331,6 +357,22 @@ function Editor({ board }: { board: Board }) {
       }
     },
     [doc],
+  )
+
+  /** A shape of a package goes on the board: at its own size around `at`, or into `box`; carried along when it is not
+   * a shipped one, so everybody sees it. */
+  const placeShape = useCallback(
+    (key: string, at: Point, box?: Rect) => {
+      const def = library.lookup(key)
+      if (!def) return
+      const w = def.w ?? def.vw
+      const h = def.h ?? def.vh
+      const r = box ?? { x: at.x - w / 2, y: at.y - h / 2, w, h }
+      if (!shipped(key)) doc.addDefs({ [key]: def })
+      add({ id: uid(), kind: 'shape', ...r, shape: 'rect', lib: key, fill: def.fill ?? '#60a5fa', stroke: 'none', text: '' })
+      keepLibrary({ library_recent: [key, ...recent.filter((k) => k !== key)].slice(0, 12) })
+    },
+    [library, doc, add, keepLibrary, recent],
   )
 
   /** Adds what was chosen at the "+": beside `from` on `side` (or at `place`), joined to it by a line, ready to write in.
@@ -540,7 +582,7 @@ function Editor({ board }: { board: Board }) {
       const ids = [...own, ...notesOn(new Set(own), doc.ref.current.items).filter((id) => !own.includes(id))]
       const box = bounds(selItems.filter((i) => !i.locked))
       if (box && ids.length) {
-        const keep = e.shiftKey || selItems.some((i) => i.kind === 'image' || i.kind === 'ink') || ids.length > 1
+        const keep = e.shiftKey || selItems.some((i) => i.kind === 'image' || i.kind === 'ink' || (i.kind === 'shape' && !!i.lib && !!library.lookup(i.lib)?.keep)) || ids.length > 1
         gesture.current = { kind: 'resize', handle: handle.dir as Handle, start: p, origin: doc.ref.current, box, ids, keep: keep && (handle.dir?.length ?? 0) === 2, moved: false }
       }
       return
@@ -826,16 +868,19 @@ function Editor({ board }: { board: Board }) {
         )
         const linesIn = doc.ref.current.lines
           .filter((l) => {
-            const geo = lineGeometry(l, byId)
+            const geo = lineGeometry(l, byId, outlineOf)
             return contains(r, geo.a) && contains(r, geo.b)
           })
           .map((l) => l.id)
         setSelected([...new Set([...g.add, ...inside, ...linesIn])])
         return
       }
-      case 'create':
-        if (g.tool !== 'text') setDraft({ rect: dragBox(g.start, p, e.shiftKey || g.tool === 'note', e.altKey), as: g.tool })
+      case 'create': {
+        const def = g.tool === 'shape' && tools.lib ? library.lookup(tools.lib) : undefined
+        const ratio = def ? (def.w ?? def.vw) / (def.h ?? def.vh) : 1
+        if (g.tool !== 'text') setDraft({ rect: dragBox(g.start, p, e.shiftKey || g.tool === 'note' || !!def?.keep, e.altKey, ratio), as: g.tool })
         return
+      }
       case 'draw': {
         const last = g.points[g.points.length - 1]
         if (Math.hypot(p.x - last[0], p.y - last[1]) * v.zoom < 1.5) return
@@ -903,7 +948,8 @@ function Editor({ board }: { board: Board }) {
         setMarquee(null)
         return
       case 'create': {
-        const drag = dragBox(g.start, p, e.shiftKey || g.tool === 'note', e.altKey)
+        const def = g.tool === 'shape' && tools.lib ? library.lookup(tools.lib) : undefined
+        const drag = dragBox(g.start, p, e.shiftKey || g.tool === 'note' || !!def?.keep, e.altKey, def ? (def.w ?? def.vw) / (def.h ?? def.vh) : 1)
         const dragged = drag.w * viewRef.current.zoom > 8 && drag.h * viewRef.current.zoom > 8
         if (g.tool === 'note') {
           const r = dragged ? { ...drag, w: Math.max(60, drag.w), h: Math.max(60, drag.h) } : { x: p.x - 90, y: p.y - 90, w: 180, h: 180 }
@@ -914,6 +960,8 @@ function Editor({ board }: { board: Board }) {
           add({ id: uid(), kind: 'frame', ...r, title: t('frames.numbered', { n: number }), color: '#ff8a70' })
         } else if (g.tool === 'text') {
           add({ id: uid(), kind: 'text', x: p.x, y: p.y - 14, w: dragged ? drag.w : 280, h: 30, text: '', size: 'm', color: 'auto' }, true)
+        } else if (def && tools.lib) {
+          placeShape(tools.lib, p, dragged ? drag : undefined)
         } else {
           const r = dragged ? drag : { x: p.x - 80, y: p.y - 60, w: 160, h: 120 }
           add({ id: uid(), kind: 'shape', ...r, shape: tools.shape, fill: '#60a5fa', stroke: 'none', text: '' })
@@ -1304,7 +1352,7 @@ function Editor({ board }: { board: Board }) {
       ? { ...screenBox, rot: 0 }
       : null
   const singleLine = selLines.length === 1 && selItems.length === 0 ? selLines[0] : null
-  const lineGeo = singleLine ? lineGeometry(singleLine, byId) : null
+  const lineGeo = singleLine ? lineGeometry(singleLine, byId, outlineOf) : null
   const barAt = (() => {
     if (editing || gesture.current?.kind === 'move' || gesture.current?.kind === 'rotate' || readOnly || presenting !== null) return null
     if (screenBox) return { x: screenBox.x + screenBox.w / 2, y: Math.max(64, screenBox.y - 14) }
@@ -1439,6 +1487,11 @@ function Editor({ board }: { board: Board }) {
           if (readOnly) return
           const files = [...e.dataTransfer.files]
           const p = toBoard(local(e), viewRef.current)
+          const shape = e.dataTransfer.getData(SHAPE_DRAG)
+          if (shape) {
+            placeShape(shape, p)
+            return
+          }
           if (files.length) addFiles(files, p)
           else {
             const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain')
@@ -1447,6 +1500,7 @@ function Editor({ board }: { board: Board }) {
         }}
         data-testid="board"
       >
+        <LibraryContext.Provider value={library}>
         <ItemActions.Provider value={itemActions}>
         <div ref={world} className="absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, ['--zoom' as string]: view.zoom, ...inkVariables(bg) }}>
           {/* Frames lie under everything else, whatever was made first. */}
@@ -1459,7 +1513,12 @@ function Editor({ board }: { board: Board }) {
               <path d={outline(draft.ink, tools.tool === 'marker' ? tools.penSize * 4 : tools.penSize, tools.tool === 'marker', false)} fill={paint(tools.pen)} opacity={tools.tool === 'marker' ? 0.42 : 1} />
             </svg>
           )}
-          {draft?.rect && draft.as === 'shape' && (
+          {draft?.rect && draft.as === 'shape' && tools.lib && library.lookup(tools.lib) && (
+            <div className="pointer-events-none absolute opacity-70" style={{ left: draft.rect.x, top: draft.rect.y, width: draft.rect.w, height: draft.rect.h }} data-testid="draft" data-draft={tools.lib}>
+              <LibShape def={library.lookup(tools.lib)!} w={Math.max(1, draft.rect.w)} h={Math.max(1, draft.rect.h)} colors={{ fill: library.lookup(tools.lib)!.fill ?? '#60a5fa', line: 'none' }} interactive={false} />
+            </div>
+          )}
+          {draft?.rect && draft.as === 'shape' && !(tools.lib && library.lookup(tools.lib)) && (
             <svg className="pointer-events-none absolute overflow-visible" style={{ left: draft.rect.x, top: draft.rect.y }} width={Math.max(1, draft.rect.w)} height={Math.max(1, draft.rect.h)} data-testid="draft" data-draft={tools.shape}>
               <path d={shapePath(tools.shape, Math.max(1, draft.rect.w), Math.max(1, draft.rect.h))} fill="#60a5fa" fillOpacity={0.5} stroke="var(--color-accent-500)" strokeWidth={1.5 / view.zoom} />
             </svg>
@@ -1483,7 +1542,58 @@ function Editor({ board }: { board: Board }) {
 
         <PeerPointers peers={doc.peers} view={view} items={byId} />
 
+        {!readOnly && presenting === null && !phone && (
+          <LibraryPanel
+            open={libraryOpen}
+            onOpen={() => {
+              setLibraryOpen(true)
+              keepLibrary({ library_open: true })
+            }}
+            onClose={() => {
+              setLibraryOpen(false)
+              keepLibrary({ library_open: false })
+            }}
+            active={tools.tool === 'shape' ? tools.lib : undefined}
+            onPick={(key) => setTools((s) => ({ ...s, tool: 'shape', lib: key }))}
+            favorites={favorites}
+            recent={recent}
+            onFavorite={(key, on) => keepLibrary({ library_favorites: on ? [...favorites.filter((k) => k !== key), key] : favorites.filter((k) => k !== key) })}
+            space={board.space}
+          />
+        )}
+        {!readOnly && librarySheet && phone && (
+          <LibraryPanel
+            sheet
+            open
+            onOpen={() => undefined}
+            onClose={() => setLibrarySheet(false)}
+            active={tools.tool === 'shape' ? tools.lib : undefined}
+            onPick={(key) => {
+              setTools((s) => ({ ...s, tool: 'shape', lib: key }))
+              setLibrarySheet(false)
+            }}
+            favorites={favorites}
+            recent={recent}
+            onFavorite={(key, on) => keepLibrary({ library_favorites: on ? [...favorites.filter((k) => k !== key), key] : favorites.filter((k) => k !== key) })}
+            space={board.space}
+          />
+        )}
+        {savingShape && (
+          // Inside the board (it needs the board's library), so marked as no part of the board's own clicks.
+          <div data-ui>
+          <SaveShapeDialog
+            items={savingShape}
+            space={board.space}
+            onClose={() => setSavingShape(null)}
+            onSaved={(name) => {
+              setSavingShape(null)
+              setNotice(t('saveShape.saved', { name }))
+            }}
+          />
+          </div>
+        )}
         </ItemActions.Provider>
+        </LibraryContext.Provider>
 
         {/* Overlay in screen pixels: guides, marquee, selection with handles. */}
         {guides.x.map((x) => (
@@ -1575,6 +1685,13 @@ function Editor({ board }: { board: Board }) {
               onUpload={() => fileInput.current?.click()}
               onLink={() => setAsking('link')}
               onCamera={() => cameraInput.current?.click()}
+              onLibrary={() => {
+                if (phone) setLibrarySheet(true)
+                else {
+                  setLibraryOpen(true)
+                  keepLibrary({ library_open: true })
+                }
+              }}
             />
           )}
         </div>
@@ -1638,6 +1755,9 @@ function Editor({ board }: { board: Board }) {
             {menu.on ? (
               <>
                 <button type="button" className="nc-menu-item" onClick={() => { setMenu(null); duplicate(selected) }} disabled={readOnly}>{t('context.duplicate')}</button>
+                {space?.role === 'manage' && !readOnly && (
+                  <button type="button" className="nc-menu-item" onClick={() => { setMenu(null); setSavingShape(selItems) }}>{t('saveShape.menu')}</button>
+                )}
                 <button type="button" className="nc-menu-item" onClick={() => { setMenu(null); actions.front() }} disabled={readOnly}>{t('context.front')}</button>
                 <button type="button" className="nc-menu-item" onClick={() => { setMenu(null); actions.back() }} disabled={readOnly}>{t('context.back')}</button>
                 <button type="button" className="nc-menu-item" onClick={() => { setMenu(null); actions.lock(!allLocked) }} disabled={readOnly}>{allLocked ? t('context.unlock') : t('context.lock')}</button>

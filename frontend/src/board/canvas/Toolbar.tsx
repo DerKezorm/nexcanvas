@@ -49,6 +49,8 @@ export interface ToolState {
   note: NoteColor
   pen: string
   penSize: number
+  /** A shape of a package to draw instead of a basic one (`package/shape`). */
+  lib?: string
 }
 
 /** Opens a small panel next to a tool; closes on a click elsewhere. */
@@ -81,12 +83,15 @@ export function Toolbar({
   onUpload,
   onLink,
   onCamera,
+  onLibrary,
 }: {
   state: ToolState
   set: (change: Partial<ToolState>) => void
   onUpload: () => void
   onLink: () => void
   onCamera: () => void
+  /** Opens the whole shape library. */
+  onLibrary?: () => void
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState<'shape' | 'pen' | 'media' | 'note' | null>(null)
@@ -158,11 +163,16 @@ export function Toolbar({
         <Flyout open={open === 'shape'} onClose={close}>
           <div className="grid w-max grid-cols-3 gap-1">
             {SHAPES.map(({ kind, Icon }) => (
-              <button key={kind} type="button" className="nc-tool" aria-pressed={state.shape === kind} aria-label={t(`shapes.${kind}`)} title={t(`shapes.${kind}`)} onClick={() => { set({ shape: kind, tool: 'shape' }); close() }}>
+              <button key={kind} type="button" className="nc-tool" aria-pressed={state.shape === kind && !state.lib} aria-label={t(`shapes.${kind}`)} title={t(`shapes.${kind}`)} onClick={() => { set({ shape: kind, tool: 'shape', lib: undefined }); close() }}>
                 <Icon className="h-[18px] w-[18px]" strokeWidth={1.8} />
               </button>
             ))}
           </div>
+          {onLibrary && (
+            <button type="button" className="mt-1 w-full rounded-lg px-2 py-1.5 text-left text-xs font-medium text-accent-400 hover:bg-ink-800" onClick={() => { close(); onLibrary() }}>
+              {t('library.all')}
+            </button>
+          )}
         </Flyout>
       </div>
       {tool('text', t('tools.text'), Type, 'T')}

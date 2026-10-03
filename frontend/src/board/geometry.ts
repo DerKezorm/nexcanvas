@@ -1,4 +1,8 @@
+import type { Part } from './library/types'
 import type { End, Item, LineItem, ShapeKind, View } from './types'
+
+/** The outline of a shape of a package as parts of its box (null: the box); undefined for every other item. */
+export type OutlineOf = (item: Item) => Part[] | null | undefined
 
 export interface Rect {
   x: number
@@ -159,9 +163,9 @@ function leave(outline: Point[], from: Point, to: Point): { p: Point; n: Point }
 /**
  * Where a line coming from `toward` meets an item: on the edge of the shape as drawn (the curve of an ellipse, the
  * slope of a triangle), turned with a turned item, and which way the edge faces there. Lines touch; `gap` keeps them
- * off by some units.
+ * off by some units. `outlineOf` knows the outlines of shapes from packages.
  */
-export function attach(item: Item, toward: Point, gap = 0): { p: Point; n: Point } {
+export function attach(item: Item, toward: Point, gap = 0, outlineOf?: OutlineOf): { p: Point; n: Point } {
   const c = center(item)
   const rot = item.rot ?? 0
   // Worked out in the item's own upright frame, the answer turned back out of it.
@@ -170,7 +174,7 @@ export function attach(item: Item, toward: Point, gap = 0): { p: Point; n: Point
   const dy = q.y - c.y
   let hit: { p: Point; n: Point }
   if (dx === 0 && dy === 0) hit = { p: c, n: { x: 0, y: -1 } }
-  else if (item.kind === 'shape' && item.shape === 'ellipse') {
+  else if (item.kind === 'shape' && !item.lib && item.shape === 'ellipse') {
     const k = 1 / Math.sqrt((dx / (item.w / 2)) ** 2 + (dy / (item.h / 2)) ** 2)
     const px = dx * k
     const py = dy * k
@@ -180,7 +184,8 @@ export function attach(item: Item, toward: Point, gap = 0): { p: Point; n: Point
     const nl = Math.hypot(nx, ny) || 1
     hit = { p: { x: c.x + px, y: c.y + py }, n: { x: nx / nl, y: ny / nl } }
   } else {
-    const outline = item.kind === 'shape' ? shapeOutline(item.shape, item.w, item.h) : null
+    const parts = item.kind === 'shape' && item.lib ? outlineOf?.(item) : undefined
+    const outline = parts ? parts.map((q) => ({ x: q.x * item.w, y: q.y * item.h })) : item.kind === 'shape' && !item.lib ? shapeOutline(item.shape, item.w, item.h) : null
     const crossing = outline ? leave(outline.map((o) => ({ x: item.x + o.x, y: item.y + o.y })), c, q) : null
     hit = crossing ?? edgePoint(item, q, 0)
   }
@@ -196,13 +201,13 @@ function endTarget(end: End, items: Map<string, Item>): Point {
 }
 
 /** The path of a line, with its ends placed on the edges of the items it connects. */
-export function lineGeometry(line: LineItem, items: Map<string, Item>): LineGeometry {
+export function lineGeometry(line: LineItem, items: Map<string, Item>, outlineOf?: OutlineOf): LineGeometry {
   const ta = endTarget(line.a, items)
   const tb = endTarget(line.b, items)
   const ia = line.a.item ? items.get(line.a.item) : undefined
   const ib = line.b.item ? items.get(line.b.item) : undefined
-  const ea = ia ? attach(ia, tb) : { p: ta, n: null }
-  const eb = ib ? attach(ib, ta) : { p: tb, n: null }
+  const ea = ia ? attach(ia, tb, 0, outlineOf) : { p: ta, n: null }
+  const eb = ib ? attach(ib, ta, 0, outlineOf) : { p: tb, n: null }
   const a = ea.p
   const b = eb.p
   if (!line.curve) {

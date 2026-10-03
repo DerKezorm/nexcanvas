@@ -6,6 +6,7 @@ Invitations are in ``routers/members.py``, next to the rights they hand out.
 from __future__ import annotations
 
 import logging
+import re
 import unicodedata
 from typing import Annotated, Any
 
@@ -383,12 +384,28 @@ PREFERENCES: dict[str, tuple[Any, ...]] = {
     "dots": (True, False),
     "tool_back": (True, False),
     "start": ("boards", "last"),
+    #: The shape library on the left of a board: open or folded to a column of symbols.
+    "library_open": (True, False),
 }
+#: Lists an account keeps: shapes it starred and the ones it took last, as ``package/shape``; the most of each.
+PREFERENCE_LISTS: dict[str, int] = {"library_favorites": 200, "library_recent": 12}
+SHAPE_KEY = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}/[a-z0-9][a-z0-9-]{0,39}$")
+
+
+def _shape_keys(value: Any, most: int) -> list[str] | None:
+    if not isinstance(value, list) or len(value) > most:
+        return None
+    if not all(isinstance(v, str) and SHAPE_KEY.match(v) for v in value):
+        return None
+    return list(dict.fromkeys(value))
 
 
 def preferences_of(stored: Any) -> dict[str, Any]:
     stored = stored if isinstance(stored, dict) else {}
-    return {key: stored[key] if stored.get(key) in allowed else allowed[0] for key, allowed in PREFERENCES.items()}
+    out = {key: stored[key] if stored.get(key) in allowed else allowed[0] for key, allowed in PREFERENCES.items()}
+    for key, most in PREFERENCE_LISTS.items():
+        out[key] = _shape_keys(stored.get(key), most) or []
+    return out
 
 
 @router.put("/me/preferences", summary="The own preferences; only the values sent change")
@@ -397,6 +414,12 @@ def set_preferences(payload: dict[str, Any], account: Account, db: DbSession) ->
     assert row is not None
     current = preferences_of(row.preferences)
     for key, value in payload.items():
+        if key in PREFERENCE_LISTS:
+            keys = _shape_keys(value, PREFERENCE_LISTS[key])
+            if keys is None:
+                raise error("bad_preference", "This value is not one nexcanvas offers.", 422, field=key)
+            current[key] = keys
+            continue
         allowed = PREFERENCES.get(key)
         if allowed is None or value not in allowed or type(value) is not type(allowed[0]):
             raise error("bad_preference", "This value is not one nexcanvas offers.", 422, field=key)
