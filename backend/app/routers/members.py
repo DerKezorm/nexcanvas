@@ -141,7 +141,7 @@ def set_member(
     space = _space(db, account, space_id, operator_may=True)
     own = rights.role_in(db, account, space.id)
     # The operator acting where it does not manage: allowed, but every member is told.
-    beyond = rights.operator_powers(account) and not rights.at_least(own, MANAGE)
+    beyond = rights.operator_powers(account) and not rights.at_least(rights.own_role_in(db, account, space.id), MANAGE)
     target = accounts.by_name(db, person)
     membership = db.get(Membership, (space.id, target.id)) if target is not None else None
     if membership is None and not beyond and (target is None or target.id != account.id):
@@ -203,8 +203,10 @@ def remove_member(space_id: SpaceId, person: AccountName, account: Account, db: 
         raise error("not_a_member", "This account is not in the space.", 404)
     if membership.role == MANAGE and _managers_left(db, space.id, target.id) == 0 and _others(db, space.id, target.id):
         raise error("last_manager", "The space needs another manager first.", 409)
-    own = rights.role_in(db, account, space.id)
-    beyond = not leaving and rights.operator_powers(account) and not rights.at_least(own, MANAGE)
+    beyond = (
+        not leaving and rights.operator_powers(account)
+        and not rights.at_least(rights.own_role_in(db, account, space.id), MANAGE)
+    )
     db.delete(membership)
     if beyond:
         # Taking the last member out makes the space the operator's: the one taken out is told as well.

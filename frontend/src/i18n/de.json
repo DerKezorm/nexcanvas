@@ -672,7 +672,7 @@
     },
     "allSpaces": {
       "title": "Alle Bereiche",
-      "text": "Jeder Bereich mit seinen Verwaltern, ohne Inhalt. Hier setzt du Rechte zurück; jedes Mitglied erfährt davon.",
+      "text": "Jeder Bereich mit seinen Verwaltern. Als Betreiber siehst und verwaltest du jeden Bereich. Änderst du Rechte in einem Bereich, in dem du selbst nicht eingetragen bist, erfahren es die Mitglieder.",
       "none": "Noch keine Bereiche.",
       "yours": "ohne Mitglieder, gehört dir",
       "members_one": "ein Mitglied, verwaltet von {{managers}}",

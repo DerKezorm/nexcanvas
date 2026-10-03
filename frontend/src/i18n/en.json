@@ -672,7 +672,7 @@
     },
     "allSpaces": {
       "title": "All spaces",
-      "text": "Every space with its managers, without its contents. Reset rights here; every member is told.",
+      "text": "Every space with its managers. As the operator you see and manage every space. When you change rights in a space you are not in yourself, its members are told.",
       "none": "No spaces yet.",
       "yours": "no members, yours",
       "members_one": "one member, managed by {{managers}}",

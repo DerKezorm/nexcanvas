@@ -87,11 +87,15 @@ def test_moving_a_board_needs_writing_in_both_spaces_and_ends_its_public_page(cl
     assert client.put(f"/api/boards/{made['id']}/share", json={"days": 7}).status_code == 200
     moved = client.patch(f"/api/boards/{made['id']}", json={"space_id": other}).json()
     assert moved["space_id"] == other and moved["public"] is False
-    anna = make_account("anna")
-    stranger_space = None
+    anna, ben = make_account("anna"), make_account("ben")
+    join(client, other, "ben", "write")
     with new_client(anna) as browser:
         stranger_space = browser.post("/api/spaces", json={"name": "Anna's"}).json()["id"]
-    assert client.patch(f"/api/boards/{made['id']}", json={"space_id": stranger_space}).status_code == 404
+    with new_client(ben) as browser:
+        # Ben writes where the board is, but has no right in Anna's space: it does not exist for him.
+        assert browser.patch(f"/api/boards/{made['id']}", json={"space_id": stranger_space}).status_code == 404
+    # The operator manages every space.
+    assert client.patch(f"/api/boards/{made['id']}", json={"space_id": stranger_space}).status_code == 200
 
 
 def test_templates_and_copies_bring_their_items(client: TestClient, operator: Account, space: int) -> None:

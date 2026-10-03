@@ -84,7 +84,7 @@ def test_the_higher_of_own_and_team_right_counts(client: TestClient, operator: A
         assert browser.get("/api/spaces").json()[0]["role"] == "manage"
 
 
-def test_an_operator_does_not_see_a_space_only_a_team_has(client: TestClient, operator: Account) -> None:
+def test_the_operator_sees_a_space_only_a_team_has(client: TestClient, operator: Account) -> None:
     anna, ben = make_account("anna"), make_account("ben")
     team = _team(client, members=[anna.id, ben.id])
     with new_client(anna) as browser:
@@ -96,9 +96,9 @@ def test_an_operator_does_not_see_a_space_only_a_team_has(client: TestClient, op
         browser.put(f"/api/spaces/{other}/teams/{team['id']}", json={"role": "manage"})
         assert browser.delete(f"/api/spaces/{other}/members/anna").status_code == 204
         assert browser.get("/api/spaces").json()[0]["role"] == "manage"
-    assert other not in [s["id"] for s in client.get("/api/spaces").json()]
-    # Asked directly, too: the operator has no right there, the same 404 as for a space that does not exist.
-    assert client.patch(f"/api/spaces/{other}", json={"name": "Mine"}).status_code == 404
+    # The operator sees and manages every space, also one only a team has.
+    assert other in [s["id"] for s in client.get("/api/spaces").json()]
+    assert client.patch(f"/api/spaces/{other}", json={"name": "Mine"}).status_code == 200
 
 
 def test_a_manager_through_a_team_invites_and_the_invitation_holds(client: TestClient, operator: Account,

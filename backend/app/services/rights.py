@@ -5,8 +5,10 @@ add photos, the bin), **manage** (inviting, giving rights to people and teams, p
 space). A person has the right given to them (``memberships``) or to a team they are in (``team_grants``), the higher
 of all.
 
-A space **without any member and any team** belongs to the operator. As soon as a space has members, the operator is
-one of them or sees nothing of it: the operator can hand a space to somebody, but never reads a foreign private space.
+**The operator sees and manages every space** in the interface: whoever runs the server sees
+everything. A program acting with the operator's token does not: it has the operator's own rights, and the spaces
+nobody has. When the operator changes the members of a space it has no right of its own in, they are told
+(``own_role_in``, ``routers/members.py``).
 
 **Nothing leaks.** A space or board somebody may not read is treated as if it did not exist: the same 404 as for one
 that really does not exist, no name in any list, no title in the search.
@@ -32,7 +34,17 @@ from ..models import (
 )
 
 __all__ = [
-    "MANAGE", "READ", "WRITE", "RightsError", "at_least", "board_for", "check", "owned", "readable_ids", "role_in",
+    "MANAGE",
+    "READ",
+    "WRITE",
+    "RightsError",
+    "at_least",
+    "board_for",
+    "check",
+    "own_role_in",
+    "owned",
+    "readable_ids",
+    "role_in",
     "team_members_of",
 ]
 
@@ -102,8 +114,9 @@ def role_in(db: Session, account: Account, space_id: int | None) -> str | None:
     space = db.get(Space, space_id)
     if space is None or space.deleted_at is not None:
         return None
-    membership = db.get(Membership, (space_id, account.id))
-    role = higher(membership.role if membership is not None else None, _team_role(db, account.id, space_id))
+    if operator_powers(account):
+        return MANAGE
+    role = own_role_in(db, account, space_id)
     if role is not None:
         return role
     if account.role == OPERATOR and not owned(db, space_id):
@@ -111,9 +124,17 @@ def role_in(db: Session, account: Account, space_id: int | None) -> str | None:
     return None
 
 
+def own_role_in(db: Session, account: Account, space_id: int) -> str | None:
+    """The right the account has itself or through a team, without the operator's powers."""
+    membership = db.get(Membership, (space_id, account.id))
+    return higher(membership.role if membership is not None else None, _team_role(db, account.id, space_id))
+
+
 def readable_ids(db: Session, account: Account) -> set[int]:
     """Every space the account may read."""
     live = set(db.scalars(select(Space.id).where(Space.deleted_at.is_(None))))
+    if operator_powers(account):
+        return live
     own = set(db.scalars(select(Membership.space_id).where(Membership.account_id == account.id)))
     own |= set(db.scalars(
         select(TeamGrant.space_id).join(TeamMember, TeamMember.team_id == TeamGrant.team_id)
