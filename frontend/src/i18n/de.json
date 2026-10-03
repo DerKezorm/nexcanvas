@@ -1301,7 +1301,7 @@
     "managedSignIn": "Angemeldet wird über nexsuite. Ob nexsuite selbst prüft oder authentik fragt, stellst du dort ein. Dein eigenes Passwort bleibt als Notzugang.",
     "managedMail": "Der Mailserver kommt aus nexsuite. Ist dort keiner eingerichtet, verschickt nexcanvas keine Mails. Deine eigene Einstellung ist aufbewahrt, falls du trennst.",
     "managedTeams": "Teams kommen aus nexsuite und gelten in jeder verbundenen App.",
-    "managedProfile": "Name und Adresse kommen aus nexsuite. Ändern lassen sie sich dort.",
+    "managedProfile": "Profilbild, Name und Adresse kommen aus nexsuite und gelten in jeder verbundenen App. Ändern lassen sie sich dort.",
     "mailTitle": "E-Mail",
     "fromSuite": "aus nexsuite",
     "aloneText": "nexcanvas läuft allein, mit eigenen Konten, Teams, Bereichen und Einstellungen. Mit nexsuite verbunden kommt all das zentral von dort.",
@@ -1358,6 +1358,7 @@
     "loginButton": "Anmelden mit nexsuite",
     "emergencyLink": "Notzugang für den Betreiber",
     "emergencyLoginText": "Nur für den Betreiber, wenn nexsuite nicht erreichbar ist. Die Anmeldung erscheint im Protokoll von nexsuite.",
-    "managedSpace": "Die Rechte dieses Bereichs kommen aus nexsuite. Ändern lassen sie sich dort."
+    "managedSpace": "Die Rechte dieses Bereichs kommen aus nexsuite. Ändern lassen sie sich dort.",
+    "managedTwoFactor": "Der zweite Faktor wird in nexsuite eingerichtet (oder in authentik, wenn nexsuite darüber anmeldet) und gilt für alle verbundenen Apps."
   }
 }

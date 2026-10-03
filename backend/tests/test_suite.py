@@ -48,8 +48,20 @@ class FakeSuite:
         self.known = True
         self.mail: dict[str, Any] | None = None
         self.emergency: list[str] = []
+        self.bin: list[dict[str, str]] = []
+        self.pictures: dict[str, bytes] = {}
+        self.fetched: list[str] = []
+        self.gone: list[str] = []
         self.calls: list[tuple[str, str]] = []
         self.next = 100
+
+    def picture(self, url: str, token: str) -> bytes:
+        assert token == self.token and url.startswith(SUITE + "/api/connect/v1/avatars/")
+        pid = url.rsplit("/", 1)[1]
+        self.fetched.append(pid)
+        if pid not in self.pictures:
+            raise suite.SuiteError("suite_failed", "nexsuite refused.", 409)
+        return self.pictures[pid]
 
     def _id(self) -> str:
         self.next += 1
@@ -79,6 +91,7 @@ class FakeSuite:
                 "people": list(self.people.values()), "teams": list(self.teams.values()),
                 "spaces": [s for k, s in self.spaces.items() if k in self.ticked],
                 "mail": self.seal(self.mail) if self.mail else None, "emergency": self.emergency,
+                "bin": self.bin, "gone": self.gone,
                 "candidates": [] if self.connected else [{"id": k, "name": s["name"], "color": s["color"]}
                                                          for k, s in self.spaces.items()],
             }
@@ -113,6 +126,7 @@ class FakeSuite:
 def fake(monkeypatch: pytest.MonkeyPatch) -> Iterator[FakeSuite]:
     played = FakeSuite()
     monkeypatch.setattr(suite, "request", played.handle)
+    monkeypatch.setattr(suite, "picture", played.picture)
     monkeypatch.setattr(suite, "INLINE", True)
     yield played
 
@@ -374,3 +388,61 @@ def test_without_a_mail_server_in_nexsuite_the_app_has_none_and_gets_its_own_bac
     assert refused.status_code == 409 and _setting("smtp_host") == ""
     assert client.post("/api/suite/disconnect", json={"current_password": PASSWORD}).status_code == 200
     assert _setting("smtp_host") == "own.example.com" and _setting("smtp_from") == "boards@example.com"
+
+
+def test_a_space_deleted_in_nexsuite_goes_into_the_bin_here_and_for_good_with_it(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite) -> None:
+    from datetime import timedelta
+
+    from app.models import Board, utcnow
+
+    connect(client, world, operator)
+    with SessionLocal() as db:
+        db.add(Board(id="board-in-ideen", space_id=world["ideen"], title="Sammlung"))
+        db.commit()
+    fake.ticked.discard("10")
+    when = utcnow() - timedelta(days=3)
+    fake.bin = [{"id": "10", "deleted_at": when.isoformat()}]
+    client.post("/api/suite/sync")
+    space = _row_space(world["ideen"])
+    assert space.deleted_at is not None and abs((space.deleted_at - when).total_seconds()) < 1
+    assert world["ideen"] not in [s["id"] for s in client.get("/api/spaces").json()], "gone for the operator too"
+    # Brought back in nexsuite: back here, boards and all.
+    fake.bin, fake.ticked = [], {"10"}
+    client.post("/api/suite/sync")
+    assert _row_space(world["ideen"]).deleted_at is None
+    fake.ticked.discard("10")
+    fake.gone = ["10"]
+    client.post("/api/suite/sync")
+    with SessionLocal() as db:
+        assert db.get(Space, world["ideen"]) is None
+        assert db.query(Board).filter_by(title="Sammlung").count() == 0
+
+
+def _picture(name: str) -> bytes | None:
+    with SessionLocal() as db:
+        return db.query(Account).filter_by(name=name).one().avatar
+
+
+def test_the_profile_picture_comes_from_nexsuite_once_per_change(client: TestClient, operator: Account, world: dict,
+                                                                  fake: FakeSuite) -> None:
+    import io
+
+    from PIL import Image
+
+    connect(client, world, operator)
+    png = io.BytesIO()
+    Image.new("RGB", (30, 30), (10, 120, 200)).save(png, "PNG")
+    fake.pictures["2"] = png.getvalue()
+    fake.people["2"]["avatar"] = "2026-10-03T20:00:00.123456+00:00"
+    client.post("/api/suite/sync")
+    assert _picture("anna")[:4] == b"RIFF", "drawn anew as WebP"
+    client.post("/api/suite/sync")
+    assert fake.fetched == ["2"], "fetched once, not on every sync"
+    fake.people["2"]["avatar"] = None
+    client.post("/api/suite/sync")
+    assert _picture("anna") is None
+    # Set here no more: nexsuite keeps it.
+    refused = client.put("/api/auth/avatar", content=png.getvalue())
+    assert refused.status_code == 409 and refused.json()["detail"]["code"] == "managed_by_suite"
+    assert client.delete("/api/auth/avatar").status_code == 409

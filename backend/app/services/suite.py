@@ -27,6 +27,7 @@ import re
 import threading
 import time
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -146,6 +147,38 @@ def request(method: str, url: str, *, token: str = "", body: Any = None) -> Any:
         return answer.json()
     except ValueError as exc:
         raise SuiteError("suite_failed", "nexsuite answered with something unreadable.") from exc
+
+
+def picture(url: str, token: str) -> bytes:
+    """A profile picture from nexsuite; replaced in the tests. Errors as ``SuiteError``."""
+    try:
+        with httpx.Client(timeout=TIMEOUT, follow_redirects=False) as client:
+            answer = client.get(url, headers={"Authorization": f"Bearer {token}"})
+    except httpx.HTTPError as exc:
+        raise SuiteError("suite_unreachable", "nexsuite cannot be reached.") from exc
+    if answer.status_code != 200:
+        raise SuiteError("suite_failed", "nexsuite refused.", 409)
+    return answer.content
+
+
+def _take_picture(db: Session, row: Account, pid: str, stamp: Any, token: str) -> None:
+    """The profile picture is kept in nexsuite: fetched once per change, gone when it is gone there."""
+    from . import avatars
+
+    if not stamp:
+        if row.avatar is not None:
+            row.avatar, row.avatar_at = None, None
+        return
+    wanted = _moment(stamp)
+    if row.avatar is not None and row.avatar_at == wanted:
+        return
+    try:
+        # Drawn anew like any upload: nothing of the file that came survives but its pixels.
+        row.avatar = avatars.make(picture(_api(db, f"/avatars/{pid}"), token))
+        row.avatar_at = wanted
+    except (SuiteError, avatars.AvatarError) as exc:
+        logger.info("Profile picture of %s not taken (%s); tried again with the next sync", row.name,
+                    getattr(exc, "code", type(exc).__name__))
 
 
 def _api(db: Session, path: str) -> str:
@@ -338,6 +371,15 @@ def sync(db: Session) -> bool:
         return True
 
 
+def _moment(text: Any) -> datetime:
+    """A time nexsuite sent; now when it cannot be read."""
+    try:
+        moment = datetime.fromisoformat(str(text))
+    except ValueError:
+        return utcnow()
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
+
+
 def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
     keeper = int(settings_service.get(db, "suite_emergency_account") or 0)
     by_subject = {row.oidc_subject: row for row in db.scalars(select(Account).where(Account.oidc_subject != ""))}
@@ -353,6 +395,7 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
             db.flush()
         row.display_name = str(person.get("display_name") or "")[:80]
         row.email = str(person.get("email") or "")[:255]
+        _take_picture(db, row, pid, person.get("avatar"), token)
         if row.id != keeper:
             row.role = OPERATOR if person.get("operator") else MEMBER
         blocked = bool(person.get("blocked"))
@@ -410,6 +453,18 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
     for sid, space in spaces.items():
         if sid not in given:
             _set_grants(db, space.id, {}, {})
+    # Deleted in nexsuite: into this bin too, with nexsuite's date, so both empty after the same 30 days. A restore
+    # there brings it back above (it is given again).
+    for item in seen.get("bin") or []:
+        space = spaces.get(str(item.get("id")))
+        if space is not None and space.deleted_at is None:
+            space.deleted_at = _moment(item.get("deleted_at"))
+    # Deleted for good there: here too, with its boards (their files go with the next clean-up).
+    for sid in seen.get("gone") or []:
+        space = spaces.get(str(sid))
+        if space is not None:
+            logger.info("Space deleted for good in nexsuite, here too id=%s", space.id)
+            db.delete(space)
     sealed = seen.get("mail")
     if sealed:
         mail = _open_mail(token, sealed)

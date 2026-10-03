@@ -102,7 +102,7 @@ export function AccountPage() {
           <Section icon={UserRound} title={t('me.tabs.profile')}>
             <div className="mb-5 flex flex-wrap items-center gap-4">
               <Avatar person={me} className="h-20 w-20 text-3xl" />
-              <div className="space-y-2">
+              <div className="space-y-2" hidden={me?.suite === 'connected'}>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" disabled={busy} onClick={() => picker.current?.click()} className={LOUD}>
                     {me.avatar ? t('me.profile.change') : t('me.profile.upload')}
@@ -201,10 +201,11 @@ export function AccountPage() {
             )}
 
             <Section icon={ShieldCheck} title={t('twofactor.title')}>
-              <SecondFactor me={me} />
+              {/* Connected: who signs in through nexsuite sets the second factor there; only the emergency account keeps its own here. */}
+              {me.suite === 'connected' && me.sign_in !== 'password' ? <Managed text={t('suite.managedTwoFactor')} /> : <SecondFactor me={me} />}
             </Section>
 
-            {(methods?.oidc || me.sign_in === 'oidc' || me.oidc_linked) && (
+            {me.suite !== 'connected' && (methods?.oidc || me.sign_in === 'oidc' || me.oidc_linked) && (
               <Section icon={Shield} title={t('me.oidc.title')}>
                 {me.sign_in === 'oidc' ? (
                   <p className="text-sm text-mist-400">{t('me.oidc.only')}</p>

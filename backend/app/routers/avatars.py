@@ -12,7 +12,7 @@ from ..deps import Account, DbSession
 from ..errors import error
 from ..models import Account as AccountRow
 from ..models import utcnow
-from ..services import avatars
+from ..services import avatars, suite
 from .auth import account_view
 
 logger = logging.getLogger("nexcanvas.accounts")
@@ -21,6 +21,7 @@ router = APIRouter(prefix="/api", tags=["accounts"])
 
 @router.put("/auth/avatar", summary="Set the own profile picture (the picture itself as the body)")
 async def set_avatar(request: Request, account: Account, db: DbSession) -> dict[str, Any]:
+    suite.refuse_if_managed(db)
     data = await request.body()
     try:
         picture = avatars.make(data)
@@ -37,6 +38,7 @@ async def set_avatar(request: Request, account: Account, db: DbSession) -> dict[
 
 @router.delete("/auth/avatar", summary="Remove the own profile picture")
 def remove_avatar(account: Account, db: DbSession) -> dict[str, Any]:
+    suite.refuse_if_managed(db)
     row = db.get(AccountRow, account.id)
     assert row is not None
     row.avatar = None
