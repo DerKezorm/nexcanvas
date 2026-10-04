@@ -27,7 +27,7 @@ from ..models import SIGN_IN_PASSWORD
 from ..models import Account as AccountRow
 from ..security import brake, end_all_sessions
 from ..services import accounts, suite, totp
-from .auth import PENDING_COOKIE, OperatorConfirmIn, account_view, sign_in
+from .auth import PENDING_COOKIE, OperatorConfirmIn, account_view, sign_in, tell_emergency
 
 logger = logging.getLogger("nexcanvas.auth")
 
@@ -238,6 +238,7 @@ def login_code(payload: CodeIn, request: Request, response: Response, db: DbSess
         logger.warning("Recovery code used name=%s left=%s", row.name, len(totp.load_recovery(row.totp_recovery)))
     else:
         logger.info("Second factor passed name=%s", row.name)
+    tell_emergency(db, row)
     return sign_in(db, request, response, row)
 
 

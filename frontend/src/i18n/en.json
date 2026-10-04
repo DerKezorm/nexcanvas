@@ -873,7 +873,8 @@
     "person_twice": "Each person in nexsuite can be matched once only.",
     "space_twice": "Each space in nexsuite can be matched once only.",
     "team_twice": "Each team in nexsuite can be matched once only.",
-    "connecting_already": "A connection is under way already: resume it or give it up."
+    "connecting_already": "A connection is under way already: resume it or give it up.",
+    "suite_unreachable_disconnect": "nexsuite does not answer. Disconnect with an emergency code, or try again when nexsuite is back."
   },
   "auth": {
     "name": "Name",

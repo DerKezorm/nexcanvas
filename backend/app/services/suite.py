@@ -670,8 +670,13 @@ def _disconnect(db: Session, *, tell: bool) -> tuple[list[str], list[str]]:
     if tell and connected(db):
         try:
             request("POST", _api(db, "/leave"), token=_token(db))
-        except SuiteError:
-            logger.info("nexsuite not told about the disconnect (unreachable)")
+        except SuiteError as exc:
+            # nexsuite has forgotten the app already: nothing to tell. Out of reach: the plain way would leave it
+            # holding an app that runs on its own, and make the emergency codes pointless (A11).
+            if exc.code != "suite_refused":
+                raise SuiteError("suite_unreachable_disconnect",
+                                 "nexsuite does not answer. Disconnect with an emergency code, or try again when it is "
+                                 "back.", 409) from exc
     saved = settings_service.get(db, "suite_saved") or {}
     restore = {key: saved[key] for key in (*OIDC_KEYS, "password_login") if key in saved}
     if not restore:
@@ -705,11 +710,44 @@ def emergency_ok(db: Session, code: str) -> bool:
 
 
 def report(db: Session, kind: str, who: str) -> None:
-    """Tells nexsuite something for its log; quietly nothing when it cannot be reached."""
-    try:
-        request("POST", _api(db, "/report"), token=_token(db), body={"kind": kind, "who": who})
-    except SuiteError:
-        logger.info("nexsuite not told about %s (unreachable)", kind)
+    """Tells nexsuite something for its log. Out of reach, the report waits and goes with a later round, with the
+    address and key of the moment, also after an emergency disconnect (A11)."""
+    owed = dict(settings_service.get(db, "suite_owed") or {})
+    url = str(settings_service.get(db, "suite_url") or "")
+    token = str(settings_service.get(db, "suite_token_enc") or "")
+    if not url or not token:
+        return
+    if owed.get("url") != url or owed.get("token_enc") != token:
+        owed = {"url": url, "token_enc": token, "reports": []}
+    owed["reports"] = [*owed.get("reports", []), {"kind": kind, "who": who[:80]}][-OWED_MAX:]
+    settings_service.save(db, {"suite_owed": owed})
+    db.commit()
+    deliver(db)
+
+
+#: Reports kept for nexsuite while it is out of reach; the oldest go first when there are more.
+OWED_MAX = 50
+
+
+def deliver(db: Session) -> None:
+    """Sends what nexsuite still has to hear (each round of the background loop, connected or not)."""
+    owed = settings_service.get(db, "suite_owed") or {}
+    reports = list(owed.get("reports") or [])
+    if not reports:
+        return
+    token = decrypt_secret(str(owed["token_enc"]), TOKEN_CONTEXT)
+    left: list[Any] = []
+    for index, item in enumerate(reports):
+        try:
+            request("POST", str(owed["url"]).rstrip("/") + "/api/connect/v1/report", token=token, body=item)
+        except SuiteError as exc:
+            if exc.code == "suite_refused":
+                break  # nexsuite has forgotten the app: nobody left to tell
+            left = reports[index:]
+            logger.info("nexsuite not told yet about %s (out of reach), tried again later", item.get("kind"))
+            break
+    settings_service.save(db, {"suite_owed": {**owed, "reports": left} if left else None})
+    db.commit()
 
 
 def run_forever_sync() -> None:
@@ -717,5 +755,6 @@ def run_forever_sync() -> None:
     from ..db import SessionLocal
 
     with SessionLocal() as db:
+        deliver(db)
         if connected(db):
             sync(db)

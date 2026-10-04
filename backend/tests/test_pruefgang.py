@@ -3,6 +3,7 @@ list in nexsuite/tools/pruefgang-2026-10-04/LISTE.md)."""
 
 from __future__ import annotations
 
+import hashlib
 from datetime import timedelta
 from typing import Any, Self
 
@@ -12,13 +13,14 @@ from app.db import SessionLocal
 from app.models import Account, Space, utcnow
 from app.services import cleanup, settings_service, suite
 
-from . import test_suite
+from . import test_suite, test_totp
 from .conftest import PASSWORD, join, make_account, new_client, sign_in
 from .test_suite import SUITE, FakeSuite, connect
 
 # The fixtures of the suite tests, under the names pytest looks for.
 fake = test_suite.fake
 world = test_suite.world
+clock = test_totp.clock
 
 
 def _board(client: TestClient, space: int, title: str = "Plan") -> str:
@@ -175,3 +177,60 @@ def test_f5_the_operator_blocks_an_account_alone_too(client: TestClient, operato
     assert client.post(f"/api/accounts/{rita.id}/unblock", json={"current_password": PASSWORD}).status_code == 204
     with SessionLocal() as db:
         assert db.get(Account, rita.id).blocked_at is None  # type: ignore[union-attr]
+
+
+def test_a11_the_plain_way_needs_nexsuite_and_the_emergency_report_waits_for_it(
+    client: TestClient, operator: Account, world: dict, fake: FakeSuite
+) -> None:
+    fake.emergency = [hashlib.sha256(b"WXYZ23456789").hexdigest()]
+    connect(client, world, operator)
+    fake.down = True
+    refused = client.post("/api/suite/disconnect", json={"current_password": PASSWORD})
+    assert refused.status_code == 409 and refused.json()["detail"]["code"] == "suite_unreachable_disconnect"
+    with SessionLocal() as db:
+        assert settings_service.get(db, "suite_state") == "connected"
+    right = client.post("/api/suite/emergency", json={"current_password": PASSWORD, "code": "WXYZ-2345-6789"})
+    assert right.status_code == 200, right.text
+    assert fake.reports == []
+    fake.down = False
+    suite.run_forever_sync()  # the round of the background loop, connected or not
+    with SessionLocal() as db:
+        assert settings_service.get(db, "suite_owed") is None
+    assert fake.reports == [{"kind": "emergency_disconnect", "who": "tester"}], "told once nexsuite is back"
+
+
+class AtOnce:
+    """A thread that runs at once, so a test sees what it did."""
+
+    def __init__(self, target: Any = None, **_: Any) -> None:
+        self.target = target
+
+    def start(self) -> None:
+        self.target()
+
+
+def test_a11_an_emergency_sign_in_is_reported(
+    client: TestClient, operator: Account, world: dict, fake: FakeSuite, monkeypatch: Any
+) -> None:
+    import threading
+
+    connect(client, world, operator)
+    monkeypatch.setattr(threading, "Thread", AtOnce)
+    with new_client() as browser:
+        assert browser.post("/api/auth/login", json={"name": "tester", "password": PASSWORD}).status_code == 200
+    assert fake.reports == [{"kind": "emergency_sign_in", "who": "tester"}]
+
+
+def test_a11_the_emergency_sign_in_counts_after_the_second_factor(
+    client: TestClient, operator: Account, world: dict, fake: FakeSuite, clock: Any, monkeypatch: Any
+) -> None:
+    import threading
+
+    secret, _codes = test_totp.enrol(client)
+    connect(client, world, operator)
+    monkeypatch.setattr(threading, "Thread", AtOnce)
+    with new_client() as browser:
+        test_totp.password_step(browser)
+        assert fake.reports == [], "the password alone is no sign-in yet"
+        assert test_totp.code_step(browser, test_totp.fresh_code(secret, clock)).status_code == 200
+    assert fake.reports == [{"kind": "emergency_sign_in", "who": "tester"}]

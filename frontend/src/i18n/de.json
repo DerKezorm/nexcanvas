@@ -873,7 +873,8 @@
     "person_twice": "Jede Person in nexsuite lässt sich nur einmal zuordnen.",
     "space_twice": "Jeder Bereich in nexsuite lässt sich nur einmal zuordnen.",
     "team_twice": "Jedes Team in nexsuite lässt sich nur einmal zuordnen.",
-    "connecting_already": "Eine Verbindung ist schon angefangen: fortsetzen oder abbrechen."
+    "connecting_already": "Eine Verbindung ist schon angefangen: fortsetzen oder abbrechen.",
+    "suite_unreachable_disconnect": "nexsuite antwortet nicht. Trenne mit einem Notfallcode oder versuche es noch einmal, wenn nexsuite wieder da ist."
   },
   "auth": {
     "name": "Name",

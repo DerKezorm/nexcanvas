@@ -56,6 +56,9 @@ class FakeSuite:
         self.gone: list[str] = []
         self.calls: list[tuple[str, str]] = []
         self.next = 100
+        #: nexsuite out of reach for every call (A11).
+        self.down = False
+        self.reports: list[dict[str, Any]] = []
 
     def picture(self, url: str, token: str) -> bytes:
         assert token == self.token and url.startswith(SUITE + "/api/connect/v1/avatars/")
@@ -79,6 +82,8 @@ class FakeSuite:
         assert url.startswith(SUITE + "/api/connect/v1/"), url
         path = url[len(SUITE + "/api/connect/v1"):]
         self.calls.append((method, path))
+        if self.down:
+            raise suite.SuiteError("suite_unreachable", "nexsuite cannot be reached.")
         if path == "/pair":
             assert body["kind"] == "nexcanvas" and body["redirect_uri"].endswith("/api/oidc/callback")
             if body["code"] != "GOOD-CODE-1234":
@@ -140,7 +145,10 @@ class FakeSuite:
         if path == "/finish":
             self.connected = True
             return None
-        if path in ("/leave", "/report"):
+        if path == "/report":
+            self.reports.append(body)
+            return None
+        if path == "/leave":
             return None
         raise AssertionError(path)
 

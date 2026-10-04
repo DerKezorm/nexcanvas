@@ -259,17 +259,6 @@ def login(payload: LoginIn, request: Request, response: Response, db: DbSession)
     if not settings_service.get(db, "password_login") and account.role != OPERATOR:
         # The operator keeps the password as the way in when the provider is down.
         raise error("password_login_off", "Sign-in with a password is turned off.", 403)
-    if suite.connected(db):
-        # Connected, a password sign-in is the emergency account's: nexsuite's log shows it.
-        import threading
-
-        def _tell(name: str = account.name) -> None:
-            from ..db import SessionLocal
-
-            with SessionLocal() as own:
-                suite.report(own, "emergency_sign_in", name)
-
-        threading.Thread(target=_tell, name="suite-report", daemon=True).start()
     if account.totp_secret_enc:
         # Nothing opens yet: the browser gets a short-lived cookie that names the waiting sign-in and nothing else.
         response.set_cookie(
@@ -283,7 +272,24 @@ def login(payload: LoginIn, request: Request, response: Response, db: DbSession)
         )
         logger.info("Password accepted, second factor waiting name=%s", account.name)
         return {"second_factor": True}
+    tell_emergency(db, account)
     return sign_in(db, request, response, account)
+
+
+def tell_emergency(db: DbSession, account: AccountRow) -> None:
+    """Connected, a password sign-in is the emergency account's: nexsuite's log shows it, once the sign-in is complete
+    (after the second factor, not after the password alone, A11)."""
+    if not suite.connected(db):
+        return
+    import threading
+
+    def _tell(name: str = account.name) -> None:
+        from ..db import SessionLocal
+
+        with SessionLocal() as own:
+            suite.report(own, "emergency_sign_in", name)
+
+    threading.Thread(target=_tell, name="suite-report", daemon=True).start()
 
 
 @router.post("/auth/logout", status_code=204, summary="Sign out in this browser")

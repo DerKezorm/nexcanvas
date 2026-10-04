@@ -105,7 +105,10 @@ def disconnect(payload: ConfirmIn, request: Request, operator: OperatorAccount, 
     confirm_operator(request, db, operator, payload.current_password)
     if not suite.connected(db):
         raise error("not_connected", "nexcanvas is not connected to nexsuite.", 409)
-    without, blocked = suite.disconnect(db)
+    try:
+        without, blocked = suite.disconnect(db)
+    except suite.SuiteError as exc:
+        raise _fail(exc) from exc
     logger.warning("Disconnected from nexsuite by=%s", operator.name)
     return {"without_password": without, "blocked": blocked}
 

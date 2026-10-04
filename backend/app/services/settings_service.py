@@ -64,6 +64,8 @@ DEFAULTS: dict[str, Any] = {
     "suite_last_sync": None,
     "suite_revision": 0,
     "suite_problem": "",
+    #: Reports nexsuite has not heard yet, with the address and key they go to (A11).
+    "suite_owed": None,
 }
 
 
