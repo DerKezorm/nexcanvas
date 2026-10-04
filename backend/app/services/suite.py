@@ -116,13 +116,15 @@ def refuse_if_managed(db: Session) -> None:
         raise error("managed_by_suite", "This is kept in nexsuite now.", 409)
 
 
-def refuse_unless_keeper(db: Session, account: Account) -> None:
-    """Disconnecting from the app's side is for the emergency account (its password is checked here). Whoever comes
-    through nexsuite disconnects in nexsuite, where the own password is checked; here nobody would ask for it (A5)."""
+def refuse_unless_keeper(db: Session, account: Account, code: str = "disconnect_in_suite",
+                         text: str = "Disconnect in nexsuite, or sign in with the emergency account.") -> None:
+    """What only the emergency account may do while connected (its password is checked here): disconnecting, and
+    carrying a backup away or deleting one. Whoever comes through nexsuite is never asked for a password here, so
+    ``confirm_operator`` would wave them through (A5)."""
     if connected(db) and account.id != int(settings_service.get(db, "suite_emergency_account") or 0):
         from ..errors import error
 
-        raise error("disconnect_in_suite", "Disconnect in nexsuite, or sign in with the emergency account.", 403)
+        raise error(code, text, 403)
 
 
 def refuse_if_space_managed(db: Session, space_id: int, account: Account | None = None) -> None:

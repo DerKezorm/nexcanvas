@@ -670,6 +670,11 @@
       },
       "demote": {
         "text": "{{name}} becomes a member and can no longer reach the server settings."
+      },
+      "block": {
+        "title": "Block {{name}}?",
+        "text": "{{name}} cannot get in afterwards; open sessions and boards close at once. Unblocking works any time.",
+        "button": "Block"
       }
     },
     "backupMade": "Backup made.",
@@ -764,7 +769,8 @@
     "countFiles_other": "{{count}} files",
     "countAccounts_one": "one account",
     "countAccounts_other": "{{count}} accounts",
-    "inSpaces_zero": "in no space"
+    "inSpaces_zero": "in no space",
+    "block": "Block"
   },
   "errors": {
     "avatar_not_a_picture": "That is not a picture nexcanvas takes (JPEG, PNG, WebP, GIF, HEIC or AVIF).",
@@ -912,7 +918,8 @@
     "team_twice": "Each team in nexsuite can be matched once only.",
     "connecting_already": "A connection is under way already: resume it or give it up.",
     "suite_unreachable_disconnect": "nexsuite does not answer. Disconnect with an emergency code, or try again when nexsuite is back.",
-    "invalid_account_name": "A sign-in name has 2 to 64 characters: letters, digits, dots, dashes or underscores, no spaces."
+    "invalid_account_name": "A sign-in name has 2 to 64 characters: letters, digits, dots, dashes or underscores, no spaces.",
+    "backups_emergency_only": "While connected to nexsuite, only the emergency account handles backups."
   },
   "auth": {
     "name": "Name",

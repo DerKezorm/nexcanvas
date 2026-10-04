@@ -311,3 +311,21 @@ def test_f2_one_link_per_address_and_invitations_by_name_can_be_withdrawn(client
     with new_client(Account(id=_id("dora"), name="dora")) as dora:
         open_ = dora.get("/api/notices")
         assert open_.status_code == 200 and open_.json() == [], "the withdrawn invitation is gone for dora too"
+
+
+def test_connected_only_the_emergency_account_carries_a_backup_away(
+    client: TestClient, operator: Account, world: dict, fake: FakeSuite
+) -> None:
+    # Found when connecting nextasks (04.10.2026): the archive holds secret.key and the emergency account's
+    # password hash and second factor; an operator coming through nexsuite is never asked for a password here.
+    made = client.post("/api/backups", json={})
+    assert made.status_code == 201, made.text
+    name = made.json()["name"]
+    connect(client, world, operator)
+    fake.people["2"]["operator"] = True
+    client.post("/api/suite/sync")
+    with new_client(world["anna"]) as anna:
+        for answer in (anna.post(f"/api/backups/{name}/download", json={"password": ""}),
+                       anna.request("DELETE", f"/api/backups/{name}", json={"password": ""})):
+            assert answer.status_code == 403 and answer.json()["detail"]["code"] == "backups_emergency_only"
+    assert client.post(f"/api/backups/{name}/download", json={"password": PASSWORD}).status_code == 200

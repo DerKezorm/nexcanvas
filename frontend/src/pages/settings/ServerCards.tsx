@@ -70,7 +70,7 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
   const [send, setSend] = useState(true)
   const [made, setMade] = useState<{ link: string; sent: boolean; email: string } | null>(null)
   const [invites, setInvites] = useState<OpenInvite[]>([])
-  const [asking, setAsking] = useState<{ kind: 'role' | 'delete' | 'password' | 'reset' | 'signout' | 'unblock'; account: AccountRow } | null>(null)
+  const [asking, setAsking] = useState<{ kind: 'role' | 'delete' | 'password' | 'reset' | 'signout' | 'block' | 'unblock'; account: AccountRow } | null>(null)
   const [newPassword, setNewPassword] = useState('')
   const { busy, problem, done, run } = useAction()
   const load = useCallback(() => {
@@ -107,9 +107,13 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
                 <Button small onClick={() => setAsking({ kind: 'password', account: row })}>
                   {row.has_password === false ? t('server.givePassword') : t('server.newPassword')}
                 </Button>
-                {row.blocked && (
+                {row.blocked ? (
                   <Button small onClick={() => setAsking({ kind: 'unblock', account: row })}>
                     {t('server.unblock')}
+                  </Button>
+                ) : (
+                  <Button small onClick={() => setAsking({ kind: 'block', account: row })}>
+                    {t('server.block')}
                   </Button>
                 )}
                 {row.two_factor && (
@@ -194,7 +198,7 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
           title={t(`server.confirm.${asking.kind}.title`, { name: asking.account.name })}
           text={t(asking.kind === 'role' ? (asking.account.role === 'operator' ? 'server.confirm.demote.text' : 'server.confirm.promote.text') : `server.confirm.${asking.kind}.text`, { name: asking.account.name })}
           confirm={t(`server.confirm.${asking.kind}.button`)}
-          danger={asking.kind === 'delete'}
+          danger={asking.kind === 'delete' || asking.kind === 'block'}
           password={me?.sign_in === 'password' && asking.kind !== 'signout'}
           onCancel={() => setAsking(null)}
           onConfirm={async (password) => {
@@ -204,6 +208,7 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
             if (asking.kind === 'reset') await api(`/api/accounts/${id}/totp/reset`, { method: 'POST', body: { current_password: password } })
             if (asking.kind === 'signout') await api(`/api/accounts/${id}/sign-out`, { method: 'POST' })
             if (asking.kind === 'unblock') await api(`/api/accounts/${id}/unblock`, { method: 'POST', body: { current_password: password } })
+            if (asking.kind === 'block') await api(`/api/accounts/${id}/block`, { method: 'POST', body: { current_password: password } })
             if (asking.kind === 'password') {
               const fresh = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join('')
               await api(`/api/accounts/${id}/password`, { method: 'PUT', body: { password: fresh, current_password: password } })
@@ -607,6 +612,7 @@ export function BackupsCard({ server }: { server: Server }) {
   const [list, setList] = useState<Backup[]>([])
   const [brief, setBrief] = useState<(Brief & { name: string }) | null>(null)
   const [asking, setAsking] = useState<{ kind: 'restore' | 'download' | 'delete'; name: string } | null>(null)
+  const connected = useSuiteConnected()
   const [keep, setKeep] = useState<string | null>(null)
   const [restarting, setRestarting] = useState(false)
   const action = useAction()
@@ -673,15 +679,22 @@ export function BackupsCard({ server }: { server: Server }) {
             <button type="button" className={icon} title={t('server.check')} aria-label={t('server.check')} onClick={() => void action.run(async () => setBrief({ ...(await api<Brief>(`/api/backups/${entry.name}/check`, { method: 'POST' })), name: entry.name }))}>
               <ShieldCheck className="h-4 w-4" strokeWidth={1.8} />
             </button>
-            <button type="button" className={icon} title={t('server.download')} aria-label={t('server.download')} onClick={() => setAsking({ kind: 'download', name: entry.name })}>
-              <Download className="h-4 w-4" strokeWidth={1.8} />
-            </button>
-            <button type="button" className={icon} title={t('server.restore')} aria-label={t('server.restore')} onClick={() => setAsking({ kind: 'restore', name: entry.name })}>
-              <RotateCcw className="h-4 w-4" strokeWidth={1.8} />
-            </button>
-            <button type="button" className="rounded-lg p-1.5 text-mist-500 hover:bg-ink-800 hover:text-bad-500" title={t('server.deleteBackup')} aria-label={t('server.deleteBackup')} onClick={() => setAsking({ kind: 'delete', name: entry.name })}>
-              <Trash2 className="h-4 w-4" strokeWidth={1.8} />
-            </button>
+            {/* Connected, only the emergency account carries a copy away or deletes one, and nobody restores. */}
+            {(!connected || me?.suite_emergency) && (
+              <button type="button" className={icon} title={t('server.download')} aria-label={t('server.download')} onClick={() => setAsking({ kind: 'download', name: entry.name })}>
+                <Download className="h-4 w-4" strokeWidth={1.8} />
+              </button>
+            )}
+            {!connected && (
+              <button type="button" className={icon} title={t('server.restore')} aria-label={t('server.restore')} onClick={() => setAsking({ kind: 'restore', name: entry.name })}>
+                <RotateCcw className="h-4 w-4" strokeWidth={1.8} />
+              </button>
+            )}
+            {(!connected || me?.suite_emergency) && (
+              <button type="button" className="rounded-lg p-1.5 text-mist-500 hover:bg-ink-800 hover:text-bad-500" title={t('server.deleteBackup')} aria-label={t('server.deleteBackup')} onClick={() => setAsking({ kind: 'delete', name: entry.name })}>
+                <Trash2 className="h-4 w-4" strokeWidth={1.8} />
+              </button>
+            )}
           </li>
         ))}
       </ul>

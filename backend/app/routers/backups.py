@@ -82,6 +82,12 @@ def download(name: BackupName, body: DownloadIn, request: Request, operator: Ope
     """The archive holds everything: the database, every note, ``secret.key``. A stolen session alone must not be
     enough to carry it away, so the password is asked again and counted like a sign-in."""
     with SessionLocal() as db:
+        # The archive holds secret.key and the emergency account's password hash and second factor: connected, only
+        # the emergency account carries it away (found when connecting nextasks, 04.10.2026).
+        from ..services import suite
+
+        suite.refuse_unless_keeper(db, operator, "backups_emergency_only",
+                                   "While connected to nexsuite, only the emergency account handles backups.")
         confirm_operator(request, db, operator, body.password)
     try:
         path = backups.path_of(name)
@@ -96,6 +102,10 @@ def download(name: BackupName, body: DownloadIn, request: Request, operator: Ope
 def delete(name: BackupName, body: PasswordIn, request: Request, operator: OperatorAccount) -> None:
     """Asks for the password again: a stolen session must not throw every copy away (review before 1.0.0)."""
     with SessionLocal() as db:
+        from ..services import suite
+
+        suite.refuse_unless_keeper(db, operator, "backups_emergency_only",
+                                   "While connected to nexsuite, only the emergency account handles backups.")
         confirm_operator(request, db, operator, body.password)
     try:
         backups.remove(name)
