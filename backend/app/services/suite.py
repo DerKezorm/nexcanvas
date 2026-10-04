@@ -26,7 +26,7 @@ import logging
 import re
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -213,6 +213,9 @@ class Proposal:
     accounts: list[dict[str, Any]]
     spaces: list[dict[str, Any]]
     candidates: list[dict[str, Any]]
+    #: The teams here and the teams in nexsuite to match them to (by name), so none is brought twice.
+    teams: list[dict[str, Any]] = field(default_factory=list)
+    team_candidates: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _fold(text: str) -> str:
@@ -246,24 +249,71 @@ def proposal(db: Session) -> Proposal:
     people = [p for p in seen["people"] if not p["blocked"]]
     by_mail = {_fold(p["email"]): p["id"] for p in people if p["email"]}
     by_name = {_fold(p["name"]): p["id"] for p in people}
+    # Every suggestion at most once: a second account with the same address or name is suggested as new, never as
+    # the same person (Prüfgang 04.10.2026, A7). The operator's own account goes first.
+    rows = sorted(db.scalars(select(Account)), key=lambda row: (row.id != operator_id(db), row.id))
+    taken: set[str] = set()
     accounts_out = []
-    for row in db.scalars(select(Account).order_by(Account.id)):
+    for row in rows:
         guess = by_mail.get(_fold(row.email)) if row.email else None
         guess = guess or by_name.get(_fold(row.name))
+        if guess in taken:
+            guess = None
+        if guess:
+            taken.add(guess)
         accounts_out.append({"id": row.id, "name": row.name, "display_name": row.display_name, "email": row.email,
                              "role": row.role, "suggest": guess or "new"})
+    accounts_out.sort(key=lambda entry: entry["id"])
     candidates = list(seen.get("candidates") or [])
-    by_space = {_fold(c["name"]): c["id"] for c in candidates}
-    spaces_out = [{"id": s.id, "name": s.name, "color": s.color, "suggest": by_space.get(_fold(s.name)) or "new"}
-                  for s in db.scalars(select(Space).where(Space.deleted_at.is_(None)).order_by(Space.id))]
-    return Proposal(people=people, accounts=accounts_out, spaces=spaces_out, candidates=candidates)
+    spaces_out = _suggest([{"id": s.id, "name": s.name, "color": s.color}
+                           for s in db.scalars(select(Space).where(Space.deleted_at.is_(None)).order_by(Space.id))],
+                          candidates)
+    team_candidates = [{"id": str(t["id"]), "name": t["name"], "color": t.get("color", "")}
+                       for t in seen.get("teams") or []]
+    teams_out = _suggest([{"id": t.id, "name": t.name, "color": t.color}
+                          for t in db.scalars(select(Team).where(Team.source == TEAM_LOCAL).order_by(Team.id))],
+                         team_candidates)
+    return Proposal(people=people, accounts=accounts_out, spaces=spaces_out, candidates=candidates, teams=teams_out,
+                    team_candidates=team_candidates)
 
 
-def finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces_map: dict[int, str]) -> None:
+def _suggest(rows: list[dict[str, Any]], candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Each row with the candidate of the same name as suggestion, every candidate at most once."""
+    by_name = {_fold(c["name"]): str(c["id"]) for c in candidates}
+    taken: set[str] = set()
+    for row in rows:
+        guess = by_name.get(_fold(row["name"]))
+        if guess in taken:
+            guess = None
+        if guess:
+            taken.add(guess)
+        row["suggest"] = guess or "new"
+    return rows
+
+
+def operator_id(db: Session) -> int:
+    """The account connecting (the first operator), whose suggestion comes first."""
+    return int(db.scalar(select(Account.id).where(Account.role == OPERATOR).order_by(Account.id)) or 0)
+
+
+def _no_twice(choices: dict[int, str], what: str) -> None:
+    """A person, space or team in nexsuite gets at most one counterpart here (A7)."""
+    chosen = [choice for choice in choices.values() if choice not in ("new", "skip")]
+    twice = sorted({choice for choice in chosen if chosen.count(choice) > 1})
+    if twice:
+        raise SuiteError(f"{what}_twice", f"Each {what} in nexsuite can be chosen once only.", 422)
+
+
+def finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces_map: dict[int, str],
+           teams_map: dict[int, str] | None = None) -> None:
     """Applies the operator's choices: ``person id`` | ``new`` | ``skip`` per account, ``space id`` | ``new`` per
-    space. Then nexcanvas signs in through nexsuite and fetches the directory."""
+    space, ``team id`` | ``new`` per team. Then nexcanvas signs in through nexsuite and fetches the directory."""
     if state(db) != "connecting":
         raise SuiteError("not_connecting", "Start with the address and the code.", 409)
+    teams_map = teams_map or {}
+    _no_twice(accounts_map, "person")
+    _no_twice(spaces_map, "space")
+    _no_twice(teams_map, "team")
     token = _token(db)
     accounts_here = {row.id: row for row in db.scalars(select(Account))}
     person_of: dict[int, str] = {}
@@ -282,26 +332,34 @@ def finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces_
     for team in db.scalars(select(Team).where(Team.source == TEAM_LOCAL)):
         members = [person_of[m] for m in db.scalars(select(TeamMember.account_id).where(TeamMember.team_id == team.id))
                    if m in person_of]
-        made = request("POST", _api(db, "/teams"), token=token, body={
-            "name": team.name, "color": team.color, "members": members,
-            "lead": person_of.get(team.lead_id) if team.lead_id else None})
+        lead = person_of.get(team.lead_id) if team.lead_id else None
+        choice = teams_map.get(team.id, "new")
+        if choice == "new":
+            made = request("POST", _api(db, "/teams"), token=token, body={
+                "name": team.name, "color": team.color, "members": members, "lead": lead})
+        else:
+            # The same team in nexsuite: its members here come along, it is not made a second time (B2).
+            made = request("POST", _api(db, f"/teams/{int(choice)}/join"), token=token,
+                           body={"members": members, "lead": lead})
         team_of[team.id] = str(made["id"])
     spaces_done = 0
     for space_id, choice in spaces_map.items():
         space = db.get(Space, space_id)
         if space is None or space.deleted_at is not None:
             continue
+        people = [{"id": person_of[m.account_id], "role": m.role}
+                  for m in db.scalars(select(Membership).where(Membership.space_id == space.id))
+                  if m.account_id in person_of]
+        grants = db.scalars(select(TeamGrant).where(TeamGrant.space_id == space.id))
+        teams = [{"id": team_of[g.team_id], "role": g.role} for g in grants if g.team_id in team_of]
         if choice == "new":
-            people = [{"id": person_of[m.account_id], "role": m.role}
-                      for m in db.scalars(select(Membership).where(Membership.space_id == space.id))
-                      if m.account_id in person_of]
-            grants = db.scalars(select(TeamGrant).where(TeamGrant.space_id == space.id))
-            teams = [{"id": team_of[g.team_id], "role": g.role} for g in grants if g.team_id in team_of]
             made = request("POST", _api(db, "/spaces"), token=token,
-                           body={"name": space.name, "color": None, "people": people, "teams": teams})
+                           body={"name": space.name, "color": space.color, "people": people, "teams": teams})
             space.external_id = str(made["id"])
         else:
-            request("POST", _api(db, f"/spaces/{int(choice)}/tick"), token=token)
+            # Matched: the rights it has here come along, nexsuite keeps the higher where it has one (B1).
+            request("POST", _api(db, f"/spaces/{int(choice)}/tick"), token=token,
+                    body={"people": people, "teams": teams})
             space.external_id = str(int(choice))
         spaces_done += 1
     for account_id, person in person_of.items():

@@ -3,7 +3,7 @@
  * spaces), the state of the connection, disconnecting with the password or with an emergency code. And the line other
  * cards show where a setting is kept in nexsuite now.
  */
-import { Box, KeyRound, Lock, Plug, RefreshCw, ShieldAlert, Unplug } from 'lucide-react'
+import { Box, KeyRound, Lock, Plug, RefreshCw, ShieldAlert, Unplug , Users } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -17,7 +17,19 @@ type Status = { state: '' | 'connecting' | 'connected'; url: string; last_sync: 
 type SuitePerson = { id: string; name: string; display_name: string; email: string }
 type LocalAccount = { id: number; name: string; display_name: string; email: string; role: string; suggest: string }
 type LocalSpace = { id: number; name: string; color: string; suggest: string }
-type Proposal = { people: SuitePerson[]; accounts: LocalAccount[]; spaces: LocalSpace[]; candidates: { id: string; name: string }[] }
+type Proposal = {
+  people: SuitePerson[]
+  accounts: LocalAccount[]
+  spaces: LocalSpace[]
+  candidates: { id: string; name: string }[]
+  teams: LocalSpace[]
+  team_candidates: { id: string; name: string }[]
+}
+
+/** Every person, space or team in nexsuite gets at most one counterpart here: taken elsewhere, it is shown, not offered. */
+function takenElsewhere(choices: Record<number, string>, own: number): Set<string> {
+  return new Set(Object.entries(choices).filter(([id, value]) => Number(id) !== own && value !== 'new' && value !== 'skip').map(([, value]) => value))
+}
 
 /** The lock line: this is kept in nexsuite now. */
 export function Managed({ text }: { text?: string }) {
@@ -201,11 +213,13 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
   const [proposal, setProposal] = useState<Proposal | null>(null)
   const [accounts, setAccounts] = useState<Record<number, string>>({})
   const [spaces, setSpaces] = useState<Record<number, string>>({})
+  const [teams, setTeams] = useState<Record<number, string>>({})
   const action = useAction()
   const take = (found: Proposal) => {
     setProposal(found)
     setAccounts(Object.fromEntries(found.accounts.map((a) => [a.id, a.suggest])))
     setSpaces(Object.fromEntries(found.spaces.map((s) => [s.id, s.suggest])))
+    setTeams(Object.fromEntries((found.teams ?? []).map((team) => [team.id, team.suggest])))
   }
   useEffect(() => {
     if (resume) api<Proposal>('/api/suite/proposal').then(take, () => setStep(1))
@@ -218,7 +232,7 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
     })
   const finish = () =>
     void action.run(async () => {
-      await api('/api/suite/finish', { method: 'POST', body: { accounts, spaces } })
+      await api('/api/suite/finish', { method: 'POST', body: { accounts, spaces, teams } })
       setStep(4)
     })
   const abort = () =>
@@ -280,9 +294,9 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
                   <option value="new">{t('suite.newPerson')}</option>
                   {a.id !== me?.id && <option value="skip">{t('suite.skip')}</option>}
                   {proposal.people.map((p) => (
-                    <option key={p.id} value={p.id}>
+                    <option key={p.id} value={p.id} disabled={takenElsewhere(accounts, a.id).has(p.id)}>
                       {p.display_name || p.name}
-                      {p.id === a.suggest ? ` (${t('suite.suggested')})` : ''}
+                      {takenElsewhere(accounts, a.id).has(p.id) ? ` (${t('suite.takenElsewhere')})` : p.id === a.suggest ? ` (${t('suite.suggested')})` : ''}
                     </option>
                   ))}
                 </select>
@@ -319,16 +333,45 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
                 >
                   <option value="new">{t('suite.newSpace')}</option>
                   {proposal.candidates.map((c) => (
-                    <option key={c.id} value={c.id}>
+                    <option key={c.id} value={c.id} disabled={takenElsewhere(spaces, s.id).has(c.id)}>
                       {c.name}
-                      {c.id === s.suggest ? ` (${t('suite.suggested')})` : ''}
+                      {takenElsewhere(spaces, s.id).has(c.id) ? ` (${t('suite.takenElsewhere')})` : c.id === s.suggest ? ` (${t('suite.suggested')})` : ''}
                     </option>
                   ))}
                 </select>
               </li>
             ))}
           </ul>
-          <p className="text-xs text-mist-500">{t('suite.teamsGoAlong')}</p>
+          {(proposal.teams ?? []).length > 0 && (
+            <>
+              <p className="text-sm text-mist-300">{t('suite.teamsText')}</p>
+              <ul className="divide-y divide-ink-700 rounded-xl border border-ink-700">
+                {proposal.teams.map((team) => (
+                  <li key={team.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm">
+                    <Users className="h-4 w-4 shrink-0" style={{ color: team.color }} aria-hidden />
+                    <span className="min-w-0 flex-1 font-medium text-mist-100">{team.name}</span>
+                    <span className="text-mist-600" aria-hidden>
+                      →
+                    </span>
+                    <select
+                      value={teams[team.id] ?? 'new'}
+                      onChange={(e) => setTeams((m) => ({ ...m, [team.id]: e.target.value }))}
+                      className="max-w-56 rounded-lg border border-ink-700 bg-ink-850 px-2 py-1 text-sm text-mist-100"
+                      aria-label={t('suite.matchFor', { name: team.name })}
+                    >
+                      <option value="new">{t('suite.newTeam')}</option>
+                      {proposal.team_candidates.map((c) => (
+                        <option key={c.id} value={c.id} disabled={takenElsewhere(teams, team.id).has(c.id)}>
+                          {c.name}
+                          {takenElsewhere(teams, team.id).has(c.id) ? ` (${t('suite.takenElsewhere')})` : c.id === team.suggest ? ` (${t('suite.suggested')})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
           <Feedback problem={action.problem} />
           <div className="flex justify-between gap-2">
             <button type="button" className="nc-btn nc-btn-ghost" onClick={() => setStep(2)}>

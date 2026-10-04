@@ -859,7 +859,10 @@
     "not_connected": "nexcanvas is not connected to nexsuite.",
     "emergency_code_wrong": "This emergency code is not valid.",
     "account_blocked": "This account is blocked.",
-    "disconnect_in_suite": "Disconnect in nexsuite under Apps, or with the emergency account of this app."
+    "disconnect_in_suite": "Disconnect in nexsuite under Apps, or with the emergency account of this app.",
+    "person_twice": "Each person in nexsuite can be matched once only.",
+    "space_twice": "Each space in nexsuite can be matched once only.",
+    "team_twice": "Each team in nexsuite can be matched once only."
   },
   "auth": {
     "name": "Name",
@@ -1337,12 +1340,11 @@
     "wizardTitle": "Connect to nexsuite · {{step}} of 4: {{title}}",
     "step1": "Address and code",
     "step2": "Match accounts",
-    "step3": "Match spaces",
+    "step3": "Match spaces and teams",
     "step4": "Done",
     "step1Text": "You get the code in nexsuite under Apps, Connect. It is valid for 15 minutes.",
     "step2Text": "Every account here belongs to a person in nexsuite from now on. Suggested by mail address and name. Boards, rights and history stay with it.",
-    "step3Text": "Spaces from here move to nexsuite. If one there fits, connect both; the rights then come from there.",
-    "teamsGoAlong": "Your teams go to nexsuite and come back from there.",
+    "step3Text": "Spaces from here go to nexsuite. If there is a matching one already, you join the two: the rights from here come along, and where somebody has a right there already, the higher one holds.",
     "newPerson": "Create in nexsuite",
     "newSpace": "Create in nexsuite",
     "skip": "Leave out (the account is blocked)",
@@ -1362,6 +1364,9 @@
     "managedSpace": "The rights of this space come from nexsuite. They are changed there.",
     "managedTwoFactor": "The second factor is set up in nexsuite (or in authentik when nexsuite signs in through it) and holds for every connected app.",
     "emergencyAccount": "This is the emergency account of nexcanvas. Password and second factor here are only for the emergency access when nexsuite cannot be reached (sign in at /notzugang). Otherwise you sign in through nexsuite like everybody.",
-    "disconnectInSuite": "You disconnect in nexsuite under Apps, or here with the emergency account of this app."
+    "disconnectInSuite": "You disconnect in nexsuite under Apps, or here with the emergency account of this app.",
+    "teamsText": "Teams the same way: if nexsuite has the matching team already, you join the two and the members from here come along. Otherwise it is made there.",
+    "newTeam": "Make it in nexsuite",
+    "takenElsewhere": "taken already"
   }
 }

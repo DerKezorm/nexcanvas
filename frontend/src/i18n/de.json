@@ -859,7 +859,10 @@
     "not_connected": "nexcanvas ist nicht mit nexsuite verbunden.",
     "emergency_code_wrong": "Dieser Notfallcode gilt nicht.",
     "account_blocked": "Dieses Konto ist gesperrt.",
-    "disconnect_in_suite": "Trennen geht in nexsuite unter Apps, oder mit dem Notkonto dieser App."
+    "disconnect_in_suite": "Trennen geht in nexsuite unter Apps, oder mit dem Notkonto dieser App.",
+    "person_twice": "Jede Person in nexsuite lässt sich nur einmal zuordnen.",
+    "space_twice": "Jeder Bereich in nexsuite lässt sich nur einmal zuordnen.",
+    "team_twice": "Jedes Team in nexsuite lässt sich nur einmal zuordnen."
   },
   "auth": {
     "name": "Name",
@@ -1337,12 +1340,11 @@
     "wizardTitle": "Mit nexsuite verbinden · {{step}} von 4: {{title}}",
     "step1": "Adresse und Code",
     "step2": "Konten zuordnen",
-    "step3": "Bereiche zuordnen",
+    "step3": "Bereiche und Teams zuordnen",
     "step4": "Fertig",
     "step1Text": "Den Code bekommst du in nexsuite unter Apps, Verbinden. Er gilt 15 Minuten.",
     "step2Text": "Jedes Konto hier gehört künftig zu einer Person in nexsuite. Vorgeschlagen nach Mailadresse und Name. Boards, Rechte und Verlauf bleiben dran.",
-    "step3Text": "Bereiche von hier kommen nach nexsuite. Gibt es dort schon einen passenden, verbindest du beide; die Rechte kommen dann von dort.",
-    "teamsGoAlong": "Deine Teams gehen mit nach nexsuite und kommen von dort zurück.",
+    "step3Text": "Bereiche von hier kommen nach nexsuite. Gibt es dort schon einen passenden, verbindest du beide: Die Rechte von hier kommen dazu, und hat jemand dort schon ein Recht, gilt das höhere.",
     "newPerson": "Neu in nexsuite anlegen",
     "newSpace": "Neu in nexsuite anlegen",
     "skip": "Nicht übernehmen (Konto wird gesperrt)",
@@ -1362,6 +1364,9 @@
     "managedSpace": "Die Rechte dieses Bereichs kommen aus nexsuite. Ändern lassen sie sich dort.",
     "managedTwoFactor": "Der zweite Faktor wird in nexsuite eingerichtet (oder in authentik, wenn nexsuite darüber anmeldet) und gilt für alle verbundenen Apps.",
     "emergencyAccount": "Dies ist das Notkonto von nexcanvas. Passwort und zweiter Faktor hier gelten nur für den Notzugang, wenn nexsuite nicht erreichbar ist (Anmelden unter /notzugang). Sonst meldest du dich wie alle über nexsuite an.",
-    "disconnectInSuite": "Trennen kannst du in nexsuite unter Apps, oder hier mit dem Notkonto dieser App."
+    "disconnectInSuite": "Trennen kannst du in nexsuite unter Apps, oder hier mit dem Notkonto dieser App.",
+    "teamsText": "Teams genauso: Gibt es in nexsuite schon das passende Team, verbindest du beide, und die Mitglieder von hier kommen dazu. Sonst entsteht es dort neu.",
+    "newTeam": "Neu in nexsuite anlegen",
+    "takenElsewhere": "schon vergeben"
   }
 }

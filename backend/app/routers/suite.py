@@ -31,6 +31,8 @@ class FinishIn(BaseModel):
     accounts: dict[int, str] = Field(default_factory=dict)
     #: Per space here: a space id in nexsuite or ``new``.
     spaces: dict[int, str] = Field(default_factory=dict)
+    #: Per team here: a team id in nexsuite or ``new``.
+    teams: dict[int, str] = Field(default_factory=dict)
 
 
 class ConfirmIn(BaseModel):
@@ -76,7 +78,7 @@ def proposal(_operator: OperatorAccount, db: DbSession) -> dict[str, Any]:
 @router.post("/finish", summary="Apply the matches and connect (operator)")
 def finish(payload: FinishIn, operator: OperatorAccount, db: DbSession) -> dict[str, Any]:
     try:
-        suite.finish(db, operator, payload.accounts, payload.spaces)
+        suite.finish(db, operator, payload.accounts, payload.spaces, payload.teams)
     except suite.SuiteError as exc:
         db.rollback()
         raise _fail(exc) from exc
