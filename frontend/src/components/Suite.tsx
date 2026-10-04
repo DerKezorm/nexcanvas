@@ -338,6 +338,7 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
                   aria-label={t('suite.matchFor', { name: s.name })}
                 >
                   <option value="new">{t('suite.newSpace')}</option>
+                  <option value="keep">{t('suite.keepSpace')}</option>
                   {proposal.candidates.map((c) => (
                     <option key={c.id} value={c.id} disabled={takenElsewhere(spaces, s.id).has(c.id)}>
                       {c.name}
@@ -348,6 +349,7 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
               </li>
             ))}
           </ul>
+          <p className="text-xs text-mist-500">{t('suite.keepSpaceHint')}</p>
           {(proposal.teams ?? []).length > 0 && (
             <>
               <p className="text-sm text-mist-300">{t('suite.teamsText')}</p>

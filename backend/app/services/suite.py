@@ -32,7 +32,7 @@ from typing import Any
 
 import httpx
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from .. import __version__
@@ -283,9 +283,11 @@ def proposal(db: Session) -> Proposal:
                              "role": row.role, "suggest": guess or "new"})
     accounts_out.sort(key=lambda entry: entry["id"])
     candidates = list(seen.get("candidates") or [])
-    spaces_out = _suggest([{"id": s.id, "name": s.name, "color": s.color}
+    spaces_out = _suggest([{"id": s.id, "name": s.name, "color": s.color, "alone": _alone(db, s.id)}
                            for s in db.scalars(select(Space).where(Space.deleted_at.is_(None)).order_by(Space.id))],
                           candidates)
+    for entry in spaces_out:
+        entry.pop("alone", None)
     team_candidates = [{"id": str(t["id"]), "name": t["name"], "color": t.get("color", "")}
                        for t in seen.get("teams") or []]
     teams_out = _suggest([{"id": t.id, "name": t.name, "color": t.color}
@@ -305,8 +307,15 @@ def _suggest(rows: list[dict[str, Any]], candidates: list[dict[str, Any]]) -> li
             guess = None
         if guess:
             taken.add(guess)
-        row["suggest"] = guess or "new"
+        row["suggest"] = guess or row.get("alone") or "new"
     return rows
+
+
+def _alone(db: Session, space_id: int) -> str:
+    """A space of one person and no team (a personal one) is suggested to stay here, not to become shared (B7)."""
+    members = db.scalar(select(func.count()).select_from(Membership).where(Membership.space_id == space_id)) or 0
+    grants = db.scalar(select(func.count()).select_from(TeamGrant).where(TeamGrant.space_id == space_id)) or 0
+    return "keep" if members == 1 and grants == 0 else ""
 
 
 def operator_id(db: Session) -> int:
@@ -316,7 +325,7 @@ def operator_id(db: Session) -> int:
 
 def _no_twice(choices: dict[int, str], what: str) -> None:
     """A person, space or team in nexsuite gets at most one counterpart here (A7)."""
-    chosen = [choice for choice in choices.values() if choice not in ("new", "skip")]
+    chosen = [choice for choice in choices.values() if choice not in ("new", "skip", "keep")]
     twice = sorted({choice for choice in chosen if chosen.count(choice) > 1})
     if twice:
         raise SuiteError(f"{what}_twice", f"Each {what} in nexsuite can be chosen once only.", 422)
@@ -324,8 +333,9 @@ def _no_twice(choices: dict[int, str], what: str) -> None:
 
 def finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces_map: dict[int, str],
            teams_map: dict[int, str] | None = None) -> list[dict[str, str]]:
-    """Applies the operator's choices: ``person id`` | ``new`` | ``skip`` per account, ``space id`` | ``new`` per
-    space, ``team id`` | ``new`` per team. Then nexcanvas signs in through nexsuite and fetches the directory."""
+    """Applies the operator's choices: ``person id`` | ``new`` | ``skip`` per account, ``space id`` | ``new`` |
+    ``keep`` (stays here, rights kept here) per space, ``team id`` | ``new`` per team. Then nexcanvas signs in
+    through nexsuite and fetches the directory."""
     if state(db) != "connecting":
         raise SuiteError("not_connecting", "Start with the address and the code.", 409)
     teams_map = teams_map or {}
@@ -344,6 +354,8 @@ def finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces_
         settings_service.save(db, {"suite_pending": pending})
         db.commit()
     accounts_here = {row.id: row for row in db.scalars(select(Account))}
+    seen = request("GET", _api(db, "/directory"), token=token)
+    addresses = {str(p["id"]): p.get("email") or "" for p in seen["people"]}
     person_of: dict[int, str] = {}
     for account_id, choice in accounts_map.items():
         row = accounts_here.get(account_id)
@@ -358,6 +370,12 @@ def finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces_
                 remember(f"person:{row.id}", made)
             new_people.append({"name": row.display_name or row.name, "password": made["password"]})
             choice = made["id"]
+        elif row.email and not addresses.get(str(choice)):
+            # Matched to a person without an address: the one from here goes along instead of getting lost (B7).
+            try:
+                request("POST", _api(db, f"/people/{int(choice)}/email"), token=token, body={"email": row.email})
+            except SuiteError:
+                logger.info("nexsuite did not take the address of %s", row.name)
         person_of[row.id] = str(choice)
     if operator.id not in person_of:
         raise SuiteError("operator_unmatched", "Your own account needs a person in nexsuite.", 422)
@@ -381,7 +399,7 @@ def finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces_
     spaces_done = 0
     for space_id, choice in spaces_map.items():
         space = db.get(Space, space_id)
-        if space is None or space.deleted_at is not None:
+        if space is None or space.deleted_at is not None or choice == "keep":
             continue
         people = [{"id": person_of[m.account_id], "role": m.role}
                   for m in db.scalars(select(Membership).where(Membership.space_id == space.id))

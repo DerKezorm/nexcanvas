@@ -234,3 +234,23 @@ def test_a11_the_emergency_sign_in_counts_after_the_second_factor(
         assert fake.reports == [], "the password alone is no sign-in yet"
         assert test_totp.code_step(browser, test_totp.fresh_code(secret, clock)).status_code == 200
     assert fake.reports == [{"kind": "emergency_sign_in", "who": "tester"}]
+
+
+def test_b7_a_matched_address_goes_along_and_a_personal_space_stays_here(
+    client: TestClient, operator: Account, world: dict, fake: FakeSuite
+) -> None:
+    with SessionLocal() as db:
+        erik = db.query(Account).filter_by(name="erik").one()
+        erik.email = "erik@example.com"
+        db.commit()
+    own = client.post("/api/spaces", json={"name": "Mine"}).json()["id"]
+    found = connect(client, world, operator)
+    assert {s["id"]: s["suggest"] for s in found["spaces"]}[own] == "keep", "one person, no team: stays here"
+    assert fake.people["3"]["email"] == "erik@example.com", "matched by name, the address from here goes along"
+    assert fake.people["2"]["email"] == "anna@example.com"
+    with SessionLocal() as db:
+        mine = db.get(Space, own)
+        assert mine is not None and mine.external_id == "" and mine.deleted_at is None
+    assert "Mine" not in [s["name"] for s in fake.spaces.values()]
+    with SessionLocal() as db:
+        assert db.query(Account).filter_by(name="erik").one().email == "erik@example.com"

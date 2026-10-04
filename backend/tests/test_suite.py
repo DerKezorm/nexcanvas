@@ -110,6 +110,12 @@ class FakeSuite:
             self.people[pid] = {"id": pid, "name": body["name"], "display_name": body["display_name"],
                                 "email": body["email"], "operator": False, "blocked": False}
             return {"id": pid, "name": body["name"], "password": "mailed" if body["email"] else "in_suite"}
+        if path.startswith("/people/") and path.endswith("/email"):
+            person = self.people[path.split("/")[2]]
+            if person["email"]:
+                return {"taken": False}
+            person["email"] = body["email"]
+            return {"taken": True}
         if path == "/teams":
             tid = self._id()
             self.teams[tid] = {"id": tid, "name": body["name"], "color": body["color"], "lead": body["lead"],
@@ -573,7 +579,7 @@ def test_no_person_space_or_team_is_matched_twice(client: TestClient, operator: 
     found = client.post("/api/suite/start", json={"url": SUITE + "/", "code": "GOOD-CODE-1234"}).json()
     suggested = {a["name"]: a["suggest"] for a in found["accounts"]}
     assert suggested["anna"] == "2" and suggested["anna2"] == "new", "each person is suggested once"
-    assert sorted(s["suggest"] for s in found["spaces"] if s["name"].lower() == "ideen") == ["10", "new"]
+    assert sorted(s["suggest"] for s in found["spaces"] if s["name"].lower() == "ideen") == ["10", "keep"]
     choices = {a["id"]: a["suggest"] for a in found["accounts"]}
     spaces = {s["id"]: s["suggest"] for s in found["spaces"]}
     for twice in ({**choices, twin.id: "2"}, choices):

@@ -29,7 +29,7 @@ class StartIn(BaseModel):
 class FinishIn(BaseModel):
     #: Per account here: a person id in nexsuite, ``new`` or ``skip``.
     accounts: dict[int, str] = Field(default_factory=dict)
-    #: Per space here: a space id in nexsuite or ``new``.
+    #: Per space here: a space id in nexsuite, ``new`` or ``keep`` (stays here only).
     spaces: dict[int, str] = Field(default_factory=dict)
     #: Per team here: a team id in nexsuite or ``new``.
     teams: dict[int, str] = Field(default_factory=dict)

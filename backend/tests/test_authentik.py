@@ -118,6 +118,10 @@ class FakeAuthentik:
             return httpx.Response(200, json={"results": rows})
         if (method, path) == ("GET", "/providers/oauth2/"):
             rows = [{"pk": 7, "name": "nexcanvas"}] if "provider" in self.existing else []
+            if rows and getattr(self, "provider_redirect", ""):
+                rows[0]["redirect_uris"] = [{"matching_mode": "strict", "url": self.provider_redirect}]
+            if "name" in query:
+                rows = [row for row in rows if row["name"] == query["name"]]
             return httpx.Response(200, json={"results": rows})
         if (method, path) in (("POST", "/providers/oauth2/"), ("PATCH", "/providers/oauth2/7/")):
             status = 201 if method == "POST" else 200
@@ -326,3 +330,21 @@ def test_blueprint_download_creates_the_same_objects(client: TestClient, operato
     assert ("KeyOf", "nexcanvas-email-verified") in attrs["property_mappings"]
     assert application["identifiers"] == {"slug": "nexcanvas"}
     assert application["attrs"]["provider"] == ("KeyOf", "nexcanvas-provider")
+
+
+def test_a_second_instance_takes_names_of_its_own(client: TestClient, operator: Account, fake: FakeAuthentik) -> None:
+    """Prüfgang C12: another nexcanvas at the same authentik holds the plain names; taking them would send its people
+    back here. The first one stays untouched, this one gets a provider, an application and an issuer of its own."""
+    fake.existing = {"cert", "mapping", "provider", "application"}
+    fake.provider_redirect = "https://first.example.com/api/oidc/callback"
+    result = run_setup(client)
+    methods = [(call.method, call.path) for call in fake.calls]
+    assert ("PATCH", "/api/v3/providers/oauth2/7/") not in methods, "the first instance's provider stays"
+    assert ("PATCH", "/api/v3/core/applications/nexcanvas/") not in methods
+    made = next(call for call in fake.calls if (call.method, call.path) == ("POST", "/api/v3/core/applications/"))
+    assert made.body["slug"] == "nexcanvas-testserver" and made.body["name"] == "nexcanvas (testserver)"
+    assert result["issuer"] == f"{URL}/application/o/nexcanvas-testserver/"
+    fake.provider_redirect = REDIRECT
+    fake.calls.clear()
+    run_setup(client)
+    assert ("PATCH", "/api/v3/providers/oauth2/7/") in [(c.method, c.path) for c in fake.calls], "its own: updated"

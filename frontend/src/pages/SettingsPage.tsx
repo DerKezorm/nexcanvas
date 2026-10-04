@@ -263,10 +263,10 @@ function Spaces() {
   const [params, setParams] = useSearchParams()
   const asked = Number(params.get('packages')) || null
   const packagesOf = boards.spaces.find((s) => s.id === asked) ?? null
-  const [bin, setBin] = useState<{ id: number; name: string; color: string; deleted_at: string }[]>([])
+  const [bin, setBin] = useState<{ id: number; name: string; color: string; deleted_at: string; in_suite?: boolean }[]>([])
   const action = useAction()
   useEffect(() => {
-    api<{ id: number; name: string; color: string; deleted_at: string }[]>('/api/spaces/bin').then(setBin, () => undefined)
+    api<{ id: number; name: string; color: string; deleted_at: string; in_suite?: boolean }[]>('/api/spaces/bin').then(setBin, () => undefined)
   }, [])
   return (
     <>
@@ -318,20 +318,25 @@ function Spaces() {
               <li key={s.id} className="flex items-center gap-3 px-4 py-3 text-sm">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
                 <span className="flex-1 text-mist-200">{s.name}</span>
-                <Button
-                  small
-                  busy={action.busy}
-                  onClick={() =>
-                    void action.run(async () => {
-                      await api(`/api/spaces/${s.id}/restore`, { method: 'POST' })
-                      setBin((list) => list.filter((x) => x.id !== s.id))
-                      await boards.refresh()
-                    })
-                  }
-                >
-                  <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.8} />
-                  {t('files.restore')}
-                </Button>
+                {/* Deleted in nexsuite: it comes back there, and with it here (E1). */}
+                {s.in_suite ? (
+                  <span className="text-xs text-mist-500">{t('settings.spacesBinInSuite')}</span>
+                ) : (
+                  <Button
+                    small
+                    busy={action.busy}
+                    onClick={() =>
+                      void action.run(async () => {
+                        await api(`/api/spaces/${s.id}/restore`, { method: 'POST' })
+                        setBin((list) => list.filter((x) => x.id !== s.id))
+                        await boards.refresh()
+                      })
+                    }
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.8} />
+                    {t('files.restore')}
+                  </Button>
+                )}
               </li>
             ))}
           </ul>

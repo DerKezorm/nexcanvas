@@ -522,7 +522,8 @@
       "board": "Das Board",
       "boardText": "Wie die Fläche hinter deinen Boards aussieht."
     },
-    "spacesMine": "Deine Bereiche"
+    "spacesMine": "Deine Bereiche",
+    "spacesBinInSuite": "In nexsuite zurückholen"
   },
   "server": {
     "accounts": "Konten",
@@ -1386,6 +1387,8 @@
     "stillBlocked": "Gesperrt aus der Zeit mit nexsuite: {{names}}. Entsperren unter Server, Konten, wenn sie wieder hinein sollen.",
     "newPersonHint": "„Neu in nexsuite anlegen“: Die Person bekommt von nexsuite einen Link zum Passwort setzen, per Mail, sonst liegt er in nexsuite unter Personen.",
     "freshMailed": "Neu in nexsuite und per Mail um ein Passwort gebeten: {{names}}.",
-    "freshInSuite": "Neu in nexsuite, aber ohne Mail (keine Adresse oder kein Mailserver): {{names}}. Den Link zum Passwort setzen holst du in nexsuite unter Personen, Bearbeiten."
+    "freshInSuite": "Neu in nexsuite, aber ohne Mail (keine Adresse oder kein Mailserver): {{names}}. Den Link zum Passwort setzen holst du in nexsuite unter Personen, Bearbeiten.",
+    "keepSpace": "Nur hier behalten",
+    "keepSpaceHint": "„Nur hier behalten“: der Bereich bleibt in nexcanvas, seine Rechte vergibst du weiter hier. Ein persönlicher Bereich ist so vorgeschlagen."
   }
 }

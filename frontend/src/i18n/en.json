@@ -522,7 +522,8 @@
       "board": "The board",
       "boardText": "How the surface behind your boards looks."
     },
-    "spacesMine": "Your spaces"
+    "spacesMine": "Your spaces",
+    "spacesBinInSuite": "Bring it back in nexsuite"
   },
   "server": {
     "accounts": "Accounts",
@@ -1386,6 +1387,8 @@
     "stillBlocked": "Blocked from the time with nexsuite: {{names}}. Unblock them under Server, Accounts if they are to get in again.",
     "newPersonHint": "“Make it in nexsuite”: nexsuite sends the person a link to set a password by mail; otherwise it is in nexsuite under People.",
     "freshMailed": "New in nexsuite and asked by mail to set a password: {{names}}.",
-    "freshInSuite": "New in nexsuite but without a mail (no address or no mail server): {{names}}. Get the link to set the password in nexsuite under People, Edit."
+    "freshInSuite": "New in nexsuite but without a mail (no address or no mail server): {{names}}. Get the link to set the password in nexsuite under People, Edit.",
+    "keepSpace": "Keep it here only",
+    "keepSpaceHint": "“Keep it here only”: the space stays in nexcanvas and you keep giving its rights here. A personal space is suggested that way."
   }
 }
