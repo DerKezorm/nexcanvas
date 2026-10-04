@@ -639,6 +639,11 @@
         "title": "Delete this backup?",
         "text": "It cannot be brought back.",
         "button": "Delete"
+      },
+      "unblock": {
+        "title": "Unblock {{name}}?",
+        "text": "{{name}} can sign in again afterwards, with their own password or through the sign-in provider.",
+        "button": "Unblock"
       }
     },
     "backupMade": "Backup made.",
@@ -717,7 +722,11 @@
       "blockTitle": "Block the token “{{name}}” of {{account}}?",
       "blockText": "The token then answers like none, for good. The account sees it as “blocked by the operator” and may make a new one while API tokens are on.",
       "offHint": "Switch API tokens off and every token answers 401. The tokens stay and work again when you switch them on."
-    }
+    },
+    "blocked": "blocked",
+    "noPassword": "no password",
+    "givePassword": "Give a password",
+    "unblock": "Unblock"
   },
   "errors": {
     "avatar_not_a_picture": "That is not a picture nexcanvas takes (JPEG, PNG, WebP, GIF, HEIC or AVIF).",
@@ -862,7 +871,8 @@
     "disconnect_in_suite": "Disconnect in nexsuite under Apps, or with the emergency account of this app.",
     "person_twice": "Each person in nexsuite can be matched once only.",
     "space_twice": "Each space in nexsuite can be matched once only.",
-    "team_twice": "Each team in nexsuite can be matched once only."
+    "team_twice": "Each team in nexsuite can be matched once only.",
+    "connecting_already": "A connection is under way already: resume it or give it up."
   },
   "auth": {
     "name": "Name",
@@ -1367,6 +1377,10 @@
     "disconnectInSuite": "You disconnect in nexsuite under Apps, or here with the emergency account of this app.",
     "teamsText": "Teams the same way: if nexsuite has the matching team already, you join the two and the members from here come along. Otherwise it is made there.",
     "newTeam": "Make it in nexsuite",
-    "takenElsewhere": "taken already"
+    "takenElsewhere": "taken already",
+    "stillBlocked": "Blocked from the time with nexsuite: {{names}}. Unblock them under Server, Accounts if they are to get in again.",
+    "newPersonHint": "“Make it in nexsuite”: nexsuite sends the person a link to set a password by mail; otherwise it is in nexsuite under People.",
+    "freshMailed": "New in nexsuite and asked by mail to set a password: {{names}}.",
+    "freshInSuite": "New in nexsuite but without a mail (no address or no mail server): {{names}}. Get the link to set the password in nexsuite under People, Edit."
   }
 }

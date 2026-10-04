@@ -65,6 +65,7 @@ export function SuiteCard() {
   const [wizard, setWizard] = useState(false)
   const [leaving, setLeaving] = useState<'password' | 'code' | null>(null)
   const [without, setWithout] = useState<string[] | null>(null)
+  const [stillBlocked, setStillBlocked] = useState<string[]>([])
   const action = useAction()
   const load = useCallback(async () => {
     setStatus(await api<Status>('/api/suite'))
@@ -125,6 +126,7 @@ export function SuiteCard() {
           </>
         )}
         {without && without.length > 0 && <p className="text-sm text-warn-500">{t('suite.withoutPassword', { names: without.join(', ') })}</p>}
+        {stillBlocked.length > 0 && <p className="text-sm text-warn-500">{t('suite.stillBlocked', { names: stillBlocked.join(', ') })}</p>}
       </Card>
       {connected && (
         <Card icon={KeyRound} title={t('suite.emergencyTitle')} text={t('suite.emergencyText')}>
@@ -144,9 +146,10 @@ export function SuiteCard() {
         <LeaveDialog
           mode={leaving}
           onClose={() => setLeaving(null)}
-          onDone={(names) => {
+          onDone={(names, blocked) => {
             setLeaving(null)
             setWithout(names)
+            setStillBlocked(blocked)
             void load()
           }}
         />
@@ -155,7 +158,7 @@ export function SuiteCard() {
   )
 }
 
-function LeaveDialog({ mode, onClose, onDone }: { mode: 'password' | 'code'; onClose: () => void; onDone: (without: string[]) => void }) {
+function LeaveDialog({ mode, onClose, onDone }: { mode: 'password' | 'code'; onClose: () => void; onDone: (without: string[], blocked: string[]) => void }) {
   const { t } = useTranslation()
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
@@ -163,8 +166,8 @@ function LeaveDialog({ mode, onClose, onDone }: { mode: 'password' | 'code'; onC
   const go = () =>
     void action.run(async () => {
       const path = mode === 'code' ? '/api/suite/emergency' : '/api/suite/disconnect'
-      const answer = await api<{ without_password: string[] }>(path, { method: 'POST', body: mode === 'code' ? { current_password: password, code } : { current_password: password } })
-      onDone(answer.without_password)
+      const answer = await api<{ without_password: string[]; blocked?: string[] }>(path, { method: 'POST', body: mode === 'code' ? { current_password: password, code } : { current_password: password } })
+      onDone(answer.without_password, answer.blocked ?? [])
     })
   return (
     <Dialog title={mode === 'code' ? t('suite.withCode') : t('suite.disconnectTitle')} onClose={onClose}>
@@ -214,6 +217,7 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
   const [accounts, setAccounts] = useState<Record<number, string>>({})
   const [spaces, setSpaces] = useState<Record<number, string>>({})
   const [teams, setTeams] = useState<Record<number, string>>({})
+  const [fresh, setFresh] = useState<{ name: string; password: string }[]>([])
   const action = useAction()
   const take = (found: Proposal) => {
     setProposal(found)
@@ -232,7 +236,8 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
     })
   const finish = () =>
     void action.run(async () => {
-      await api('/api/suite/finish', { method: 'POST', body: { accounts, spaces, teams } })
+      const answer = await api<{ new_people?: { name: string; password: string }[] }>('/api/suite/finish', { method: 'POST', body: { accounts, spaces, teams } })
+      setFresh(answer.new_people ?? [])
       setStep(4)
     })
   const abort = () =>
@@ -303,6 +308,7 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
               </li>
             ))}
           </ul>
+          <p className="text-xs text-mist-500">{t('suite.newPersonHint')}</p>
           {own === 'skip' && <p className="text-sm text-bad-500">{t('errors.operator_unmatched')}</p>}
           <div className="flex justify-between gap-2">
             <button type="button" className="nc-btn nc-btn-ghost text-bad-500" onClick={abort}>
@@ -390,6 +396,12 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
             <li>{t('suite.done2')}</li>
             <li>{t('suite.done3')}</li>
           </ul>
+          {fresh.some((p) => p.password === 'mailed') && (
+            <p className="text-sm text-mist-300">{t('suite.freshMailed', { names: fresh.filter((p) => p.password === 'mailed').map((p) => p.name).join(', ') })}</p>
+          )}
+          {fresh.some((p) => p.password !== 'mailed') && (
+            <p className="text-sm text-warn-500">{t('suite.freshInSuite', { names: fresh.filter((p) => p.password !== 'mailed').map((p) => p.name).join(', ') })}</p>
+          )}
           <div className="flex justify-end">
             <button type="button" className="nc-btn nc-btn-accent" onClick={onClose}>
               {t('common.done')}

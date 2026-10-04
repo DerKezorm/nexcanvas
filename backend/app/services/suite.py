@@ -69,7 +69,7 @@ SECRET_CONTEXT = "oidc-client-secret"
 SMTP_KEYS = ("smtp_host", "smtp_port", "smtp_security", "smtp_user", "smtp_password_enc", "smtp_from")
 OIDC_KEYS = ("oidc_issuer", "oidc_client_id", "oidc_client_secret_enc", "oidc_provider_name", "oidc_auto_create")
 
-_sync_lock = threading.Lock()
+_sync_lock = threading.RLock()
 #: Set by the tests: a notice fetches the directory before it answers.
 INLINE = False
 
@@ -226,6 +226,9 @@ def start(db: Session, url: str, code: str, redirect_uri: str, own_url: str) -> 
     """Pairs with the code and fetches what to match. Nothing changes for the people here yet."""
     if connected(db):
         raise SuiteError("already_connected", "nexcanvas is already connected.", 409)
+    if state(db) == "connecting":
+        # A second pairing would leave the first, half app in nexsuite for good (B6): resume it or give it up.
+        raise SuiteError("connecting_already", "A connection is under way: resume it or give it up.", 409)
     base = clean_url(url)
     made = request("POST", base + "/api/connect/v1/pair", body={
         "code": code.strip(), "url": own_url, "kind": KIND, "name": "nexcanvas", "version": __version__,
@@ -305,7 +308,7 @@ def _no_twice(choices: dict[int, str], what: str) -> None:
 
 
 def finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces_map: dict[int, str],
-           teams_map: dict[int, str] | None = None) -> None:
+           teams_map: dict[int, str] | None = None) -> list[dict[str, str]]:
     """Applies the operator's choices: ``person id`` | ``new`` | ``skip`` per account, ``space id`` | ``new`` per
     space, ``team id`` | ``new`` per team. Then nexcanvas signs in through nexsuite and fetches the directory."""
     if state(db) != "connecting":
@@ -315,6 +318,16 @@ def finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces_
     _no_twice(spaces_map, "space")
     _no_twice(teams_map, "team")
     token = _token(db)
+    made_before = dict((settings_service.get(db, "suite_pending") or {}).get("made") or {})
+    new_people: list[dict[str, str]] = []
+
+    def remember(key: str, value: dict[str, str]) -> None:
+        """What was made in nexsuite, kept at once: a retry after a failure uses it instead of making it again."""
+        made_before[key] = value
+        pending = dict(settings_service.get(db, "suite_pending") or {})
+        pending["made"] = dict(made_before)
+        settings_service.save(db, {"suite_pending": pending})
+        db.commit()
     accounts_here = {row.id: row for row in db.scalars(select(Account))}
     person_of: dict[int, str] = {}
     for account_id, choice in accounts_map.items():
@@ -322,9 +335,14 @@ def finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces_
         if row is None or choice == "skip":
             continue
         if choice == "new":
-            made = request("POST", _api(db, "/people"), token=token,
-                           body={"name": row.name, "display_name": row.display_name, "email": row.email})
-            choice = str(made["id"])
+            made = made_before.get(f"person:{row.id}")
+            if made is None:
+                answer = request("POST", _api(db, "/people"), token=token,
+                                 body={"name": row.name, "display_name": row.display_name, "email": row.email})
+                made = {"id": str(answer["id"]), "password": str(answer.get("password") or "in_suite")}
+                remember(f"person:{row.id}", made)
+            new_people.append({"name": row.display_name or row.name, "password": made["password"]})
+            choice = made["id"]
         person_of[row.id] = str(choice)
     if operator.id not in person_of:
         raise SuiteError("operator_unmatched", "Your own account needs a person in nexsuite.", 422)
@@ -335,8 +353,11 @@ def finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces_
         lead = person_of.get(team.lead_id) if team.lead_id else None
         choice = teams_map.get(team.id, "new")
         if choice == "new":
-            made = request("POST", _api(db, "/teams"), token=token, body={
-                "name": team.name, "color": team.color, "members": members, "lead": lead})
+            made = made_before.get(f"team:{team.id}")
+            if made is None:
+                made = {"id": str(request("POST", _api(db, "/teams"), token=token, body={
+                    "name": team.name, "color": team.color, "members": members, "lead": lead})["id"])}
+                remember(f"team:{team.id}", made)
         else:
             # The same team in nexsuite: its members here come along, it is not made a second time (B2).
             made = request("POST", _api(db, f"/teams/{int(choice)}/join"), token=token,
@@ -353,9 +374,12 @@ def finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces_
         grants = db.scalars(select(TeamGrant).where(TeamGrant.space_id == space.id))
         teams = [{"id": team_of[g.team_id], "role": g.role} for g in grants if g.team_id in team_of]
         if choice == "new":
-            made = request("POST", _api(db, "/spaces"), token=token,
-                           body={"name": space.name, "color": space.color, "people": people, "teams": teams})
-            space.external_id = str(made["id"])
+            made = made_before.get(f"space:{space.id}")
+            if made is None:
+                made = {"id": str(request("POST", _api(db, "/spaces"), token=token, body={
+                    "name": space.name, "color": space.color, "people": people, "teams": teams})["id"])}
+                remember(f"space:{space.id}", made)
+            space.external_id = made["id"]
         else:
             # Matched: the rights it has here come along, nexsuite keeps the higher where it has one (B1).
             request("POST", _api(db, f"/spaces/{int(choice)}/tick"), token=token,
@@ -390,6 +414,7 @@ def finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces_
     })
     logger.info("Connected to nexsuite: %s accounts, %s spaces", len(person_of), spaces_done)
     sync(db)
+    return new_people
 
 
 def abort(db: Session) -> None:
@@ -426,6 +451,10 @@ def sync(db: Session) -> bool:
     if not connected(db):
         return False
     with _sync_lock:
+        # A disconnect waits for a sync and the other way round; disconnected meanwhile, nothing is applied (B5).
+        db.expire_all()
+        if not connected(db):
+            return False
         token = _token(db)
         try:
             seen = request("GET", _api(db, "/directory"), token=token)
@@ -614,9 +643,15 @@ def _forget(db: Session) -> None:
                                "suite_last_sync": None})
 
 
-def disconnect(db: Session, *, tell: bool = True) -> list[str]:
+def disconnect(db: Session, *, tell: bool = True) -> tuple[list[str], list[str]]:
     """Runs on its own again with everything it got. Returns the names of accounts without a password (they need
-    one from the operator to sign in)."""
+    one from the operator to sign in) and of those blocked (in nexsuite, or left out): they stay blocked until the
+    operator unblocks them here (B4). Never while a sync runs (B5)."""
+    with _sync_lock:
+        return _disconnect(db, tell=tell)
+
+
+def _disconnect(db: Session, *, tell: bool) -> tuple[list[str], list[str]]:
     if tell and connected(db):
         try:
             request("POST", _api(db, "/leave"), token=_token(db))
@@ -641,10 +676,12 @@ def disconnect(db: Session, *, tell: bool = True) -> list[str]:
             row.sign_in = SIGN_IN_PASSWORD
         if not row.password_hash and row.blocked_at is None:
             without.append(row.name)
+    blocked = [row.name for row in
+               db.scalars(select(Account).where(Account.blocked_at.is_not(None)).order_by(Account.name))]
     db.commit()
     _forget(db)
     logger.warning("Disconnected from nexsuite; running on its own")
-    return without
+    return without, blocked
 
 
 def emergency_ok(db: Session, code: str) -> bool:

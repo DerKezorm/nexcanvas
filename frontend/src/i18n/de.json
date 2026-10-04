@@ -639,6 +639,11 @@
         "title": "Diese Sicherung löschen?",
         "text": "Sie lässt sich nicht zurückholen.",
         "button": "Löschen"
+      },
+      "unblock": {
+        "title": "{{name}} entsperren?",
+        "text": "{{name}} kann sich danach wieder anmelden, mit dem eigenen Passwort oder über den Anmeldeanbieter.",
+        "button": "Entsperren"
       }
     },
     "backupMade": "Sicherung erstellt.",
@@ -717,7 +722,11 @@
       "blockTitle": "Token „{{name}}“ von {{account}} sperren?",
       "blockText": "Das Token antwortet danach wie keines, für immer. Das Konto sieht es als „vom Betreiber gesperrt“ und kann ein neues anlegen, solange API-Token eingeschaltet sind.",
       "offHint": "Schaltest du API-Token ab, antwortet jedes Token mit 401. Die Token bleiben stehen und gehen wieder, wenn du einschaltest."
-    }
+    },
+    "blocked": "gesperrt",
+    "noPassword": "ohne Passwort",
+    "givePassword": "Passwort geben",
+    "unblock": "Entsperren"
   },
   "errors": {
     "avatar_not_a_picture": "Das ist kein Bild, das nexcanvas annimmt (JPEG, PNG, WebP, GIF, HEIC oder AVIF).",
@@ -862,7 +871,8 @@
     "disconnect_in_suite": "Trennen geht in nexsuite unter Apps, oder mit dem Notkonto dieser App.",
     "person_twice": "Jede Person in nexsuite lässt sich nur einmal zuordnen.",
     "space_twice": "Jeder Bereich in nexsuite lässt sich nur einmal zuordnen.",
-    "team_twice": "Jedes Team in nexsuite lässt sich nur einmal zuordnen."
+    "team_twice": "Jedes Team in nexsuite lässt sich nur einmal zuordnen.",
+    "connecting_already": "Eine Verbindung ist schon angefangen: fortsetzen oder abbrechen."
   },
   "auth": {
     "name": "Name",
@@ -1367,6 +1377,10 @@
     "disconnectInSuite": "Trennen kannst du in nexsuite unter Apps, oder hier mit dem Notkonto dieser App.",
     "teamsText": "Teams genauso: Gibt es in nexsuite schon das passende Team, verbindest du beide, und die Mitglieder von hier kommen dazu. Sonst entsteht es dort neu.",
     "newTeam": "Neu in nexsuite anlegen",
-    "takenElsewhere": "schon vergeben"
+    "takenElsewhere": "schon vergeben",
+    "stillBlocked": "Gesperrt aus der Zeit mit nexsuite: {{names}}. Entsperren unter Server, Konten, wenn sie wieder hinein sollen.",
+    "newPersonHint": "„Neu in nexsuite anlegen“: Die Person bekommt von nexsuite einen Link zum Passwort setzen, per Mail, sonst liegt er in nexsuite unter Personen.",
+    "freshMailed": "Neu in nexsuite und per Mail um ein Passwort gebeten: {{names}}.",
+    "freshInSuite": "Neu in nexsuite, aber ohne Mail (keine Adresse oder kein Mailserver): {{names}}. Den Link zum Passwort setzen holst du in nexsuite unter Personen, Bearbeiten."
   }
 }

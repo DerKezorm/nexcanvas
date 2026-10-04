@@ -78,11 +78,12 @@ def proposal(_operator: OperatorAccount, db: DbSession) -> dict[str, Any]:
 @router.post("/finish", summary="Apply the matches and connect (operator)")
 def finish(payload: FinishIn, operator: OperatorAccount, db: DbSession) -> dict[str, Any]:
     try:
-        suite.finish(db, operator, payload.accounts, payload.spaces, payload.teams)
+        new_people = suite.finish(db, operator, payload.accounts, payload.spaces, payload.teams)
     except suite.SuiteError as exc:
         db.rollback()
         raise _fail(exc) from exc
-    return suite.view(db)
+    # Who was made new in nexsuite, and whether the link to set the password went by mail (B3).
+    return {**suite.view(db), "new_people": new_people}
 
 
 @router.post("/abort", status_code=204, summary="Give up a connection that did not finish (operator)")
@@ -104,9 +105,9 @@ def disconnect(payload: ConfirmIn, request: Request, operator: OperatorAccount, 
     confirm_operator(request, db, operator, payload.current_password)
     if not suite.connected(db):
         raise error("not_connected", "nexcanvas is not connected to nexsuite.", 409)
-    without = suite.disconnect(db)
+    without, blocked = suite.disconnect(db)
     logger.warning("Disconnected from nexsuite by=%s", operator.name)
-    return {"without_password": without}
+    return {"without_password": without, "blocked": blocked}
 
 
 @router.post("/emergency", summary="Disconnect with an emergency code, nexsuite out of reach (operator)")
@@ -118,9 +119,9 @@ def emergency(payload: EmergencyIn, request: Request, operator: OperatorAccount,
     if not suite.emergency_ok(db, payload.code):
         raise error("emergency_code_wrong", "This emergency code is not valid.", 403)
     suite.report(db, "emergency_disconnect", operator.name)
-    without = suite.disconnect(db, tell=False)
+    without, blocked = suite.disconnect(db, tell=False)
     logger.warning("Disconnected from nexsuite with an emergency code by=%s", operator.name)
-    return {"without_password": without}
+    return {"without_password": without, "blocked": blocked}
 
 
 def _sync_later() -> None:

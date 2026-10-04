@@ -489,7 +489,8 @@ def list_accounts(_operator: OperatorAccount, db: DbSession) -> list[dict[str, A
     for account_id in db.scalars(select(Membership.account_id)):
         spaces[account_id] = spaces.get(account_id, 0) + 1
     return [
-        {**account_view(row), "spaces": spaces.get(row.id, 0), "locked": accounts.is_locked(row)}
+        {**account_view(row), "spaces": spaces.get(row.id, 0), "locked": accounts.is_locked(row),
+         "blocked": row.blocked_at is not None, "has_password": bool(row.password_hash)}
         for row in db.scalars(select(AccountRow).order_by(AccountRow.created_at))
     ]
 
@@ -517,6 +518,20 @@ def sign_out_account(account_id: int, operator: OperatorAccount, db: DbSession) 
     row = _row(db, account_id)
     end_all_sessions(db, row.id)
     logger.warning("All sessions ended name=%s by=%s", row.name, operator.name)
+
+
+@router.post("/accounts/{account_id}/unblock", status_code=204, summary="Let a blocked account in again")
+def unblock_account(
+    account_id: int, payload: OperatorConfirmIn, request: Request, operator: OperatorAccount, db: DbSession,
+) -> None:
+    """Accounts blocked while nexcanvas hung on nexsuite (blocked or deleted there, or left out when connecting)
+    stay blocked after a disconnect, until the operator lets them in here again (Prüfgang 04.10.2026, B4)."""
+    suite.refuse_if_managed(db)
+    confirm_operator(request, db, operator, payload.current_password)
+    row = _row(db, account_id)
+    row.blocked_at = None
+    db.commit()
+    logger.warning("Account unblocked name=%s by=%s", row.name, operator.name)
 
 
 @router.put("/accounts/{account_id}/role", summary="Make an account operator or member")

@@ -54,7 +54,7 @@ export function useServerSettings() {
   return { settings, save, ...action }
 }
 
-type AccountRow = Me & { spaces: number; locked: boolean; created_at: string; last_seen_at: string | null }
+type AccountRow = Me & { spaces: number; locked: boolean; blocked?: boolean; has_password?: boolean; created_at: string; last_seen_at: string | null }
 type OpenInvite = { id: number; email: string; expires_at: string }
 const DAYS = ['1', '7', '30'] as const
 
@@ -68,7 +68,7 @@ export function AccountsCard() {
   const [send, setSend] = useState(false)
   const [made, setMade] = useState<{ link: string; sent: boolean; email: string } | null>(null)
   const [invites, setInvites] = useState<OpenInvite[]>([])
-  const [asking, setAsking] = useState<{ kind: 'role' | 'delete' | 'password' | 'reset' | 'signout'; account: AccountRow } | null>(null)
+  const [asking, setAsking] = useState<{ kind: 'role' | 'delete' | 'password' | 'reset' | 'signout' | 'unblock'; account: AccountRow } | null>(null)
   const [newPassword, setNewPassword] = useState('')
   const { busy, problem, done, run } = useAction()
   const load = useCallback(() => {
@@ -92,6 +92,8 @@ export function AccountsCard() {
                 {row.role === 'operator' ? t('account.operator') : t('server.member')} · {t(`server.signInBy.${row.sign_in}`)} · {t('server.inSpaces', { count: row.spaces })}
                 {row.two_factor ? ' · ' + t('server.withTwoFactor') : ''}
                 {row.locked ? ' · ' + t('server.locked') : ''}
+                {row.blocked ? ' · ' + t('server.blocked') : ''}
+                {row.has_password === false && !row.blocked ? ' · ' + t('server.noPassword') : ''}
               </div>
             </div>
             {row.id !== me?.id && (
@@ -99,9 +101,13 @@ export function AccountsCard() {
                 <Button small onClick={() => setAsking({ kind: 'role', account: row })}>
                   {row.role === 'operator' ? t('server.makeMember') : t('server.makeOperator')}
                 </Button>
-                {row.sign_in === 'password' && (
-                  <Button small onClick={() => setAsking({ kind: 'password', account: row })}>
-                    {t('server.newPassword')}
+                {/* Also for accounts without one (after leaving nexsuite): a password is how they get in again (B4). */}
+                <Button small onClick={() => setAsking({ kind: 'password', account: row })}>
+                  {row.has_password === false ? t('server.givePassword') : t('server.newPassword')}
+                </Button>
+                {row.blocked && (
+                  <Button small onClick={() => setAsking({ kind: 'unblock', account: row })}>
+                    {t('server.unblock')}
                   </Button>
                 )}
                 {row.two_factor && (
@@ -193,6 +199,7 @@ export function AccountsCard() {
             if (asking.kind === 'delete') await api(`/api/accounts/${id}`, { method: 'DELETE', body: { current_password: password } })
             if (asking.kind === 'reset') await api(`/api/accounts/${id}/totp/reset`, { method: 'POST', body: { current_password: password } })
             if (asking.kind === 'signout') await api(`/api/accounts/${id}/sign-out`, { method: 'POST' })
+            if (asking.kind === 'unblock') await api(`/api/accounts/${id}/unblock`, { method: 'POST', body: { current_password: password } })
             if (asking.kind === 'password') {
               const fresh = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join('')
               await api(`/api/accounts/${id}/password`, { method: 'PUT', body: { password: fresh, current_password: password } })

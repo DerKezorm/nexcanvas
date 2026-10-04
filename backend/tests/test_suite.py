@@ -50,6 +50,8 @@ class FakeSuite:
         self.emergency: list[str] = []
         self.bin: list[dict[str, str]] = []
         self.pictures: dict[str, bytes] = {}
+        #: The next request to this path fails once (nexsuite going away in the middle of connecting).
+        self.fail_on = ""
         self.fetched: list[str] = []
         self.gone: list[str] = []
         self.calls: list[tuple[str, str]] = []
@@ -96,16 +98,22 @@ class FakeSuite:
                                                          for k, s in self.spaces.items()],
             }
         if path == "/people":
+            if self.fail_on == "/people":
+                self.fail_on = ""
+                raise suite.SuiteError("suite_unreachable", "nexsuite cannot be reached.")
             pid = self._id()
             self.people[pid] = {"id": pid, "name": body["name"], "display_name": body["display_name"],
                                 "email": body["email"], "operator": False, "blocked": False}
-            return {"id": pid, "name": body["name"]}
+            return {"id": pid, "name": body["name"], "password": "mailed" if body["email"] else "in_suite"}
         if path == "/teams":
             tid = self._id()
             self.teams[tid] = {"id": tid, "name": body["name"], "color": body["color"], "lead": body["lead"],
                                "members": body["members"]}
             return {"id": tid, "name": body["name"]}
         if path == "/spaces":
+            if self.fail_on == "/spaces":
+                self.fail_on = ""
+                raise suite.SuiteError("suite_unreachable", "nexsuite cannot be reached.")
             sid = self._id()
             self.spaces[sid] = {"id": sid, "name": body["name"], "color": body["color"] or "#f472b6",
                                 "people": body["people"],
@@ -613,3 +621,89 @@ def test_a_matched_space_keeps_its_rights_and_a_matched_team_is_not_made_twice(
     assert list(fake.teams) == ["70"]
     with SessionLocal() as db:
         assert db.query(Team).count() == 1
+
+
+
+def test_new_people_hear_how_they_get_a_password(client: TestClient, operator: Account, world: dict,
+                                                 fake: FakeSuite) -> None:
+    # Prüfgang 04.10.2026, B3: a person made new in nexsuite had no password, and nobody said so.
+    found = client.post("/api/suite/start", json={"url": SUITE + "/", "code": "GOOD-CODE-1234"}).json()
+    choices = {a["id"]: a["suggest"] for a in found["accounts"]}
+    choices[world["cleo"].id] = "skip"
+    with SessionLocal() as db:
+        db.get(Account, world["ben"].id).email = "ben@example.com"  # type: ignore[union-attr]
+        db.commit()
+    done = client.post("/api/suite/finish", json={"accounts": choices,
+                                                  "spaces": {s["id"]: s["suggest"] for s in found["spaces"]}})
+    assert done.status_code == 200, done.text
+    assert done.json()["new_people"] == [{"name": "ben", "password": "mailed"}]
+
+
+def test_after_leaving_the_blocked_are_named_and_can_be_let_in_again(client: TestClient, operator: Account,
+                                                                     world: dict, fake: FakeSuite) -> None:
+    # Prüfgang 04.10.2026, B4: left out or blocked in nexsuite, an account stayed blocked for good after a disconnect.
+    connect(client, world, operator)
+    cleo = world["cleo"]
+    assert client.post(f"/api/accounts/{cleo.id}/unblock", json={"current_password": PASSWORD}).status_code == 409
+    gone = client.post("/api/suite/disconnect", json={"current_password": PASSWORD})
+    assert gone.status_code == 200 and gone.json()["blocked"] == ["cleo"]
+    listed = {a["name"]: a for a in client.get("/api/accounts").json()}
+    assert listed["cleo"]["blocked"] is True
+    assert client.post(f"/api/accounts/{cleo.id}/unblock", json={"current_password": "wrong"}).status_code == 401
+    assert client.post(f"/api/accounts/{cleo.id}/unblock", json={"current_password": PASSWORD}).status_code == 204
+    assert {a["name"]: a for a in client.get("/api/accounts").json()}["cleo"]["blocked"] is False
+    with new_client() as stranger:
+        assert stranger.post("/api/auth/login", json={"name": "cleo", "password": PASSWORD}).status_code == 200
+
+
+def test_a_disconnect_waits_for_a_running_sync(client: TestClient, operator: Account, world: dict, fake: FakeSuite,
+                                               monkeypatch: pytest.MonkeyPatch) -> None:
+    # Prüfgang 04.10.2026, B5: a disconnect during the fetch of a sync brought the links back and doubled everything.
+    import threading
+    import time
+
+    connect(client, world, operator)
+    with SessionLocal() as db:
+        accounts_before, spaces_before = db.query(Account).count(), db.query(Space).count()
+    original, other = fake.handle, []
+
+    def racing(method: str, url: str, *, token: str = "", body: Any = None) -> Any:
+        answer = original(method, url, token=token, body=body)
+        if url.endswith("/directory") and not other:
+            def leave() -> None:
+                with SessionLocal() as db:
+                    suite.disconnect(db, tell=False)
+
+            other.append(threading.Thread(target=leave))
+            other[0].start()
+            time.sleep(0.3)  # the disconnect is waiting for the lock now
+        return answer
+
+    monkeypatch.setattr(suite, "request", racing)
+    with SessionLocal() as db:
+        suite.sync(db)
+    other[0].join(5)
+    with SessionLocal() as db:
+        assert settings_service.get(db, "suite_state") == ""
+        assert db.query(Account).count() == accounts_before, "nobody made twice"
+        assert db.query(Account).filter(Account.oidc_subject != "").count() == 0
+        assert db.query(Space).count() == spaces_before
+        assert db.query(Space).filter(Space.external_id != "").count() == 0
+
+
+def test_connecting_again_after_a_failure_makes_nothing_twice(client: TestClient, operator: Account, world: dict,
+                                                              fake: FakeSuite) -> None:
+    # Prüfgang 04.10.2026, B6: a failed step left half a connection, and a retry made people, teams and spaces again.
+    found = client.post("/api/suite/start", json={"url": SUITE + "/", "code": "GOOD-CODE-1234"}).json()
+    again = client.post("/api/suite/start", json={"url": SUITE + "/", "code": "GOOD-CODE-1234"})
+    assert again.status_code == 409 and again.json()["detail"]["code"] == "connecting_already"
+    choices = {a["id"]: a["suggest"] for a in found["accounts"]}
+    spaces = {s["id"]: s["suggest"] for s in found["spaces"]}
+    fake.fail_on = "/spaces"
+    failed = client.post("/api/suite/finish", json={"accounts": choices, "spaces": spaces})
+    assert failed.status_code >= 400 and _setting("suite_state") == "connecting"
+    people, teams = len(fake.people), len(fake.teams)
+    done = client.post("/api/suite/finish", json={"accounts": choices, "spaces": spaces})
+    assert done.status_code == 200, done.text
+    assert len(fake.people) == people and len(fake.teams) == teams, "what was made before is used, not made again"
+    assert len([s for s in fake.spaces.values() if s["name"] == "Studio"]) == 1
