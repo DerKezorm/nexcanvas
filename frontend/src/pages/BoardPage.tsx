@@ -1980,12 +1980,17 @@ function LinkDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (url: stri
 function BoardClosed({ code, spaceId }: { code: number | null; spaceId: number | null }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const { refresh } = useAuth()
   useEffect(() => {
     if (code !== 4403) return
-    authApi.me().catch((error: unknown) => {
-      if (error instanceof ApiError && error.status === 401) navigate(`/login?ended=1&next=${encodeURIComponent(window.location.pathname)}`, { replace: true })
+    const back = window.location.pathname
+    authApi.me().catch(async (error: unknown) => {
+      if (!(error instanceof ApiError && error.status === 401)) return
+      // Signed out here first, or the sign-in page would see the old state and send the page straight back.
+      await refresh()
+      navigate(`/login?ended=1&next=${encodeURIComponent(back)}`, { replace: true })
     })
-  }, [code, navigate])
+  }, [code, navigate, refresh])
   const why = code === 4404 ? 'bin' : code === 4413 ? 'large' : 'right'
   return (
     <div role="alert" className="flex flex-wrap items-center gap-3 border-b border-warn-500/40 bg-warn-500/10 px-4 py-2.5 text-sm text-mist-100">
