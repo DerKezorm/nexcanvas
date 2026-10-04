@@ -858,7 +858,8 @@
     "already_connected": "nexcanvas is already connected.",
     "not_connected": "nexcanvas is not connected to nexsuite.",
     "emergency_code_wrong": "This emergency code is not valid.",
-    "account_blocked": "This account is blocked."
+    "account_blocked": "This account is blocked.",
+    "disconnect_in_suite": "Disconnect in nexsuite under Apps, or with the emergency account of this app."
   },
   "auth": {
     "name": "Name",
@@ -1360,6 +1361,7 @@
     "emergencyLoginText": "Only for the operator, when nexsuite cannot be reached. The sign-in shows in nexsuite's log.",
     "managedSpace": "The rights of this space come from nexsuite. They are changed there.",
     "managedTwoFactor": "The second factor is set up in nexsuite (or in authentik when nexsuite signs in through it) and holds for every connected app.",
-    "emergencyAccount": "This is the emergency account of nexcanvas. Password and second factor here are only for the emergency access when nexsuite cannot be reached (sign in at /notzugang). Otherwise you sign in through nexsuite like everybody."
+    "emergencyAccount": "This is the emergency account of nexcanvas. Password and second factor here are only for the emergency access when nexsuite cannot be reached (sign in at /notzugang). Otherwise you sign in through nexsuite like everybody.",
+    "disconnectInSuite": "You disconnect in nexsuite under Apps, or here with the emergency account of this app."
   }
 }

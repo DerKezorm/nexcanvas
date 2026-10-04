@@ -540,6 +540,8 @@ def set_role(
 def set_password(
     account_id: int, payload: PasswordSetIn, request: Request, operator: OperatorAccount, db: DbSession,
 ) -> None:
+    # Connected: passwords are nexsuite's; the emergency account sets its own under its account only (A5).
+    suite.refuse_if_managed(db)
     confirm_operator(request, db, operator, payload.current_password)
     check_password(payload.password)
     row = _row(db, account_id)

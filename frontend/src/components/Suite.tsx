@@ -48,7 +48,7 @@ export function useSuiteConnected(): boolean {
 /** Settings, Server, nexsuite. */
 export function SuiteCard() {
   const { t } = useTranslation()
-  const { setMe } = useAuth()
+  const { me, setMe } = useAuth()
   const [status, setStatus] = useState<Status | null>(null)
   const [wizard, setWizard] = useState(false)
   const [leaving, setLeaving] = useState<'password' | 'code' | null>(null)
@@ -96,13 +96,19 @@ export function SuiteCard() {
               <a href={status.url} target="_blank" rel="noreferrer" className="nc-btn nc-btn-ghost">
                 {t('suite.open')}
               </a>
-              <Button danger onClick={() => setLeaving('password')}>
-                <Unplug className="h-4 w-4" /> {t('suite.disconnect')}
-              </Button>
-              <Button danger onClick={() => setLeaving('code')}>
-                <ShieldAlert className="h-4 w-4" /> {t('suite.withCode')}
-              </Button>
+              {/* Disconnecting here is the emergency account's; whoever comes through nexsuite does it there. */}
+              {me?.suite_emergency && (
+                <>
+                  <Button danger onClick={() => setLeaving('password')}>
+                    <Unplug className="h-4 w-4" /> {t('suite.disconnect')}
+                  </Button>
+                  <Button danger onClick={() => setLeaving('code')}>
+                    <ShieldAlert className="h-4 w-4" /> {t('suite.withCode')}
+                  </Button>
+                </>
+              )}
             </div>
+            {!me?.suite_emergency && <p className="text-xs text-mist-500">{t('suite.disconnectInSuite')}</p>}
             <Feedback problem={action.problem} />
           </>
         )}

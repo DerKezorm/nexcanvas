@@ -98,6 +98,7 @@ def sync(_operator: OperatorAccount, db: DbSession) -> dict[str, Any]:
 
 @router.post("/disconnect", summary="Run on its own again; nexsuite forgets the app (operator)")
 def disconnect(payload: ConfirmIn, request: Request, operator: OperatorAccount, db: DbSession) -> dict[str, Any]:
+    suite.refuse_unless_keeper(db, operator)
     confirm_operator(request, db, operator, payload.current_password)
     if not suite.connected(db):
         raise error("not_connected", "nexcanvas is not connected to nexsuite.", 409)
@@ -108,6 +109,7 @@ def disconnect(payload: ConfirmIn, request: Request, operator: OperatorAccount, 
 
 @router.post("/emergency", summary="Disconnect with an emergency code, nexsuite out of reach (operator)")
 def emergency(payload: EmergencyIn, request: Request, operator: OperatorAccount, db: DbSession) -> dict[str, Any]:
+    suite.refuse_unless_keeper(db, operator)
     confirm_operator(request, db, operator, payload.current_password)
     if not suite.connected(db):
         raise error("not_connected", "nexcanvas is not connected to nexsuite.", 409)

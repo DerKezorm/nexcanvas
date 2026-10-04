@@ -26,7 +26,7 @@ from ..errors import detail, error
 from ..models import SIGN_IN_PASSWORD
 from ..models import Account as AccountRow
 from ..security import brake, end_all_sessions
-from ..services import accounts, totp
+from ..services import accounts, suite, totp
 from .auth import PENDING_COOKIE, OperatorConfirmIn, account_view, sign_in
 
 logger = logging.getLogger("nexcanvas.auth")
@@ -145,6 +145,8 @@ def operator_reset(
     operator: OperatorAccount,
     db: DbSession,
 ) -> dict[str, Any]:
+    # Connected: the second factor is nexsuite's (or authentik's); the emergency account keeps its own (A5).
+    suite.refuse_if_managed(db)
     confirm_operator(request, db, operator, payload.current_password)
     if account_id == operator.id:
         raise error("use_disable", "Turn your own second factor off on your account page, with your password.", 409)

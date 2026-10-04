@@ -45,6 +45,7 @@ from ..models import (
     TEAM_ADMIN,
     TEAM_LOCAL,
     Account,
+    AuthSession,
     Membership,
     Space,
     Team,
@@ -113,6 +114,15 @@ def refuse_if_managed(db: Session) -> None:
         from ..errors import error
 
         raise error("managed_by_suite", "This is kept in nexsuite now.", 409)
+
+
+def refuse_unless_keeper(db: Session, account: Account) -> None:
+    """Disconnecting from the app's side is for the emergency account (its password is checked here). Whoever comes
+    through nexsuite disconnects in nexsuite, where the own password is checked; here nobody would ask for it (A5)."""
+    if connected(db) and account.id != int(settings_service.get(db, "suite_emergency_account") or 0):
+        from ..errors import error
+
+        raise error("disconnect_in_suite", "Disconnect in nexsuite, or sign in with the emergency account.", 403)
 
 
 def refuse_if_space_managed(db: Session, space_id: int) -> None:
@@ -402,6 +412,12 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
             # for a disconnect. Only the emergency account keeps signing in here.
             row.sign_in = SIGN_IN_OIDC
         _take_picture(db, row, pid, person.get("avatar"), token)
+        if person.get("signed_out"):
+            # Signed out everywhere in nexsuite (or a new password there): the sessions here from before end too.
+            ended = db.execute(delete(AuthSession).where(AuthSession.account_id == row.id,
+                                                         AuthSession.created_at < _moment(person["signed_out"])))
+            if ended.rowcount:
+                logger.info("Sessions of %s ended as in nexsuite: %s", row.name, ended.rowcount)
         if row.id != keeper:
             row.role = OPERATOR if person.get("operator") else MEMBER
         blocked = bool(person.get("blocked"))

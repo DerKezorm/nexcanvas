@@ -858,7 +858,8 @@
     "already_connected": "nexcanvas ist schon verbunden.",
     "not_connected": "nexcanvas ist nicht mit nexsuite verbunden.",
     "emergency_code_wrong": "Dieser Notfallcode gilt nicht.",
-    "account_blocked": "Dieses Konto ist gesperrt."
+    "account_blocked": "Dieses Konto ist gesperrt.",
+    "disconnect_in_suite": "Trennen geht in nexsuite unter Apps, oder mit dem Notkonto dieser App."
   },
   "auth": {
     "name": "Name",
@@ -1360,6 +1361,7 @@
     "emergencyLoginText": "Nur für den Betreiber, wenn nexsuite nicht erreichbar ist. Die Anmeldung erscheint im Protokoll von nexsuite.",
     "managedSpace": "Die Rechte dieses Bereichs kommen aus nexsuite. Ändern lassen sie sich dort.",
     "managedTwoFactor": "Der zweite Faktor wird in nexsuite eingerichtet (oder in authentik, wenn nexsuite darüber anmeldet) und gilt für alle verbundenen Apps.",
-    "emergencyAccount": "Dies ist das Notkonto von nexcanvas. Passwort und zweiter Faktor hier gelten nur für den Notzugang, wenn nexsuite nicht erreichbar ist (Anmelden unter /notzugang). Sonst meldest du dich wie alle über nexsuite an."
+    "emergencyAccount": "Dies ist das Notkonto von nexcanvas. Passwort und zweiter Faktor hier gelten nur für den Notzugang, wenn nexsuite nicht erreichbar ist (Anmelden unter /notzugang). Sonst meldest du dich wie alle über nexsuite an.",
+    "disconnectInSuite": "Trennen kannst du in nexsuite unter Apps, oder hier mit dem Notkonto dieser App."
   }
 }

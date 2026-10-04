@@ -476,3 +476,53 @@ def test_a_right_nexsuite_takes_away_closes_the_open_board_at_once(client: TestC
         client.post("/api/suite/sync")
         room = live.room_of(board_id)
         wait_for(lambda: room is None or not room.peers, seconds=2.5)
+
+
+def test_connected_no_operator_takes_another_accounts_password_or_second_factor(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite) -> None:
+    # Prüfgang 04.10.2026, A5: an operator coming through nexsuite is never asked for a password here.
+    connect(client, world, operator)
+    anna = world["anna"]
+    assert client.put(f"/api/accounts/{anna.id}/password",
+                      json={"password": "a long new password", "current_password": PASSWORD}).status_code == 409
+    reset = client.post(f"/api/accounts/{anna.id}/totp/reset", json={"current_password": PASSWORD})
+    assert reset.status_code == 409 and reset.json()["detail"]["code"] == "managed_by_suite"
+    # Anna, operator in nexsuite, comes through nexsuite: she may not disconnect from here, with any password.
+    fake.people["2"]["operator"] = True
+    client.post("/api/suite/sync")
+    from .conftest import sign_in
+
+    with new_client() as browser:
+        sign_in(browser, anna)
+        for path, body in (("/api/suite/disconnect", {"current_password": ""}),
+                           ("/api/suite/emergency", {"current_password": "", "code": "WXYZ23456789"})):
+            refused = browser.post(path, json=body)
+            assert refused.status_code == 403 and refused.json()["detail"]["code"] == "disconnect_in_suite", path
+        assert browser.put(f"/api/accounts/{operator.id}/password",
+                           json={"password": "taking the keeper over", "current_password": ""}).status_code == 409
+    assert _setting("suite_state") == "connected"
+    assert client.get("/api/auth/me").json()["suite_emergency"] is True
+
+
+def test_signing_out_everywhere_in_nexsuite_ends_the_sessions_here(client: TestClient, operator: Account,
+                                                                    world: dict, fake: FakeSuite) -> None:
+    # Prüfgang 04.10.2026, A6.
+    from datetime import timedelta
+
+    from app.models import utcnow
+
+    from .conftest import sign_in
+
+    connect(client, world, operator)
+    with new_client() as before, new_client() as after:
+        sign_in(before, world["anna"])
+        assert before.get("/api/auth/me").status_code == 200
+        fake.people["2"]["signed_out"] = (utcnow() + timedelta(seconds=1)).isoformat()
+        import time
+
+        time.sleep(1.2)
+        sign_in(after, world["anna"])  # a session made after that moment stays
+        client.post("/api/suite/sync")
+        assert before.get("/api/auth/me").status_code == 401
+        assert after.get("/api/auth/me").status_code == 200
+    assert client.get("/api/auth/me").status_code == 200, "nobody else is signed out"
