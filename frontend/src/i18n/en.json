@@ -907,7 +907,9 @@
       "submit": "Create account and join",
       "join": "Join as {{name}}",
       "invalidTitle": "Invitation not valid",
-      "invalidText": "This invitation was used or has run out. Ask for a new one."
+      "invalidText": "This invitation was used or has run out. Ask for a new one.",
+      "withProvider": "Accept with {{name}}",
+      "noWay": "Sign-in with a password is off and no sign-in provider is set up. Ask the operator."
     }
   },
   "pdf": {

@@ -261,9 +261,11 @@ export function InvitePage() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
+  const [methods, setMethods] = useState<Methods | null>(null)
 
   useEffect(() => {
     api<InviteState>(`/api/invite/${encodeURIComponent(token)}`).then(setState, () => setInvalid(true))
+    authApi.methods().then(setMethods, () => undefined)
   }, [token])
 
   if (invalid) {
@@ -301,27 +303,38 @@ export function InvitePage() {
 
   return (
     <AuthFrame title={t('auth.invite.title')} text={text}>
-      <form
-        className="space-y-4"
-        onSubmit={async (event) => {
-          event.preventDefault()
-          setBusy(true)
-          setProblem(null)
-          try {
-            setMe(await api<Me>(`/api/invite/${encodeURIComponent(token)}`, { method: 'POST', body: { name: name.trim(), password } }))
-            navigate('/', { replace: true })
-          } catch (error) {
-            setProblem(codeOf(error))
-          } finally {
-            setBusy(false)
-          }
-        }}
-      >
-        <Problem code={problem} />
-        <Field label={t('auth.name')} value={name} onChange={setName} autoComplete="username" autoFocus />
-        <Field label={t('auth.password')} value={password} onChange={setPassword} type="password" autoComplete="new-password" hint={t('auth.passwordHint')} />
-        <Primary busy={busy}>{t('auth.invite.submit')}</Primary>
-      </form>
+      {/* Through the sign-in provider (a1-9, C9): the invitation is the permission for the new account. */}
+      {methods?.oidc && (
+        <a href={`/api/oidc/start?invite=${encodeURIComponent(token)}`} className="mb-4 flex h-10 w-full items-center justify-center rounded-full bg-accent-500 text-sm font-semibold text-on-accent hover:bg-accent-400">
+          {t('auth.invite.withProvider', { name: methods.oidc_name || 'OpenID Connect' })}
+        </a>
+      )}
+      {methods && !methods.password && !methods.oidc && <p className="text-sm text-mist-400">{t('auth.invite.noWay')}</p>}
+      {(!methods || methods.password) && (
+        <>
+        <form
+          className="space-y-4"
+          onSubmit={async (event) => {
+            event.preventDefault()
+            setBusy(true)
+            setProblem(null)
+            try {
+              setMe(await api<Me>(`/api/invite/${encodeURIComponent(token)}`, { method: 'POST', body: { name: name.trim(), password } }))
+              navigate('/', { replace: true })
+            } catch (error) {
+              setProblem(codeOf(error))
+            } finally {
+              setBusy(false)
+            }
+          }}
+        >
+          <Problem code={problem} />
+          <Field label={t('auth.name')} value={name} onChange={setName} autoComplete="username" autoFocus />
+          <Field label={t('auth.password')} value={password} onChange={setPassword} type="password" autoComplete="new-password" hint={t('auth.passwordHint')} />
+          <Primary busy={busy}>{t('auth.invite.submit')}</Primary>
+        </form>
+        </>
+      )}
     </AuthFrame>
   )
 }

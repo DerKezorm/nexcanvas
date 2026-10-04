@@ -707,3 +707,13 @@ def test_connecting_again_after_a_failure_makes_nothing_twice(client: TestClient
     assert done.status_code == 200, done.text
     assert len(fake.people) == people and len(fake.teams) == teams, "what was made before is used, not made again"
     assert len([s for s in fake.spaces.values() if s["name"] == "Studio"]) == 1
+
+
+def test_connected_an_old_invitation_is_no_way_in_through_nexsuite(client: TestClient, operator: Account,
+                                                                   world: dict, fake: FakeSuite) -> None:
+    # Prüfgang 04.10.2026, C9: the invitation page offers the provider now; connected, nexsuite is the only door.
+    token = client.post("/api/invites", json={"days": 7}).json()["link"].rsplit("/", 1)[1]
+    connect(client, world, operator)
+    with new_client() as stranger:
+        answer = stranger.get(f"/api/oidc/start?invite={token}", follow_redirects=False)
+        assert answer.status_code in (302, 303) and "invite_invalid" in answer.headers["location"]

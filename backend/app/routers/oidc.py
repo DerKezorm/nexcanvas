@@ -149,7 +149,8 @@ async def start(
     # Public: this is the sign-in button. Failures land on the sign-in page with a code.
     if not _configured(db):
         return _to_login("oidc_not_configured")
-    if invite is not None and accounts.find_invite(db, invite) is None:
+    if invite is not None and (suite.connected(db) or accounts.find_invite(db, invite) is None):
+        # Connected, accounts come from nexsuite: an old invitation is no way in (C9).
         return _to_login("invite_invalid")
     try:
         description = await oidc.discovery(str(settings_service.get(db, "oidc_issuer")))

@@ -907,7 +907,9 @@
       "submit": "Konto anlegen und beitreten",
       "join": "Als {{name}} beitreten",
       "invalidTitle": "Einladung nicht gültig",
-      "invalidText": "Diese Einladung ist benutzt oder abgelaufen. Frag nach einer neuen."
+      "invalidText": "Diese Einladung ist benutzt oder abgelaufen. Frag nach einer neuen.",
+      "withProvider": "Mit {{name}} annehmen",
+      "noWay": "Die Anmeldung mit Passwort ist abgeschaltet und kein Anmeldeanbieter eingerichtet. Frag den Betreiber."
     }
   },
   "pdf": {
