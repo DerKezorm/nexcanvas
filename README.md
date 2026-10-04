@@ -1,6 +1,6 @@
 # nexcanvas
 
-[![Website: nexcanvas.nexapps.dev](https://img.shields.io/badge/website-nexcanvas.nexapps.dev-ff8a70?style=for-the-badge)](https://nexcanvas.nexapps.dev)
+[![Website: www.nexcanvas.de](https://img.shields.io/badge/website-www.nexcanvas.de-ff8a70?style=for-the-badge)](https://www.nexcanvas.de)
 
 A whiteboard for your own server, in the spirit of Apple Freeform: sticky notes, shapes, text, lines, pen and
 highlighter, photos and PDFs on an endless board, edited by several people at the same time. Self-hosted, for
@@ -8,7 +8,7 @@ yourself, a family or a small team.
 
 nexcanvas is one of the nex apps and looks like them: coral, dark and light. Whoever knows nexlore finds the same
 frame here, with the same accounts, second factor, sign-in through a provider, log, languages and backups. More on
-the project site, **[nexcanvas.nexapps.dev](https://nexcanvas.nexapps.dev)**.
+the project site, **[www.nexcanvas.de](https://www.nexcanvas.de)**.
 
 ![A network plan with VLANs, the shape library open on the left](docs/screenshots/board.png)
 

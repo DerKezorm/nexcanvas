@@ -58,7 +58,7 @@ def test_the_about_page_names_version_licence_and_where_it_comes_from(client: Te
     assert about["license"] == "AGPL-3.0"
     assert about["repo_url"] == "https://github.com/DerKezorm/nexcanvas"
     assert about["releases_url"] == "https://github.com/DerKezorm/nexcanvas/releases"
-    assert about["project_url"] == "https://nexcanvas.nexapps.dev"
+    assert about["project_url"] == "https://www.nexcanvas.de"
 
 
 def test_every_account_sees_the_answer_and_only_the_operator_switches_or_asks(
