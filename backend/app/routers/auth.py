@@ -28,7 +28,7 @@ from ..deps import (
     reauth_succeeded,
 )
 from ..errors import detail, error
-from ..models import OPERATOR, ROLES, SIGN_IN_PASSWORD, Membership
+from ..models import OPERATOR, ROLES, SIGN_IN_PASSWORD, Membership, utcnow
 from ..models import Account as AccountRow
 from ..security import (
     DEVICE_COOKIE,
@@ -518,6 +518,22 @@ def sign_out_account(account_id: int, operator: OperatorAccount, db: DbSession) 
     row = _row(db, account_id)
     end_all_sessions(db, row.id)
     logger.warning("All sessions ended name=%s by=%s", row.name, operator.name)
+
+
+@router.post("/accounts/{account_id}/block", status_code=204, summary="Block an account (its sessions end)")
+def block_account(
+    account_id: int, payload: OperatorConfirmIn, request: Request, operator: OperatorAccount, db: DbSession,
+) -> None:
+    """On its own too, as in nexsuite (F5): blocked, the account gets in nowhere and its open boards close."""
+    suite.refuse_if_managed(db)
+    confirm_operator(request, db, operator, payload.current_password)
+    if account_id == operator.id:
+        raise error("cannot_block_self", "You cannot block yourself.", 409)
+    row = _row(db, account_id)
+    row.blocked_at = utcnow()
+    db.commit()
+    end_all_sessions(db, row.id)
+    logger.warning("Account blocked name=%s by=%s", row.name, operator.name)
 
 
 @router.post("/accounts/{account_id}/unblock", status_code=204, summary="Let a blocked account in again")

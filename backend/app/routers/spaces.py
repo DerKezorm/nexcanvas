@@ -16,7 +16,7 @@ from sqlalchemy import func, select
 
 from ..deps import Account, DbSession
 from ..errors import error
-from ..models import MANAGE, SPACE_ROLES, Board, Membership, Space, Team, TeamGrant
+from ..models import MANAGE, OPERATOR, SPACE_ROLES, Board, Membership, Space, Team, TeamGrant
 from ..models import Account as AccountRow
 from ..services import rights, spaces, suite
 
@@ -100,7 +100,7 @@ def create(payload: SpaceIn, account: Account, db: DbSession) -> dict[str, Any]:
 
 @router.patch("/{space_id}", summary="Rename or recolour a space (managers)")
 def change(space_id: SpaceId, payload: SpaceChange, account: Account, db: DbSession) -> dict[str, Any]:
-    suite.refuse_if_space_managed(db, space_id)
+    suite.refuse_if_space_managed(db, space_id, account)
     try:
         space = rights.check(db, account, space_id, MANAGE)
         spaces.change(db, space, payload.name, payload.color)
@@ -111,7 +111,7 @@ def change(space_id: SpaceId, payload: SpaceChange, account: Account, db: DbSess
 
 @router.delete("/{space_id}", status_code=204, summary="Move a space with its boards into the bin (managers)")
 def trash(space_id: SpaceId, account: Account, db: DbSession) -> None:
-    suite.refuse_if_space_managed(db, space_id)
+    suite.refuse_if_space_managed(db, space_id, account)
     try:
         space = rights.check(db, account, space_id, MANAGE)
     except rights.RightsError as exc:
@@ -122,14 +122,16 @@ def trash(space_id: SpaceId, account: Account, db: DbSession) -> None:
 
 @router.get("/bin", summary="Spaces in the bin the own account managed")
 def bin_listing(account: Account, db: DbSession) -> list[dict[str, Any]]:
-    rows = db.execute(
-        select(Space, Membership.role)
-        .join(Membership, Membership.space_id == Space.id)
-        .where(Membership.account_id == account.id, Space.deleted_at.is_not(None), Membership.role == MANAGE)
-    ).all()
+    query = select(Space).where(Space.deleted_at.is_not(None))
+    if account.role != OPERATOR:
+        query = query.join(Membership, Membership.space_id == Space.id).where(
+            Membership.account_id == account.id, Membership.role == MANAGE)
+    connected = suite.connected(db)
+    # The operator sees every space in the bin (D4); one deleted in nexsuite says so and comes back there (E1).
     return [
-        {"id": space.id, "name": space.name, "color": space.color, "deleted_at": space.deleted_at.isoformat()}
-        for space, _role in rows
+        {"id": space.id, "name": space.name, "color": space.color, "deleted_at": space.deleted_at.isoformat(),
+         "in_suite": bool(space.external_id) and connected}
+        for space in db.scalars(query.order_by(Space.deleted_at.desc()))
     ]
 
 
@@ -137,8 +139,10 @@ def bin_listing(account: Account, db: DbSession) -> list[dict[str, Any]]:
 def restore(space_id: SpaceId, account: Account, db: DbSession) -> dict[str, Any]:
     space = db.get(Space, space_id)
     membership = db.get(Membership, (space_id, account.id)) if space is not None else None
-    if space is None or space.deleted_at is None or membership is None or membership.role != MANAGE:
+    allowed = account.role == OPERATOR or (membership is not None and membership.role == MANAGE)
+    if space is None or space.deleted_at is None or not allowed:
         raise error("not_found", "Not found.", 404)
+    suite.refuse_if_space_managed(db, space.id)
     space.deleted_at = None
     db.commit()
     return _view(db, account, space)
@@ -148,7 +152,7 @@ def restore(space_id: SpaceId, account: Account, db: DbSession) -> dict[str, Any
 def give_team(
     space_id: SpaceId, team_id: SpaceId, payload: TeamRight, account: Account, db: DbSession
 ) -> dict[str, Any]:
-    suite.refuse_if_space_managed(db, space_id)
+    suite.refuse_if_space_managed(db, space_id, account)
     try:
         space = rights.check(db, account, space_id, MANAGE)
     except rights.RightsError as exc:
@@ -167,7 +171,7 @@ def give_team(
 
 @router.delete("/{space_id}/teams/{team_id}", summary="Take a team's right in the space away (managers)")
 def take_team(space_id: SpaceId, team_id: SpaceId, account: Account, db: DbSession) -> dict[str, Any]:
-    suite.refuse_if_space_managed(db, space_id)
+    suite.refuse_if_space_managed(db, space_id, account)
     try:
         space = rights.check(db, account, space_id, MANAGE)
     except rights.RightsError as exc:

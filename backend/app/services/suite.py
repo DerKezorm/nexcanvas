@@ -125,9 +125,17 @@ def refuse_unless_keeper(db: Session, account: Account) -> None:
         raise error("disconnect_in_suite", "Disconnect in nexsuite, or sign in with the emergency account.", 403)
 
 
-def refuse_if_space_managed(db: Session, space_id: int) -> None:
-    """The rights of a space nexsuite gives this app are kept there."""
+def refuse_if_space_managed(db: Session, space_id: int, account: Account | None = None) -> None:
+    """The rights of a space nexsuite gives this app are kept there. With ``account``: a space it may not even read
+    answers as if there were none (404), not "kept in nexsuite" (A14)."""
+    from . import rights
+
     space = db.get(Space, space_id)
+    if account is not None and space is not None and not rights.at_least(rights.role_in(db, account, space.id),
+                                                                         rights.READ):
+        from ..errors import error
+
+        raise error("not_found", "Not found.", 404)
     if space is not None and space.external_id and connected(db):
         from ..errors import error
 
@@ -146,7 +154,14 @@ def request(method: str, url: str, *, token: str = "", body: Any = None) -> Any:
     except httpx.HTTPError as exc:
         raise SuiteError("suite_unreachable", "nexsuite cannot be reached.") from exc
     if answer.status_code == 401:
-        raise SuiteError("suite_refused", "nexsuite does not know this app any more.", 409)
+        try:
+            code = str(answer.json()["detail"]["code"])
+        except (ValueError, KeyError, TypeError):
+            code = ""
+        if code == "app_unknown":
+            raise SuiteError("suite_refused", "nexsuite does not know this app any more.", 409)
+        # Some other 401 (a proxy asking for a sign-in, ...): not a reason to cut the connection for good (A13).
+        raise SuiteError("suite_failed", "nexsuite refused.", 409)
     if answer.status_code >= 400:
         try:
             code = str(answer.json()["detail"]["code"])

@@ -14,13 +14,16 @@ import { SettingsPage } from './pages/SettingsPage'
 import { TemplatesPage } from './pages/TemplatesPage'
 import { useAuth } from './state/auth'
 
-/** Everything behind the sign-in: without an account the page goes to the sign-in, and comes back after. */
+/** Everything behind the sign-in: without an account the page goes to the sign-in, and comes back after. An account
+ * that still has to set up its second factor (the operator requires one) reaches its own account page only; before,
+ * it saw an empty app with no way on (Prüfgang 04.10.2026, F1). */
 function SignedIn({ children }: { children: ReactNode }) {
-  const { status } = useAuth()
+  const { status, me } = useAuth()
   const location = useLocation()
   if (status === 'loading') return null
   if (status === 'setup') return <Navigate to="/setup" replace />
   if (status === 'signedOut') return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />
+  if (me?.second_factor_setup_required && location.pathname !== '/account') return <Navigate to="/account?tab=security" replace />
   return (
     <BoardsProvider>
       <StartAtLast />

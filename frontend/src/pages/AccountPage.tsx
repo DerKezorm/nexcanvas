@@ -173,6 +173,11 @@ export function AccountPage() {
 
         {part === 'security' && (
           <>
+            {me.second_factor_setup_required && (
+              <p role="note" className="rounded-xl border border-warn-500/40 bg-warn-500/10 px-4 py-3 text-sm text-warn-500">
+                {t('me.setupFirst')}
+              </p>
+            )}
             {me.suite_emergency && <Managed text={t('suite.emergencyAccount')} />}
             {me.sign_in === 'password' && (
               <Section icon={KeyRound} title={t('me.password.title')}>

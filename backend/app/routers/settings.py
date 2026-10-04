@@ -101,7 +101,8 @@ def save(payload: SettingsIn, operator: OperatorAccount, db: DbSession) -> Setti
     changes: dict[str, Any] = {}
     sent = {key for key, value in payload.model_dump(exclude_unset=True).items() if value is not None}
     mail_managed = bool(settings_service.get(db, "suite_mail")) and any(k.startswith("smtp_") for k in sent)
-    if suite.connected(db) and (sent & {"password_login", "two_factor_required"} or mail_managed):
+    # The public address too: nexsuite knows the app by it, and the return address of the sign-in hangs on it (A9).
+    if suite.connected(db) and (sent & {"password_login", "two_factor_required", "public_url"} or mail_managed):
         raise error("managed_by_suite", "This is kept in nexsuite now.", 409)
     for key, value in payload.model_dump(exclude_unset=True).items():
         if value is None:

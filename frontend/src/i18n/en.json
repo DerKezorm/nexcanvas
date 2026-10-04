@@ -726,7 +726,8 @@
     "blocked": "blocked",
     "noPassword": "no password",
     "givePassword": "Give a password",
-    "unblock": "Unblock"
+    "unblock": "Unblock",
+    "ownSecondFactorFirst": "Set up your own second factor first (My account, Security), or you would be the first one who cannot go on."
   },
   "errors": {
     "avatar_not_a_picture": "That is not a picture nexcanvas takes (JPEG, PNG, WebP, GIF, HEIC or AVIF).",
@@ -1199,7 +1200,8 @@
       "operator": "Operator",
       "member": "Member"
     },
-    "linked": "Your account is linked to the provider."
+    "linked": "Your account is linked to the provider.",
+    "setupFirst": "The operator requires a second factor. Set it up here, then you can go on."
   },
   "twofactor": {
     "title": "Second factor",

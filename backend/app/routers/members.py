@@ -22,7 +22,7 @@ from sqlalchemy import func, select
 
 from ..deps import Account, DbSession, OperatorAccount, client_ip
 from ..errors import detail, error
-from ..models import MANAGE, OPERATOR, SPACE_ROLES, Invite, Membership, Space, TeamGrant, TeamMember
+from ..models import MANAGE, OPERATOR, SPACE_ROLES, Invite, Membership, Space, SpaceNotice, TeamGrant, TeamMember
 from ..models import Account as AccountRow
 from ..security import MIN_PASSWORD, SESSION_COOKIE, brake, session_account
 from ..services import accounts, mailer, notices, rights, settings_service, suite
@@ -140,7 +140,7 @@ def members(space_id: SpaceId, account: Account, db: DbSession) -> dict[str, Any
 def set_member(
     space_id: SpaceId, person: AccountName, payload: MemberIn, account: Account, db: DbSession, response: Response
 ) -> dict:
-    suite.refuse_if_space_managed(db, space_id)
+    suite.refuse_if_space_managed(db, space_id, account)
     if payload.role not in SPACE_ROLES:
         raise error("invalid_role", "Unknown right.", 422)
     space = _space(db, account, space_id, operator_may=True)
@@ -194,7 +194,7 @@ def set_member(
 
 @router.delete("/spaces/{space_id}/members/{person}", status_code=204, summary="Take an account out of the space")
 def remove_member(space_id: SpaceId, person: AccountName, account: Account, db: DbSession) -> None:
-    suite.refuse_if_space_managed(db, space_id)
+    suite.refuse_if_space_managed(db, space_id, account)
     target = accounts.by_name(db, person)
     leaving = target is not None and target.id == account.id
     if leaving:
@@ -239,6 +239,9 @@ def open_notices(account: Account, db: DbSession) -> list[NoticeOut]:
 
 @router.post("/notices/{notice_id}/accept", summary="Accept an invitation into a space")
 def accept_notice(notice_id: Annotated[int, PathParam(ge=1)], account: Account, db: DbSession) -> dict[str, str]:
+    notice = db.get(SpaceNotice, notice_id)
+    if notice is not None and notice.space_id is not None:
+        suite.refuse_if_space_managed(db, notice.space_id)
     try:
         space = notices.answer(db, account, notice_id, accept=True)
     except notices.NoticeError as exc:
@@ -331,7 +334,7 @@ def _create(db: DbSession, request: Request, by: AccountRow, space: Space | None
 @router.post("/spaces/{space_id}/invites", status_code=201, summary="Invite into the space; the link is shown once")
 def invite_to_space(space_id: SpaceId, payload: InviteIn, request: Request, account: Account, db: DbSession) -> dict:
     suite.refuse_if_managed(db)
-    suite.refuse_if_space_managed(db, space_id)
+    suite.refuse_if_space_managed(db, space_id, account)
     space = _space(db, account, space_id)
     if payload.role not in SPACE_ROLES:
         raise error("invalid_role", "Unknown right.", 422)
@@ -416,6 +419,8 @@ def accept(token: Token, payload: AcceptIn, request: Request, response: Response
 
 @router.post("/invite/{token}/join", summary="Accept an invitation with the signed-in account")
 def join(token: Token, account: Account, db: DbSession) -> dict[str, Any]:
+    # Connected, rights come from nexsuite: an invitation from before is no way in (A9).
+    suite.refuse_if_managed(db)
     row = _valid(db, token)
     if row.space_id is None:
         raise error("already_member", "You have an account already.", 409)

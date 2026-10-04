@@ -199,7 +199,8 @@ def restore(board_id: BoardId, account: Account, db: DbSession) -> dict[str, Any
 
 @router.delete("/boards/{board_id}/purge", status_code=204, summary="Delete a board from the bin for good")
 def purge(board_id: BoardId, account: Account, db: DbSession) -> None:
-    board = _board(db, account, board_id, WRITE, deleted=True)
+    # For good is for those who manage the space; who may write puts into the bin (D9, decided 04.10.2026).
+    board = _board(db, account, board_id, MANAGE, deleted=True)
     db.delete(board)
     db.commit()
     logger.info("Board deleted for good id=%s by=%s", board_id, account.name)

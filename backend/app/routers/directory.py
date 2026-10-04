@@ -57,9 +57,13 @@ def person_view(row: AccountRow) -> dict[str, Any]:
 @router.get("/directory", summary="Everybody on the server and every team")
 def directory(account: Account, db: DbSession) -> dict[str, Any]:
     people = db.scalars(select(AccountRow).order_by(AccountRow.display_name, AccountRow.name))
+    # Blocked accounts (here, or gone or blocked in nexsuite) are no colleagues to pick; the operator still sees
+    # them, marked (D6).
+    operator = account.role == "operator"
     return {
         "me": account.id,
-        "people": [person_view(row) for row in people],
+        "people": [{**person_view(row), "blocked": row.blocked_at is not None} for row in people
+                   if operator or row.blocked_at is None],
         "teams": [teams.view(db, team) for team in db.scalars(select(Team).order_by(Team.name))],
     }
 

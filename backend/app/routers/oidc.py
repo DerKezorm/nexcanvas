@@ -389,6 +389,8 @@ def _finish_link(
 
 @router.delete("/link", status_code=204, summary="Forget the link between the own account and the provider")
 def unlink(account: Account, db: DbSession) -> None:
+    # Connected, the link is the person in nexsuite; unlinked, the next sync would make a second account (A9).
+    suite.refuse_if_managed(db)
     row = db.get(AccountRow, account.id)
     assert row is not None
     if row.sign_in == SIGN_IN_OIDC:

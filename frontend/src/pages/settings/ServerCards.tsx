@@ -270,6 +270,7 @@ type Steps = { steps: { key: string; ok: boolean; detail: string }[] }
 
 export function SignInCard({ server }: { server: Server }) {
   const { t } = useTranslation()
+  const { me } = useAuth()
   const [oidc, setOidc] = useState<Oidc | null>(null)
   const [form, setForm] = useState({ issuer: '', client_id: '', client_secret: '', provider_name: '', auto_create: false })
   const [address, setAddress] = useState<string | null>(null)
@@ -291,7 +292,14 @@ export function SignInCard({ server }: { server: Server }) {
   return (
     <Card id="sign-in" icon={ShieldCheck} title={t('server.signin')} text={t('server.signinText')}>
       <Toggle label={t('server.passwordLogin')} hint={t('server.passwordLoginHint')} checked={s.password_login} onChange={(password_login) => void server.save({ password_login })} />
-      <Toggle label={t('server.twoFactorRequired')} hint={t('server.twoFactorRequiredHint')} checked={s.two_factor_required} onChange={(two_factor_required) => void server.save({ two_factor_required })} />
+      {/* Without an own second factor the operator would be the first one sent away (a1-14): first the own one. */}
+      <Toggle
+        label={t('server.twoFactorRequired')}
+        hint={!s.two_factor_required && me?.sign_in === 'password' && !me?.two_factor ? t('server.ownSecondFactorFirst') : t('server.twoFactorRequiredHint')}
+        checked={s.two_factor_required}
+        disabled={!s.two_factor_required && me?.sign_in === 'password' && !me?.two_factor}
+        onChange={(two_factor_required) => void server.save({ two_factor_required })}
+      />
       <form
         className="flex flex-wrap items-end gap-2"
         onSubmit={(event) => {

@@ -726,7 +726,8 @@
     "blocked": "gesperrt",
     "noPassword": "ohne Passwort",
     "givePassword": "Passwort geben",
-    "unblock": "Entsperren"
+    "unblock": "Entsperren",
+    "ownSecondFactorFirst": "Richte zuerst deinen eigenen zweiten Faktor ein (Mein Konto, Sicherheit), sonst wärst du der Erste, der nicht mehr weiterkommt."
   },
   "errors": {
     "avatar_not_a_picture": "Das ist kein Bild, das nexcanvas annimmt (JPEG, PNG, WebP, GIF, HEIC oder AVIF).",
@@ -1199,7 +1200,8 @@
       "operator": "Betreiber",
       "member": "Mitglied"
     },
-    "linked": "Dein Konto ist mit dem Anbieter verknüpft."
+    "linked": "Dein Konto ist mit dem Anbieter verknüpft.",
+    "setupFirst": "Der Betreiber verlangt einen zweiten Faktor. Richte ihn hier ein, dann geht es weiter."
   },
   "twofactor": {
     "title": "Zweiter Faktor",

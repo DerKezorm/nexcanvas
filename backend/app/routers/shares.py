@@ -27,7 +27,7 @@ from ..config import get_settings
 from ..db import SessionLocal
 from ..deps import Account, DbSession, client_ip
 from ..errors import detail, error
-from ..models import MANAGE, Board, Media, Share, utcnow
+from ..models import MANAGE, Board, Media, Share, Space, utcnow
 from ..security import Brake, hash_password, verify_password
 from ..services import live, rights, settings_service
 from .media import deliver
@@ -127,8 +127,11 @@ def _open_share(db: Any, token: str) -> tuple[Share, Board]:
     """The share and its board, or the one answer for everything that is not a page any more."""
     share = db.scalar(select(Share).where(Share.token == token))
     board = db.get(Board, share.board_id) if share is not None else None
+    space = db.get(Space, board.space_id) if board is not None else None
     if (
         share is None or board is None or board.deleted_at is not None
+        # The space in the bin (here, or deleted in nexsuite): its boards are gone for everybody (A8).
+        or space is None or space.deleted_at is not None
         or not settings_service.get(db, "shares_allowed")
         or (share.expires_at is not None and share.expires_at <= utcnow())
     ):
