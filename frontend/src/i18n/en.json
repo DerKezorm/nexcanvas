@@ -64,7 +64,14 @@
     "offline": "Offline: changes follow when the connection is back",
     "gone": "No access any more",
     "noSpace": "A board lives in a space. Make one first; you can invite others into it later.",
-    "fromFile": "From a file …"
+    "fromFile": "From a file …",
+    "closed": {
+      "right": "You have no access to this board any more. Your right in the space changed or the space was deleted.",
+      "bin": "This board is in the bin now.",
+      "large": "A change was too large for the board. Reload the page to go on.",
+      "back": "To the overview"
+    },
+    "noSpaceSuite": "You may write in no space. The operator gives spaces and rights in nexsuite."
   },
   "boards": {
     "all": "All boards",
@@ -73,7 +80,8 @@
     "sortTitle": "Name",
     "sortCreated": "Newest",
     "count_one": "One board",
-    "count_other": "{{count}} boards"
+    "count_other": "{{count}} boards",
+    "count_zero": "no boards"
   },
   "members": {
     "button_one": "One member",
@@ -98,7 +106,15 @@
     "changeAnyway": "Give it up anyway",
     "leaveAnyway": "Leave anyway",
     "inviteName": "Invite",
-    "invitedName": "If there is an account “{{name}}”, it finds the invitation under “New” and accepts or declines it."
+    "invitedName": "If there is an account “{{name}}”, it finds the invitation under “New” and accepts or declines it.",
+    "readOnly": "Rights are changed by the managers of this space.",
+    "count_one": "One person gets in, own rights and teams together.",
+    "count_other": "{{count}} people get in, own rights and teams together.",
+    "teams": "Teams with a right in this space",
+    "teamPeople_one": "1 person",
+    "teamPeople_other": "{{count}} people",
+    "teamsRule": "Someone with a right of their own and one through a team has the higher of the two.",
+    "asked": "Invited, not answered yet"
   },
   "sidebar": {
     "label": "Boards and spaces",
@@ -335,7 +351,8 @@
       "recent": "Recent",
       "shapes": "Shapes",
       "hint": "Double click or Alt+click on +: the same again. Tab: a new child, Shift+Tab: a sibling."
-    }
+    },
+    "emptyHintTouch": "Pick a tool below and tap the board, or bring in photos with the picture button."
   },
   "tools": {
     "select": "Select",
@@ -376,7 +393,7 @@
   "media": {
     "upload": "Upload photo or file",
     "link": "Add link",
-    "linkHint": "The card shows the address. Fetching the page title is a switch for the operator, as in nexlore.",
+    "linkHint": "The card shows the address. Fetching the page title is switched on by the operator.",
     "add": "Add",
     "sample": "Sample photo (mock)",
     "dropHint": "Or drag photos and files onto the board, or paste them with Ctrl V.",
@@ -438,7 +455,9 @@
     "child": "Add a new item to it",
     "sibling": "Add one beside it (sibling)",
     "drawSquare": "Hold while drawing: equal sides",
-    "drawMiddle": "Hold while drawing: out of the middle"
+    "drawMiddle": "Hold while drawing: out of the middle",
+    "ctrl": "Ctrl",
+    "shift": "Shift"
   },
   "share": {
     "button": "Share",
@@ -472,7 +491,7 @@
     "snap": "Snap to other items while dragging",
     "grid": "Dots on the board",
     "toolBack": "Back to Select after placing something",
-    "spacesHint": "Spaces hold boards and decide who sees them, as in nexlore.",
+    "spacesHint": "Spaces hold the boards and decide who sees them.",
     "saved": "Saved.",
     "ownPassword": "Your own password",
     "snapHint": "Alt while dragging does the opposite.",
@@ -527,11 +546,11 @@
   },
   "server": {
     "accounts": "Accounts",
-    "accountsHint": "Accounts come by invitation only.",
+    "accountsHint": "Accounts come by invitation, or through the sign-in provider when “New people get an account” is on there.",
     "member": "Member",
     "signin": "Sign-in",
     "oidc": "OpenID Connect",
-    "oidcHint": "For example authentik, set up as in nexlore and nextrmnl.",
+    "oidcHint": "For example authentik.",
     "oidcIssuer": "Issuer",
     "oidcOnly": "Sign-in with password off",
     "twoFactor": "Second factor",
@@ -555,7 +574,7 @@
     "template": "Download template",
     "upload": "Upload language",
     "log": "Log",
-    "logHint": "Four levels as in every nex app. The two deep ones switch themselves off after an hour. Never board contents, passwords or keys.",
+    "logHint": "Four levels. The two deep ones switch themselves off after an hour. Never board contents, passwords or keys.",
     "level": "Level",
     "levels": {
       "quiet": "Quiet",
@@ -569,7 +588,7 @@
     "stripLocationHint": "Phones write where a photo was taken and with what. On by default.",
     "mail": "Mail",
     "mailHint": "Only for invitations. Without a server, the link to copy is enough.",
-    "smtpHost": "Server and port",
+    "smtpHost": "Server",
     "smtpSecurity": "Encryption",
     "smtpUser": "User",
     "smtpFrom": "Sender",
@@ -596,7 +615,7 @@
     "makeOperator": "Make operator",
     "makeMember": "Make member",
     "newPassword": "New password",
-    "resetTwoFactor": "Take second factor",
+    "resetTwoFactor": "Remove second factor",
     "signOutEverywhere": "Sign out everywhere",
     "deleteAccount": "Delete",
     "passwordGiven": "The new password, to pass on once:",
@@ -608,7 +627,7 @@
       },
       "delete": {
         "title": "Delete {{name}}?",
-        "text": "The account goes; its boards stay in their spaces.",
+        "text": "The account is deleted for good. Its boards stay in their spaces.",
         "button": "Delete account"
       },
       "password": {
@@ -617,9 +636,9 @@
         "button": "Make a password"
       },
       "reset": {
-        "title": "Take the second factor of {{name}}?",
+        "title": "Remove the second factor of {{name}}?",
         "text": "For a lost phone: the account signs in with its password only, until it sets up a new one.",
-        "button": "Take it"
+        "button": "Remove"
       },
       "signout": {
         "title": "Sign {{name}} out everywhere?",
@@ -645,6 +664,12 @@
         "title": "Unblock {{name}}?",
         "text": "{{name}} can sign in again afterwards, with their own password or through the sign-in provider.",
         "button": "Unblock"
+      },
+      "promote": {
+        "text": "{{name}} can then change every setting of this server."
+      },
+      "demote": {
+        "text": "{{name}} becomes a member and can no longer reach the server settings."
       }
     },
     "backupMade": "Backup made.",
@@ -654,9 +679,9 @@
       "scheduled": "scheduled",
       "update": "before a change"
     },
-    "backupContent": "{{boards}} boards, {{files}} files",
+    "backupContent": "{{boards}}, {{files}}",
     "check": "Check",
-    "checkOk": "Whole: {{boards}} boards, {{files}} files. A restore would add {{add}} files and remove {{remove}}.",
+    "checkOk": "Complete: {{boards}}, {{files}}. Restoring would add {{add}} and remove {{remove}}.",
     "checkBad": "Damaged: this backup cannot be restored.",
     "deleteBackup": "Delete",
     "restarting": "nexcanvas restarts with the backup. The page reloads in a moment.",
@@ -684,7 +709,11 @@
       "yours": "no members, yours",
       "members_one": "one member, managed by {{managers}}",
       "members_other": "{{count}} members, managed by {{managers}}",
-      "rights": "Rights"
+      "rights": "Rights",
+      "textSuite": "Every space with its managers. You give rights in nexsuite; here you see what holds.",
+      "membersNoManager_one": "one member, nobody manages it",
+      "membersNoManager_other": "{{count}} members, nobody manages it",
+      "show": "Show"
     },
     "oidcOn": "Set up with {{issuer}}.",
     "oidcOff": "Not set up.",
@@ -728,7 +757,14 @@
     "noPassword": "no password",
     "givePassword": "Give a password",
     "unblock": "Unblock",
-    "ownSecondFactorFirst": "Set up your own second factor first (My account, Security), or you would be the first one who cannot go on."
+    "ownSecondFactorFirst": "Set up your own second factor first (My account, Security), or you would be the first one who cannot go on.",
+    "countBoards_one": "one board",
+    "countBoards_other": "{{count}} boards",
+    "countFiles_one": "one file",
+    "countFiles_other": "{{count}} files",
+    "countAccounts_one": "one account",
+    "countAccounts_other": "{{count}} accounts",
+    "inSpaces_zero": "in no space"
   },
   "errors": {
     "avatar_not_a_picture": "That is not a picture nexcanvas takes (JPEG, PNG, WebP, GIF, HEIC or AVIF).",
@@ -806,7 +842,7 @@
     "totp_enabled": "The second factor is on already.",
     "totp_not_enabled": "The second factor is not on.",
     "totp_enrolment_expired": "The setup took too long. Start again.",
-    "totp_code_wrong": "The code is not right. Check the time on your phone and try the next one.",
+    "totp_code_wrong": "The code is not right. A code from the app: check the time on your phone. A recovery code works only once.",
     "second_factor_expired": "Too many wrong codes, or too long a wait. Start again with your password.",
     "second_factor_unavailable": "The second factor cannot be checked on this installation. Ask the operator to reset it.",
     "second_factor_setup_required": "Set up your second factor first.",
@@ -840,7 +876,7 @@
     "upload_aborted": "The upload stopped before the end.",
     "shares_off": "The operator has not allowed public pages.",
     "invalid_title": "A board needs a name of 1 to 200 characters.",
-    "invalid_name": "A space needs a name of 1 to 80 characters.",
+    "invalid_name": "The name is missing or longer than 80 characters.",
     "invalid_color": "Not a colour nexcanvas offers.",
     "copy_other_space": "Copies stay in the same space for now.",
     "wrong_password": "The password is wrong.",
@@ -875,7 +911,8 @@
     "space_twice": "Each space in nexsuite can be matched once only.",
     "team_twice": "Each team in nexsuite can be matched once only.",
     "connecting_already": "A connection is under way already: resume it or give it up.",
-    "suite_unreachable_disconnect": "nexsuite does not answer. Disconnect with an emergency code, or try again when nexsuite is back."
+    "suite_unreachable_disconnect": "nexsuite does not answer. Disconnect with an emergency code, or try again when nexsuite is back.",
+    "invalid_account_name": "A sign-in name has 2 to 64 characters: letters, digits, dots, dashes or underscores, no spaces."
   },
   "auth": {
     "name": "Name",
@@ -894,7 +931,8 @@
       "text": "Welcome back to your boards.",
       "submit": "Sign in",
       "passwordOff": "Sign-in with a password is turned off for members.",
-      "oidc": "Sign in with {{name}}"
+      "oidc": "Sign in with {{name}}",
+      "ended": "Your session was ended, for example because your account was blocked or signed out everywhere. Sign in again."
     },
     "code": {
       "title": "Second factor",
@@ -910,10 +948,13 @@
       "submit": "Create account and join",
       "join": "Join as {{name}}",
       "invalidTitle": "Invitation not valid",
-      "invalidText": "This invitation was used or has run out. Ask for a new one.",
+      "invalidText": "This invitation no longer works: it was used, has run out or was withdrawn. Ask for a new one.",
       "withProvider": "Accept with {{name}}",
-      "noWay": "Sign-in with a password is off and no sign-in provider is set up. Ask the operator."
-    }
+      "noWay": "Sign-in with a password is off and no sign-in provider is set up. Ask the operator.",
+      "haveAccount": "This link is for a new account. You are signed in as {{name}} already and do not need it.",
+      "toApp": "To nexcanvas"
+    },
+    "backToLogin": "To the sign-in"
   },
   "pdf": {
     "previous": "Previous page",
@@ -1046,7 +1087,10 @@
     "menu_one": "One message for you",
     "menu_other": "{{count}} messages for you",
     "section_one": "New for you",
-    "section_other": "New for you ({{count}})"
+    "section_other": "New for you ({{count}})",
+    "operator_added_self": "The operator {{actor}} added you to “{{space}}” ({{role}}).",
+    "operator_role_self": "The operator {{actor}} changed your right in “{{space}}” ({{role}}).",
+    "operator_removed_self": "The operator {{actor}} took you out of “{{space}}”."
   },
   "background": {
     "title": "Background",
@@ -1161,7 +1205,7 @@
     },
     "profile": {
       "displayName": "Display name",
-      "displayHint": "How others see you. Empty shows your user name {{name}}; you still sign in with it.",
+      "displayHint": "How others see you. Empty shows your user name {{name}}.",
       "displaySave": "Save",
       "displaySaved": "Display name saved.",
       "name": "Name",
@@ -1172,7 +1216,8 @@
       "remove": "Remove",
       "saved": "Picture saved.",
       "removed": "Picture removed.",
-      "hint": "A photo from your phone or camera. It is cut to a square, and nothing of the file but the picture is kept: no place, no device."
+      "hint": "A photo from your phone or camera. It is cut to a square, and nothing of the file but the picture is kept: no place, no device.",
+      "displayHintPassword": "How others see you. Empty shows your user name {{name}}. You still sign in with it."
     },
     "password": {
       "title": "Password",
@@ -1287,7 +1332,8 @@
     "used": "last used {{when}}",
     "unused": "never used",
     "allSpaces": "All spaces I may read, later ones too",
-    "someSpaces": "Only these"
+    "someSpaces": "Only these",
+    "offForOperator": "API tokens are switched off."
   },
   "teams": {
     "text": "Who works together. Separate from spaces: a space says who sees what. When a space gives a team a right, every member has it.",
@@ -1296,7 +1342,7 @@
     "lead": "Lead: {{name}}",
     "size_one": "{{count}} person",
     "size_other": "{{count}} people",
-    "fromAdmin": "From the admin app",
+    "fromAdmin": "from nexsuite",
     "edit": "Edit",
     "new": "New team",
     "name": "Name",
@@ -1373,7 +1419,7 @@
     "done1": "From now on people sign in through nexsuite.",
     "done2": "Accounts, teams and rights come from there and stay in step.",
     "done3": "Your own password stays as the emergency way in at /notzugang.",
-    "loginText": "This nexcanvas hangs on nexsuite. Sign in there.",
+    "loginText": "This nexcanvas is connected to nexsuite. You sign in through nexsuite.",
     "loginButton": "Sign in with nexsuite",
     "emergencyLink": "Emergency access for the operator",
     "emergencyLoginText": "Only for the operator, when nexsuite cannot be reached. The sign-in shows in nexsuite's log.",
@@ -1390,5 +1436,26 @@
     "freshInSuite": "New in nexsuite but without a mail (no address or no mail server): {{names}}. Get the link to set the password in nexsuite under People, Edit.",
     "keepSpace": "Keep it here only",
     "keepSpaceHint": "“Keep it here only”: the space stays in nexcanvas and you keep giving its rights here. A personal space is suggested that way."
+  },
+  "colorNames": {
+    "pink": "Pink",
+    "teal": "Teal",
+    "yellow": "Yellow",
+    "green": "Green",
+    "coral": "Coral",
+    "blue": "Blue",
+    "violet": "Violet",
+    "grey": "Grey",
+    "turquoise": "Turquoise"
+  },
+  "authentik": {
+    "step": {
+      "reached": "authentik reached",
+      "signingKey": "Signing key",
+      "mapping": "Mapping for the address",
+      "provider": "Provider",
+      "application": "Application",
+      "fill": "Settings here"
+    }
   }
 }

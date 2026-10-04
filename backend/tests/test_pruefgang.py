@@ -254,3 +254,60 @@ def test_b7_a_matched_address_goes_along_and_a_personal_space_stays_here(
     assert "Mine" not in [s["name"] for s in fake.spaces.values()]
     with SessionLocal() as db:
         assert db.query(Account).filter_by(name="erik").one().email == "erik@example.com"
+
+
+def test_d8_the_emergency_account_goes_with_the_person_and_comes_back_on_disconnecting(
+    client: TestClient, operator: Account, world: dict, fake: FakeSuite
+) -> None:
+    connect(client, world, operator)
+    del fake.people["1"]  # the operator's person deleted in nexsuite
+    with SessionLocal() as db:
+        suite.sync(db)
+    with new_client() as browser:
+        assert browser.post("/api/auth/login", json={"name": "tester", "password": PASSWORD}).status_code == 401
+    with SessionLocal() as db:
+        _without, blocked = suite.disconnect(db, tell=False)
+    assert "tester" not in blocked
+    with new_client() as browser:
+        assert browser.post("/api/auth/login", json={"name": "tester", "password": PASSWORD}).status_code == 200
+
+
+def test_d3_who_is_in_a_space_is_readable_for_its_members_with_the_teams(client: TestClient, operator: Account,
+                                                                         space: int) -> None:
+    anna, ben = make_account("anna"), make_account("ben")
+    join(client, space, "anna", "write")
+    team = client.post("/api/teams", json={"name": "Werk", "members": [ben.id, anna.id]}).json()
+    client.put(f"/api/spaces/{space}/teams/{team['id']}", json={"role": "read"})
+    client.post(f"/api/spaces/{space}/invites", json={"role": "write", "days": 7})
+    with new_client(anna) as browser:
+        seen = browser.get(f"/api/spaces/{space}/members")
+        assert seen.status_code == 200, seen.text
+        body = seen.json()
+        assert body["role"] == "write" and body["invites"] == [], "invitations stay with the managers"
+        assert body["teams"] == [{"id": team["id"], "name": "Werk", "color": team["color"], "role": "read", "people": 2}]
+        assert body["count"] == 3, "tester, anna and ben (through the team), each once"
+        listed = {row["id"]: row for row in browser.get("/api/spaces").json()}
+        assert listed[space]["people"] == 3
+    assert len(client.get(f"/api/spaces/{space}/members").json()["invites"]) == 1
+    with new_client(make_account("cleo")) as stranger:
+        assert stranger.get(f"/api/spaces/{space}/members").status_code == 404
+
+
+def test_f2_one_link_per_address_and_invitations_by_name_can_be_withdrawn(client: TestClient, operator: Account,
+                                                                          space: int) -> None:
+    first = client.post(f"/api/spaces/{space}/invites", json={"role": "write", "days": 7, "email": "a@example.com"})
+    second = client.post(f"/api/spaces/{space}/invites", json={"role": "read", "days": 7, "email": "A@example.com"})
+    assert first.status_code == second.status_code == 201
+    listed = client.get(f"/api/spaces/{space}/members").json()
+    assert [i["role"] for i in listed["invites"]] == ["read"], "the second replaced the first"
+    with new_client() as visitor:
+        assert visitor.get(f"/api/invite/{first.json()['link'].rsplit('/', 1)[1]}").status_code == 404
+    make_account("dora")
+    assert client.put(f"/api/spaces/{space}/members/dora", json={"role": "write"}).status_code == 202
+    asked = client.get(f"/api/spaces/{space}/members").json()["asked"]
+    assert [(a["name"], a["role"]) for a in asked] == [("dora", "write")]
+    assert client.delete(f"/api/spaces/{space}/asked/{asked[0]['id']}").status_code == 204
+    assert client.get(f"/api/spaces/{space}/members").json()["asked"] == []
+    with new_client(Account(id=_id("dora"), name="dora")) as dora:
+        open_ = dora.get("/api/notices")
+        assert open_.status_code == 200 and open_.json() == [], "the withdrawn invitation is gone for dora too"

@@ -1447,6 +1447,7 @@ function Editor({ board }: { board: Board }) {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
+      {doc.status === 'gone' && <BoardClosed code={doc.closed} spaceId={space?.id ?? null} />}
       {/* The head row of the board, built like nexlore's note head: way back, place, star, who is here, share, more. */}
       <div className={'flex shrink-0 items-center gap-2 border-b border-ink-700/80 bg-ink-950 px-3 py-2 sm:px-5 ' + (presenting !== null ? 'hidden' : '')}>
         <Link to={space ? `/?space=${space.id}` : '/'} className="rounded-full p-1.5 text-mist-500 hover:bg-ink-850 hover:text-mist-100" aria-label={t('board.back')} title={t('board.back')}>
@@ -1483,7 +1484,7 @@ function Editor({ board }: { board: Board }) {
         <button type="button" onClick={() => boards.patch(board.id, { favorite: !board.favorite })} aria-pressed={board.favorite} aria-label={board.favorite ? t('board.unfavorite') : t('board.favorite')} title={board.favorite ? t('board.unfavorite') : t('board.favorite')} className="rounded-full p-1.5 text-mist-500 hover:bg-ink-850 hover:text-mist-100">
           <Star className={'h-4 w-4 ' + (board.favorite ? 'fill-accent-500 text-accent-500' : '')} />
         </button>
-        <span className={'hidden items-center gap-1.5 text-xs sm:inline-flex ' + (doc.status === 'live' ? 'text-mist-600' : 'text-warn-500')} role="status">
+        <span className={'items-center gap-1.5 text-xs ' + (doc.status === 'live' && !readOnly ? 'hidden sm:inline-flex ' : 'inline-flex ') + (doc.status === 'live' ? 'text-mist-600' : 'text-warn-500')} role="status">
           <span className={'h-1.5 w-1.5 rounded-full ' + (doc.status === 'live' ? 'bg-ok-500' : 'bg-warn-500')} />
           {doc.status === 'gone' ? t('board.gone') : doc.status === 'offline' ? t('board.offline') : !doc.synced ? t('board.connecting') : readOnly ? t('board.readOnly') : t('board.live')}
         </span>
@@ -1778,13 +1779,17 @@ function Editor({ board }: { board: Board }) {
           )}
         </div>
         <div data-ui className={'nc-float absolute top-3 left-3 z-20 flex items-center gap-0.5 p-1 sm:top-auto sm:bottom-4 sm:left-4 ' + (presenting !== null ? 'hidden' : '')}>
-          <button type="button" className="nc-tool h-8 w-8" onClick={doc.undo} disabled={!doc.canUndo || readOnly} aria-label={t('canvas.undo')} title={`${t('canvas.undo')} (Ctrl Z)`}>
-            <Undo2 className="h-4 w-4" />
-          </button>
-          <button type="button" className="nc-tool h-8 w-8" onClick={doc.redo} disabled={!doc.canRedo || readOnly} aria-label={t('canvas.redo')} title={`${t('canvas.redo')} (Ctrl Shift Z)`}>
-            <Redo2 className="h-4 w-4" />
-          </button>
-          <span className="mx-1 h-5 w-px bg-ink-700" />
+          {!readOnly && (
+            <>
+              <button type="button" className="nc-tool h-8 w-8" onClick={doc.undo} disabled={!doc.canUndo} aria-label={t('canvas.undo')} title={`${t('canvas.undo')} (${t('keys.ctrl')} Z)`}>
+                <Undo2 className="h-4 w-4" />
+              </button>
+              <button type="button" className="nc-tool h-8 w-8" onClick={doc.redo} disabled={!doc.canRedo} aria-label={t('canvas.redo')} title={`${t('canvas.redo')} (${t('keys.ctrl')} ${t('keys.shift')} Z)`}>
+                <Redo2 className="h-4 w-4" />
+              </button>
+              <span className="mx-1 h-5 w-px bg-ink-700" />
+            </>
+          )}
           <button type="button" className="nc-tool hidden h-8 w-8 sm:flex" onClick={() => zoomAt({ x: size.w / 2, y: size.h / 2 }, 1 / 1.25)} aria-label={t('canvas.zoomOut')} title={`${t('canvas.zoomOut')} (−)`}>
             <Minus className="h-4 w-4" />
           </button>
@@ -1827,7 +1832,7 @@ function Editor({ board }: { board: Board }) {
                 ))}
               </div>
               <p className="text-base font-semibold text-mist-200">{t('canvas.emptyTitle')}</p>
-              <p className="mt-1 text-sm text-mist-500">{t('canvas.emptyHint')}</p>
+              <p className="mt-1 px-4 text-sm text-mist-500">{t(window.matchMedia('(pointer: coarse)').matches ? 'canvas.emptyHintTouch' : 'canvas.emptyHint')}</p>
             </div>
           </div>
         )}
@@ -1965,5 +1970,29 @@ function LinkDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (url: stri
         </div>
       </form>
     </Dialog>
+  )
+}
+
+/**
+ * The board was closed by the server: said plainly, not only as a small word in the head row (Prüfgang E2). A lost
+ * right may be a lost session (blocked, signed out everywhere): then the sign-in says so.
+ */
+function BoardClosed({ code, spaceId }: { code: number | null; spaceId: number | null }) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (code !== 4403) return
+    authApi.me().catch((error: unknown) => {
+      if (error instanceof ApiError && error.status === 401) navigate(`/login?ended=1&next=${encodeURIComponent(window.location.pathname)}`, { replace: true })
+    })
+  }, [code, navigate])
+  const why = code === 4404 ? 'bin' : code === 4413 ? 'large' : 'right'
+  return (
+    <div role="alert" className="flex flex-wrap items-center gap-3 border-b border-warn-500/40 bg-warn-500/10 px-4 py-2.5 text-sm text-mist-100">
+      <span className="min-w-0 flex-1">{t(`board.closed.${why}`)}</span>
+      <Link to={spaceId && why !== 'right' ? `/?space=${spaceId}` : '/'} className="nc-btn nc-btn-ghost h-8 px-3 text-xs">
+        {t('board.closed.back')}
+      </Link>
+    </div>
   )
 }

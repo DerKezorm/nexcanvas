@@ -25,6 +25,7 @@
 
   /* Text on coral. */
   --color-on-accent: #240a03;
+  --color-on-bad: #2a0a10;
 
   --color-ok-500: #4ade80;
   --color-warn-500: #fbbf24;
@@ -66,6 +67,7 @@
   --color-accent-700: #8a2d18;
 
   --color-on-accent: #ffffff;
+  --color-on-bad: #ffffff;
 
   --color-ok-500: #16a34a;
   --color-warn-500: #b45309;

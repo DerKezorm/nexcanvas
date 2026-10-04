@@ -9,6 +9,20 @@ import { Dialog } from './Dialog'
 // eslint-disable-next-line react-refresh/only-export-components
 export const SPACE_COLORS = ['#ff8a70', '#fbbf24', '#4ade80', '#2dd4bf', '#60a5fa', '#a78bfa', '#f472b6', '#a1a1aa']
 
+/** The colours by name, for those who do not see them (a1-16). */
+// eslint-disable-next-line react-refresh/only-export-components
+export const COLOR_NAMES: Record<string, string> = {
+  '#f472b6': 'pink',
+  '#38a9c4': 'teal',
+  '#fbbf24': 'yellow',
+  '#4ade80': 'green',
+  '#ff8a70': 'coral',
+  '#60a5fa': 'blue',
+  '#a78bfa': 'violet',
+  '#a1a1aa': 'grey',
+  '#2dd4bf': 'turquoise',
+}
+
 /** A new space: a name and a colour. The account that makes it manages it and invites others. */
 export function NewSpaceDialog({ onClose, onCreate, initial }: {
   onClose: () => void
@@ -39,7 +53,7 @@ export function NewSpaceDialog({ onClose, onCreate, initial }: {
       >
         <label className="block space-y-1.5">
           <span className="text-xs font-medium text-mist-500">{t('space.name')}</span>
-          <input className="nc-field" value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder={t('space.placeholder')} />
+          <input className="nc-field" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} autoFocus placeholder={t('space.placeholder')} />
         </label>
         <fieldset>
           <legend className="mb-2 text-xs font-medium text-mist-500">{t('space.color')}</legend>
@@ -49,7 +63,7 @@ export function NewSpaceDialog({ onClose, onCreate, initial }: {
                 key={c}
                 type="button"
                 aria-pressed={color === c}
-                aria-label={c}
+                aria-label={t(`colorNames.${COLOR_NAMES[c] ?? 'grey'}`)}
                 onClick={() => setColor(c)}
                 className={'h-7 w-7 rounded-full ring-offset-2 ring-offset-ink-900 ' + (color === c ? 'ring-2 ring-accent-500' : '')}
                 style={{ background: c }}

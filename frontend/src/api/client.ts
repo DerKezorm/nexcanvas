@@ -178,6 +178,8 @@ export type SpaceInfo = {
   teams: TeamGrantInfo[]
   /** Its rights come from nexsuite. */
   managed?: boolean
+  /** Everybody who gets in, through an own right or a team, each once. */
+  people?: number
 }
 
 export type TeamGrantInfo = { id: number; name: string; color: string; role: Role }
@@ -246,7 +248,20 @@ export const spacesApi = {
   change: (id: number, change: { name?: string; color?: string }) => api<SpaceInfo>(`/api/spaces/${id}`, { method: 'PATCH', body: change }),
   trash: (id: number) => api<void>(`/api/spaces/${id}`, { method: 'DELETE' }),
   members: (id: number) =>
-    api<{ space: string; members: { name: string; role: Role; you: boolean }[]; invites: Invite[]; role: Role | null; suite?: boolean; managed?: boolean }>(
+    api<{
+      space: string
+      members: { name: string; role: Role; you: boolean }[]
+      /** Teams with a right in the space, with how many people they bring. */
+      teams?: { id: number; name: string; color: string; role: Role; people: number }[]
+      /** Everybody who gets in, through a right of their own or a team, each once. */
+      count?: number
+      invites: Invite[]
+      /** Invitations by name not answered yet (managers only). */
+      asked?: { id: number; name: string; role: Role; at: string }[]
+      role: Role | null
+      suite?: boolean
+      managed?: boolean
+    }>(
       `/api/spaces/${id}/members`,
     ),
   setMember: (id: number, name: string, role: Role) =>

@@ -96,6 +96,8 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string })
   const [doc, setDoc] = useState<Doc>(EMPTY)
   const current = useRef<Doc>(EMPTY)
   const [status, setStatus] = useState<LiveStatus>('connecting')
+  /** Why the server closed the board for good: 4403 no right (any more), 4404 in the bin, 4413 too large. */
+  const [closed, setClosed] = useState<number | null>(null)
   const [synced, setSynced] = useState(false)
   const [peers, setPeers] = useState<Peer[]>([])
   const [history, setHistory] = useState({ undo: false, redo: false })
@@ -156,6 +158,7 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string })
       // 4403: no right (any more), 4404: the board went into the bin, 4413: a change too large. No coming back.
       if (event && event.code >= 4400 && event.code < 4500) {
         setStatus('gone')
+        setClosed(event.code)
         live.shouldConnect = false
         live.disconnect()
       }
@@ -343,6 +346,7 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string })
     watchText,
     tell,
     status,
+    closed,
     synced,
     peers,
   }

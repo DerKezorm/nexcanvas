@@ -13,6 +13,7 @@ import { MembersDialog } from '../../components/MembersDialog'
 import { forgetAddedLanguages, templateFile } from '../../i18n'
 import { useAuth } from '../../state/auth'
 import { Button, Card, Confirm, CopyLink, Feedback, Input, saveAsFile, Select, SubHead, Toggle, useAction } from './ui'
+import { useSuiteConnected } from '../../components/Suite'
 
 export type ServerSettings = {
   public_url: string
@@ -58,14 +59,15 @@ type AccountRow = Me & { spaces: number; locked: boolean; blocked?: boolean; has
 type OpenInvite = { id: number; email: string; expires_at: string }
 const DAYS = ['1', '7', '30'] as const
 
-export function AccountsCard() {
+/** The accounts; connected to nexsuite only shown (``readOnly``): people are kept there (Prüfgang G2). */
+export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
   const { t, i18n } = useTranslation()
   const { me } = useAuth()
   const [list, setList] = useState<AccountRow[]>([])
   // Inviting into nexcanvas without a space, as nexlore's: how long, to which address, and the open invitations.
   const [days, setDays] = useState<(typeof DAYS)[number]>('7')
   const [email, setEmail] = useState('')
-  const [send, setSend] = useState(false)
+  const [send, setSend] = useState(true)
   const [made, setMade] = useState<{ link: string; sent: boolean; email: string } | null>(null)
   const [invites, setInvites] = useState<OpenInvite[]>([])
   const [asking, setAsking] = useState<{ kind: 'role' | 'delete' | 'password' | 'reset' | 'signout' | 'unblock'; account: AccountRow } | null>(null)
@@ -73,11 +75,11 @@ export function AccountsCard() {
   const { busy, problem, done, run } = useAction()
   const load = useCallback(() => {
     api<AccountRow[]>('/api/accounts').then(setList, () => undefined)
-    api<OpenInvite[]>('/api/invites').then(setInvites, () => undefined)
-  }, [])
+    if (!readOnly) api<OpenInvite[]>('/api/invites').then(setInvites, () => undefined)
+  }, [readOnly])
   useEffect(load, [load])
   return (
-    <Card id="accounts" icon={Users} title={t('server.accounts')} text={t('server.accountsHint')}>
+    <Card id="accounts" icon={Users} title={t('server.accounts')} text={readOnly ? t('suite.managedAccounts') : t('server.accountsHint')}>
       <ul className="divide-y divide-ink-700 rounded-xl border border-ink-700">
         {list.map((row) => (
           <li key={row.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
@@ -96,7 +98,7 @@ export function AccountsCard() {
                 {row.has_password === false && !row.blocked ? ' · ' + t('server.noPassword') : ''}
               </div>
             </div>
-            {row.id !== me?.id && (
+            {row.id !== me?.id && !readOnly && (
               <div className="flex flex-wrap gap-1.5">
                 <Button small onClick={() => setAsking({ kind: 'role', account: row })}>
                   {row.role === 'operator' ? t('server.makeMember') : t('server.makeOperator')}
@@ -126,6 +128,7 @@ export function AccountsCard() {
           </li>
         ))}
       </ul>
+      {!readOnly && (
       <div>
         <h3 className="mt-2 text-sm font-semibold text-mist-100">{t('server.inviteTitle')}</h3>
         <p className="text-xs text-mist-500">{t('server.inviteText')}</p>
@@ -134,14 +137,14 @@ export function AccountsCard() {
           onSubmit={(event) => {
             event.preventDefault()
             void run(async () => {
-              setMade(await api<{ link: string; sent: boolean; email: string }>('/api/invites', { method: 'POST', body: { days: Number(days), email: email.trim(), send } }))
+              setMade(await api<{ link: string; sent: boolean; email: string }>('/api/invites', { method: 'POST', body: { days: Number(days), email: email.trim(), send: send && !!email.trim() } }))
               load()
             })
           }}
         >
           <Select label={t('invite.valid')} value={days} options={DAYS.map((value) => ({ value, label: t('invite.days', { count: Number(value) }) }))} onChange={setDays} />
           <Input label={t('invite.email')} value={email} onChange={setEmail} type="email" className="sm:col-span-2" hint={me?.mail ? undefined : t('invite.noMail')} />
-          {me?.mail && (
+          {me?.mail && email.trim() && (
             <label className="flex items-center gap-2 text-xs text-mist-400 sm:col-span-3">
               <input type="checkbox" checked={send} onChange={(event) => setSend(event.target.checked)} className="accent-accent-500" />
               {t('invite.send')}
@@ -184,11 +187,12 @@ export function AccountsCard() {
           </ul>
         )}
       </div>
+      )}
       <Feedback problem={problem} done={done} />
       {asking && (
         <Confirm
           title={t(`server.confirm.${asking.kind}.title`, { name: asking.account.name })}
-          text={t(`server.confirm.${asking.kind}.text`, { name: asking.account.name })}
+          text={t(asking.kind === 'role' ? (asking.account.role === 'operator' ? 'server.confirm.demote.text' : 'server.confirm.promote.text') : `server.confirm.${asking.kind}.text`, { name: asking.account.name })}
           confirm={t(`server.confirm.${asking.kind}.button`)}
           danger={asking.kind === 'delete'}
           password={me?.sign_in === 'password' && asking.kind !== 'signout'}
@@ -226,6 +230,7 @@ type AdminSpace = { id: number; name: string; members: number; managers: string[
 /** Every space with who manages it, without its contents: the operator resets rights here, as in nexlore. */
 export function AllSpacesCard() {
   const { t } = useTranslation()
+  const connected = useSuiteConnected()
   const [spaces, setSpaces] = useState<AdminSpace[]>([])
   const [open, setOpen] = useState<AdminSpace | null>(null)
   const { problem, run } = useAction()
@@ -234,18 +239,22 @@ export function AllSpacesCard() {
     void load()
   }, [load])
   return (
-    <Card id="all-spaces" icon={Box} title={t('server.allSpaces.title')} text={t('server.allSpaces.text')}>
+    <Card id="all-spaces" icon={Box} title={t('server.allSpaces.title')} text={connected ? t('server.allSpaces.textSuite') : t('server.allSpaces.text')}>
       <ul className="divide-y divide-ink-700 rounded-xl border border-ink-700">
         {spaces.length === 0 && <li className="px-4 py-3 text-sm text-mist-500">{t('server.allSpaces.none')}</li>}
         {spaces.map((space) => (
           <li key={space.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
             <span className="font-medium text-mist-100">{space.name}</span>
             <span className="text-xs text-mist-500">
-              {space.members === 0 ? t('server.allSpaces.yours') : t('server.allSpaces.members', { count: space.members, managers: space.managers.join(', ') || '–' })}
+              {space.members === 0
+                ? t('server.allSpaces.yours')
+                : space.managers.length
+                  ? t('server.allSpaces.members', { count: space.members, managers: space.managers.join(', ') })
+                  : t('server.allSpaces.membersNoManager', { count: space.members })}
             </span>
             <span className="ml-auto">
               <Button small onClick={() => setOpen(space)}>
-                {t('server.allSpaces.rights')}
+                {connected ? t('server.allSpaces.show') : t('server.allSpaces.rights')}
               </Button>
             </span>
           </li>
@@ -388,7 +397,7 @@ export function SignInCard({ server }: { server: Server }) {
         <ol className="space-y-1 text-xs" data-testid="authentik-steps">
           {steps.steps.map((step) => (
             <li key={step.key} className={step.ok ? 'text-ok-500' : 'text-bad-500'}>
-              {step.ok ? '✓' : '✗'} {step.detail}
+              {step.ok ? '✓' : '✗'} {t(`authentik.step.${step.key}`, { defaultValue: step.key })}: {step.detail}
             </li>
           ))}
         </ol>
@@ -511,13 +520,35 @@ export function FilesCard({ server }: { server: Server }) {
   )
 }
 
-export function MailCard({ server }: { server: Server }) {
+export function MailCard({ server, readOnly = false }: { server: Server; readOnly?: boolean }) {
   const { t } = useTranslation()
   const s = server.settings
   const [draft, setDraft] = useState<Change>({})
   const [to, setTo] = useState('')
   const test = useAction()
   if (!s) return null
+  if (readOnly) {
+    // The mail server nexsuite hands over, as it holds now (G2): what was a sentence only before.
+    const rows: [string, string][] = [
+      [t('server.smtpHost'), s.smtp_host || '–'],
+      [t('server.smtpPort'), String(s.smtp_port)],
+      [t('server.smtpSecurity'), s.smtp_security],
+      [t('server.smtpUser'), s.smtp_user || '–'],
+      [t('server.smtpFrom'), s.smtp_from || '–'],
+    ]
+    return (
+      <Card id="mail" icon={Mail} title={t('suite.mailTitle')} text={t('suite.managedMail')}>
+        <dl className="grid gap-x-6 gap-y-1.5 rounded-xl border border-ink-700 bg-ink-850 px-4 py-3 text-sm sm:grid-cols-[max-content_1fr]">
+          {rows.map(([label, value]) => (
+            <div key={label} className="contents">
+              <dt className="text-mist-500">{label}</dt>
+              <dd className="truncate text-mist-100">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </Card>
+    )
+  }
   const value = { ...s, ...draft }
   return (
     <Card id="mail" icon={Mail} title={t('server.mail')} text={t('server.mailHint')}>
@@ -636,7 +667,7 @@ export function BackupsCard({ server }: { server: Server }) {
             <div className="min-w-0 flex-1">
               <div className="text-mist-100">{new Date(entry.created).toLocaleString(i18n.language)}</div>
               <div className="text-xs text-mist-500">
-                {t(`server.kinds.${entry.kind}`)} · {t('server.backupContent', { boards: entry.boards, files: entry.files })} · {size(entry.size)} · {entry.version}
+                {t(`server.kinds.${entry.kind}`)} · {t('server.backupContent', { boards: t('server.countBoards', { count: entry.boards }), files: t('server.countFiles', { count: entry.files }) })} · {size(entry.size)} · {entry.version}
               </div>
             </div>
             <button type="button" className={icon} title={t('server.check')} aria-label={t('server.check')} onClick={() => void action.run(async () => setBrief({ ...(await api<Brief>(`/api/backups/${entry.name}/check`, { method: 'POST' })), name: entry.name }))}>
@@ -656,7 +687,7 @@ export function BackupsCard({ server }: { server: Server }) {
       </ul>
       {brief && (
         <div className={'rounded-xl border px-4 py-3 text-sm ' + (brief.usable ? 'border-ok-500/40 bg-ok-500/10 text-mist-200' : 'border-bad-500/40 bg-bad-500/10 text-bad-500')}>
-          {brief.usable ? t('server.checkOk', { boards: brief.boards, files: brief.files, add: brief.would_add, remove: brief.would_remove }) : t('server.checkBad')}
+          {brief.usable ? t('server.checkOk', { boards: t('server.countBoards', { count: brief.boards }), files: t('server.countFiles', { count: brief.files }), add: t('server.countFiles', { count: brief.would_add }), remove: t('server.countFiles', { count: brief.would_remove }) }) : t('server.checkBad')}
         </div>
       )}
       {restarting && <p className="rounded-xl border border-warn-500/40 bg-warn-500/10 px-4 py-3 text-sm text-warn-500">{t('server.restarting')}</p>}

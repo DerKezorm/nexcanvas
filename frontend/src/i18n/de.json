@@ -64,7 +64,14 @@
     "offline": "Offline: Änderungen folgen, sobald die Verbindung zurück ist",
     "gone": "Kein Zugriff mehr",
     "noSpace": "Ein Board liegt in einem Bereich. Leg zuerst einen an; andere lädst du später dazu ein.",
-    "fromFile": "Aus Datei …"
+    "fromFile": "Aus Datei …",
+    "closed": {
+      "right": "Du hast keinen Zugriff mehr auf dieses Board. Dein Recht im Bereich wurde geändert oder der Bereich gelöscht.",
+      "bin": "Dieses Board liegt jetzt im Papierkorb.",
+      "large": "Eine Änderung war zu groß für das Board. Lade die Seite neu, um weiterzuarbeiten.",
+      "back": "Zur Übersicht"
+    },
+    "noSpaceSuite": "Du darfst in keinem Bereich schreiben. Bereiche und Rechte vergibt der Betreiber in nexsuite."
   },
   "boards": {
     "all": "Alle Boards",
@@ -73,7 +80,8 @@
     "sortTitle": "Name",
     "sortCreated": "Neueste zuerst",
     "count_one": "Ein Board",
-    "count_other": "{{count}} Boards"
+    "count_other": "{{count}} Boards",
+    "count_zero": "keine Boards"
   },
   "members": {
     "button_one": "Ein Mitglied",
@@ -98,7 +106,15 @@
     "changeAnyway": "Trotzdem abgeben",
     "leaveAnyway": "Trotzdem gehen",
     "inviteName": "Einladen",
-    "invitedName": "Gibt es ein Konto „{{name}}“, findet es die Einladung unter „Neu“ und nimmt sie an oder lehnt sie ab."
+    "invitedName": "Gibt es ein Konto „{{name}}“, findet es die Einladung unter „Neu“ und nimmt sie an oder lehnt sie ab.",
+    "readOnly": "Rechte ändern dürfen die Verwalter dieses Bereichs.",
+    "count_one": "Eine Person hat Zugang, eigene Rechte und Teams zusammen.",
+    "count_other": "{{count}} Personen haben Zugang, eigene Rechte und Teams zusammen.",
+    "teams": "Teams mit Recht in diesem Bereich",
+    "teamPeople_one": "1 Person",
+    "teamPeople_other": "{{count}} Personen",
+    "teamsRule": "Hat jemand ein eigenes Recht und eines über ein Team, gilt das höhere.",
+    "asked": "Eingeladen, noch nicht angenommen"
   },
   "sidebar": {
     "label": "Boards und Bereiche",
@@ -335,7 +351,8 @@
       "recent": "Zuletzt",
       "shapes": "Formen",
       "hint": "Doppelklick oder Alt+Klick auf +: dasselbe noch einmal. Tab: neues Kind, Umschalt+Tab: Geschwister."
-    }
+    },
+    "emptyHintTouch": "Unten ein Werkzeug wählen und aufs Board tippen, oder über das Bildsymbol Fotos holen."
   },
   "tools": {
     "select": "Auswählen",
@@ -376,7 +393,7 @@
   "media": {
     "upload": "Foto oder Datei hochladen",
     "link": "Link einfügen",
-    "linkHint": "Die Karte zeigt die Adresse. Den Seitentitel holen schaltet der Betreiber frei, wie in nexlore.",
+    "linkHint": "Die Karte zeigt die Adresse. Den Seitentitel zu holen schaltet der Betreiber frei.",
     "add": "Einfügen",
     "sample": "Beispielfoto (Attrappe)",
     "dropHint": "Oder Fotos und Dateien aufs Board ziehen oder mit Strg V einfügen.",
@@ -438,7 +455,9 @@
     "child": "Neues Element anhängen",
     "sibling": "Daneben anhängen (Geschwister)",
     "drawSquare": "Beim Aufziehen halten: gleiche Seiten",
-    "drawMiddle": "Beim Aufziehen halten: aus der Mitte"
+    "drawMiddle": "Beim Aufziehen halten: aus der Mitte",
+    "ctrl": "Strg",
+    "shift": "Umschalt"
   },
   "share": {
     "button": "Teilen",
@@ -472,7 +491,7 @@
     "snap": "Beim Ziehen an anderen Dingen einrasten",
     "grid": "Punkte auf dem Board",
     "toolBack": "Nach dem Platzieren zurück zu Auswählen",
-    "spacesHint": "Bereiche enthalten die Boards und bestimmen, wer sie sieht, wie in nexlore.",
+    "spacesHint": "Bereiche enthalten die Boards und bestimmen, wer sie sieht.",
     "saved": "Gespeichert.",
     "ownPassword": "Dein eigenes Passwort",
     "snapHint": "Alt beim Ziehen bewirkt das Gegenteil.",
@@ -527,11 +546,11 @@
   },
   "server": {
     "accounts": "Konten",
-    "accountsHint": "Konten kommen nur per Einladung.",
+    "accountsHint": "Konten kommen per Einladung, oder über den Anmeldeanbieter, wenn dort „Neue Personen bekommen ein Konto“ an ist.",
     "member": "Mitglied",
     "signin": "Anmeldung",
     "oidc": "OpenID Connect",
-    "oidcHint": "Zum Beispiel authentik, eingerichtet wie in nexlore und nextrmnl.",
+    "oidcHint": "Zum Beispiel authentik.",
     "oidcIssuer": "Aussteller (Issuer)",
     "oidcOnly": "Anmeldung mit Passwort aus",
     "twoFactor": "Zweiter Faktor",
@@ -555,7 +574,7 @@
     "template": "Vorlage herunterladen",
     "upload": "Sprache hochladen",
     "log": "Log",
-    "logHint": "Vier Stufen wie in jeder nex-App. Die beiden tiefen schalten sich nach einer Stunde selbst ab. Nie Inhalte von Boards, Passwörter oder Schlüssel.",
+    "logHint": "Vier Stufen. Die beiden tiefen schalten sich nach einer Stunde selbst ab. Nie Inhalte von Boards, Passwörter oder Schlüssel.",
     "level": "Stufe",
     "levels": {
       "quiet": "Ruhig",
@@ -569,7 +588,7 @@
     "stripLocationHint": "Handys schreiben hinein, wo und womit ein Foto entstand. Ab Werk an.",
     "mail": "Mail",
     "mailHint": "Nur für Einladungen. Ohne Server reicht der Link zum Kopieren.",
-    "smtpHost": "Server und Port",
+    "smtpHost": "Server",
     "smtpSecurity": "Verschlüsselung",
     "smtpUser": "Benutzer",
     "smtpFrom": "Absender",
@@ -608,7 +627,7 @@
       },
       "delete": {
         "title": "{{name}} löschen?",
-        "text": "Das Konto geht; seine Boards bleiben in ihren Bereichen.",
+        "text": "Das Konto wird gelöscht und lässt sich nicht zurückholen. Seine Boards bleiben in ihren Bereichen.",
         "button": "Konto löschen"
       },
       "password": {
@@ -645,6 +664,12 @@
         "title": "{{name}} entsperren?",
         "text": "{{name}} kann sich danach wieder anmelden, mit dem eigenen Passwort oder über den Anmeldeanbieter.",
         "button": "Entsperren"
+      },
+      "promote": {
+        "text": "{{name}} darf dann jede Einstellung dieses Servers ändern."
+      },
+      "demote": {
+        "text": "{{name}} wird Mitglied und kommt nicht mehr an die Einstellungen des Servers."
       }
     },
     "backupMade": "Sicherung erstellt.",
@@ -654,9 +679,9 @@
       "scheduled": "geplant",
       "update": "vor einer Änderung"
     },
-    "backupContent": "{{boards}} Boards, {{files}} Dateien",
+    "backupContent": "{{boards}}, {{files}}",
     "check": "Prüfen",
-    "checkOk": "Vollständig: {{boards}} Boards, {{files}} Dateien. Wiederherstellen würde {{add}} Dateien hinzufügen und {{remove}} entfernen.",
+    "checkOk": "Vollständig: {{boards}}, {{files}}. Wiederherstellen würde {{add}} hinzufügen und {{remove}} entfernen.",
     "checkBad": "Beschädigt: Diese Sicherung lässt sich nicht wiederherstellen.",
     "deleteBackup": "Löschen",
     "restarting": "nexcanvas startet mit der Sicherung neu. Die Seite lädt gleich neu.",
@@ -684,7 +709,11 @@
       "yours": "ohne Mitglieder, gehört dir",
       "members_one": "ein Mitglied, verwaltet von {{managers}}",
       "members_other": "{{count}} Mitglieder, verwaltet von {{managers}}",
-      "rights": "Rechte"
+      "rights": "Rechte",
+      "textSuite": "Jeder Bereich mit seinen Verwaltern. Rechte vergibst du in nexsuite; hier siehst du, was gilt.",
+      "membersNoManager_one": "ein Mitglied, niemand verwaltet ihn",
+      "membersNoManager_other": "{{count}} Mitglieder, niemand verwaltet ihn",
+      "show": "Ansehen"
     },
     "oidcOn": "Eingerichtet mit {{issuer}}.",
     "oidcOff": "Nicht eingerichtet.",
@@ -728,7 +757,14 @@
     "noPassword": "ohne Passwort",
     "givePassword": "Passwort geben",
     "unblock": "Entsperren",
-    "ownSecondFactorFirst": "Richte zuerst deinen eigenen zweiten Faktor ein (Mein Konto, Sicherheit), sonst wärst du der Erste, der nicht mehr weiterkommt."
+    "ownSecondFactorFirst": "Richte zuerst deinen eigenen zweiten Faktor ein (Mein Konto, Sicherheit), sonst wärst du der Erste, der nicht mehr weiterkommt.",
+    "countBoards_one": "ein Board",
+    "countBoards_other": "{{count}} Boards",
+    "countFiles_one": "eine Datei",
+    "countFiles_other": "{{count}} Dateien",
+    "countAccounts_one": "ein Konto",
+    "countAccounts_other": "{{count}} Konten",
+    "inSpaces_zero": "in keinem Bereich"
   },
   "errors": {
     "avatar_not_a_picture": "Das ist kein Bild, das nexcanvas annimmt (JPEG, PNG, WebP, GIF, HEIC oder AVIF).",
@@ -806,7 +842,7 @@
     "totp_enabled": "Der zweite Faktor ist schon an.",
     "totp_not_enabled": "Der zweite Faktor ist nicht an.",
     "totp_enrolment_expired": "Das Einrichten hat zu lange gedauert. Fang neu an.",
-    "totp_code_wrong": "Der Code stimmt nicht. Prüfe die Uhrzeit auf dem Handy und nimm den nächsten.",
+    "totp_code_wrong": "Der Code stimmt nicht. Ein Code aus der App: Uhrzeit auf dem Handy prüfen. Ein Wiederherstellungscode gilt nur einmal.",
     "second_factor_expired": "Zu viele falsche Codes oder zu lange gewartet. Fang mit dem Passwort neu an.",
     "second_factor_unavailable": "Der zweite Faktor lässt sich auf dieser Installation nicht prüfen. Bitte den Betreiber, ihn zurückzusetzen.",
     "second_factor_setup_required": "Richte zuerst deinen zweiten Faktor ein.",
@@ -840,7 +876,7 @@
     "upload_aborted": "Das Hochladen brach vor dem Ende ab.",
     "shares_off": "Der Betreiber hat öffentliche Seiten nicht erlaubt.",
     "invalid_title": "Ein Board braucht einen Namen mit 1 bis 200 Zeichen.",
-    "invalid_name": "Ein Bereich braucht einen Namen mit 1 bis 80 Zeichen.",
+    "invalid_name": "Der Name fehlt oder ist länger als 80 Zeichen.",
     "invalid_color": "Diese Farbe bietet nexcanvas nicht an.",
     "copy_other_space": "Kopien bleiben vorerst im selben Bereich.",
     "wrong_password": "Das Passwort stimmt nicht.",
@@ -875,7 +911,8 @@
     "space_twice": "Jeder Bereich in nexsuite lässt sich nur einmal zuordnen.",
     "team_twice": "Jedes Team in nexsuite lässt sich nur einmal zuordnen.",
     "connecting_already": "Eine Verbindung ist schon angefangen: fortsetzen oder abbrechen.",
-    "suite_unreachable_disconnect": "nexsuite antwortet nicht. Trenne mit einem Notfallcode oder versuche es noch einmal, wenn nexsuite wieder da ist."
+    "suite_unreachable_disconnect": "nexsuite antwortet nicht. Trenne mit einem Notfallcode oder versuche es noch einmal, wenn nexsuite wieder da ist.",
+    "invalid_account_name": "Ein Anmeldename hat 2 bis 64 Zeichen: Buchstaben ohne Umlaute, Ziffern, Punkt, Bindestrich oder Unterstrich, keine Leerzeichen."
   },
   "auth": {
     "name": "Name",
@@ -894,7 +931,8 @@
       "text": "Willkommen zurück bei deinen Boards.",
       "submit": "Anmelden",
       "passwordOff": "Anmelden mit Passwort ist für Mitglieder abgeschaltet.",
-      "oidc": "Mit {{name}} anmelden"
+      "oidc": "Mit {{name}} anmelden",
+      "ended": "Deine Sitzung wurde beendet, zum Beispiel weil dein Konto gesperrt oder überall abgemeldet wurde. Melde dich neu an."
     },
     "code": {
       "title": "Zweiter Faktor",
@@ -910,10 +948,13 @@
       "submit": "Konto anlegen und beitreten",
       "join": "Als {{name}} beitreten",
       "invalidTitle": "Einladung nicht gültig",
-      "invalidText": "Diese Einladung ist benutzt oder abgelaufen. Frag nach einer neuen.",
+      "invalidText": "Diese Einladung gilt nicht mehr: Sie ist benutzt, abgelaufen oder zurückgezogen. Frag nach einer neuen.",
       "withProvider": "Mit {{name}} annehmen",
-      "noWay": "Die Anmeldung mit Passwort ist abgeschaltet und kein Anmeldeanbieter eingerichtet. Frag den Betreiber."
-    }
+      "noWay": "Die Anmeldung mit Passwort ist abgeschaltet und kein Anmeldeanbieter eingerichtet. Frag den Betreiber.",
+      "haveAccount": "Dieser Link ist für ein neues Konto. Du bist schon als {{name}} angemeldet und brauchst ihn nicht.",
+      "toApp": "Zu nexcanvas"
+    },
+    "backToLogin": "Zur Anmeldung"
   },
   "pdf": {
     "previous": "Vorige Seite",
@@ -1046,7 +1087,10 @@
     "menu_one": "Eine Nachricht für dich",
     "menu_other": "{{count}} Nachrichten für dich",
     "section_one": "Neu für dich",
-    "section_other": "Neu für dich ({{count}})"
+    "section_other": "Neu für dich ({{count}})",
+    "operator_added_self": "Der Betreiber {{actor}} hat dich in „{{space}}“ aufgenommen ({{role}}).",
+    "operator_role_self": "Der Betreiber {{actor}} hat dein Recht in „{{space}}“ geändert ({{role}}).",
+    "operator_removed_self": "Der Betreiber {{actor}} hat dich aus „{{space}}“ genommen."
   },
   "background": {
     "title": "Hintergrund",
@@ -1161,7 +1205,7 @@
     },
     "profile": {
       "displayName": "Anzeigename",
-      "displayHint": "So sehen dich andere. Leer zeigt deinen Benutzernamen {{name}}; mit ihm meldest du dich weiter an.",
+      "displayHint": "So sehen dich andere. Leer zeigt deinen Benutzernamen {{name}}.",
       "displaySave": "Speichern",
       "displaySaved": "Anzeigename gespeichert.",
       "name": "Name",
@@ -1172,7 +1216,8 @@
       "remove": "Entfernen",
       "saved": "Bild gespeichert.",
       "removed": "Bild entfernt.",
-      "hint": "Ein Foto vom Handy oder von der Kamera. Es wird quadratisch zugeschnitten, und von der Datei bleibt nur das Bild: kein Ort, kein Gerät."
+      "hint": "Ein Foto vom Handy oder von der Kamera. Es wird quadratisch zugeschnitten, und von der Datei bleibt nur das Bild: kein Ort, kein Gerät.",
+      "displayHintPassword": "So sehen dich andere. Leer zeigt deinen Benutzernamen {{name}}. Angemeldet wird weiter mit diesem Namen."
     },
     "password": {
       "title": "Passwort",
@@ -1287,7 +1332,8 @@
     "used": "zuletzt {{when}}",
     "unused": "nie benutzt",
     "allSpaces": "Alle Bereiche, die ich lesen darf, auch spätere",
-    "someSpaces": "Nur diese"
+    "someSpaces": "Nur diese",
+    "offForOperator": "API-Token sind ausgeschaltet."
   },
   "teams": {
     "text": "Wer zusammenarbeitet. Getrennt von den Bereichen: Ein Bereich regelt, wer was sieht. Gibt ein Bereich einem Team ein Recht, hat es jedes Mitglied.",
@@ -1296,7 +1342,7 @@
     "lead": "Leitung: {{name}}",
     "size_one": "{{count}} Person",
     "size_other": "{{count}} Personen",
-    "fromAdmin": "Aus der Verwaltung",
+    "fromAdmin": "aus nexsuite",
     "edit": "Bearbeiten",
     "new": "Neues Team",
     "name": "Name",
@@ -1373,7 +1419,7 @@
     "done1": "Angemeldet wird ab jetzt über nexsuite.",
     "done2": "Konten, Teams und Rechte kommen von dort und bleiben im Abgleich.",
     "done3": "Dein eigenes Passwort bleibt als Notzugang unter /notzugang.",
-    "loginText": "Diese nexcanvas hängt an nexsuite. Angemeldet wird dort.",
+    "loginText": "Diese nexcanvas ist mit nexsuite verbunden. Du meldest dich über nexsuite an.",
     "loginButton": "Anmelden mit nexsuite",
     "emergencyLink": "Notzugang für den Betreiber",
     "emergencyLoginText": "Nur für den Betreiber, wenn nexsuite nicht erreichbar ist. Die Anmeldung erscheint im Protokoll von nexsuite.",
@@ -1390,5 +1436,26 @@
     "freshInSuite": "Neu in nexsuite, aber ohne Mail (keine Adresse oder kein Mailserver): {{names}}. Den Link zum Passwort setzen holst du in nexsuite unter Personen, Bearbeiten.",
     "keepSpace": "Nur hier behalten",
     "keepSpaceHint": "„Nur hier behalten“: der Bereich bleibt in nexcanvas, seine Rechte vergibst du weiter hier. Ein persönlicher Bereich ist so vorgeschlagen."
+  },
+  "colorNames": {
+    "pink": "Rosa",
+    "teal": "Petrol",
+    "yellow": "Gelb",
+    "green": "Grün",
+    "coral": "Koralle",
+    "blue": "Blau",
+    "violet": "Violett",
+    "grey": "Grau",
+    "turquoise": "Türkis"
+  },
+  "authentik": {
+    "step": {
+      "reached": "authentik erreicht",
+      "signingKey": "Schlüssel zum Signieren",
+      "mapping": "Zuordnung für die Adresse",
+      "provider": "Anbieter",
+      "application": "Anwendung",
+      "fill": "Einstellungen hier"
+    }
   }
 }

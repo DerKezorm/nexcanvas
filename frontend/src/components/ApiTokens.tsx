@@ -84,7 +84,7 @@ export function ApiTokens() {
       <section id="api-tokens" className="rounded-2xl border border-ink-700 bg-ink-900 p-5" aria-labelledby="api-tokens-title">
         {title}
         <p className="text-sm text-mist-500" data-testid="api-tokens-off">
-          {t('apiTokens.off')}{' '}
+          {me?.role === 'operator' ? t('apiTokens.offForOperator') : t('apiTokens.off')}{' '}
           {me?.role === 'operator' && (
             <Link to="/settings?tab=server&sub=api" className="text-accent-400 hover:underline">
               {t('apiTokens.offOperator')}

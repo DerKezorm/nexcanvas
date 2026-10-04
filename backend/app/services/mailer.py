@@ -63,15 +63,16 @@ def _send(db: Session, message: EmailMessage) -> None:
     logger.info("Mail sent host=%s", host)
 
 
-def send_invite(db: Session, to: str, link: str, *, by: str, space: str | None) -> None:
+def send_invite(db: Session, to: str, link: str, *, by: str, space: str | None, until: str = "") -> None:
     message = EmailMessage()
     message["To"] = to
-    where = f' to the space "{space}"' if space else ""
+    where = f' to the space "{space}" in' if space else " to"
     message["Subject"] = f"{by} invites you to nexcanvas"
+    runs = f"until {until}" if until else "for a few days"
     message.set_content(
-        f"{by} invites you{where} on nexcanvas, a place for notes.\n\n"
+        f"{by} invites you{where} nexcanvas, a whiteboard to work on together.\n\n"
         f"Open this link to accept:\n{link}\n\n"
-        "The link works once and runs out after a while. If you did not expect this mail, ignore it.\n"
+        f"The link works once, {runs}. If you did not expect this mail, ignore it.\n"
     )
     _send(db, message)
 

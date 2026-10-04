@@ -221,6 +221,6 @@ def test_a_name_is_taken_once_whatever_its_case(client: TestClient, operator: Ac
     taken = stranger.post(f"/api/invite/{token}", json={"name": "Tester", "password": GOOD})
     assert taken.status_code == 409 and taken.json()["detail"]["code"] == "name_taken"
     bad = stranger.post(f"/api/invite/{token}", json={"name": "a b", "password": GOOD})
-    assert bad.status_code == 422 and bad.json()["detail"]["code"] == "invalid_name"
+    assert bad.status_code == 422 and bad.json()["detail"]["code"] == "invalid_account_name"
     # The invitation is still there after both refusals.
     assert stranger.post(f"/api/invite/{token}", json={"name": "dora", "password": GOOD}).status_code == 200

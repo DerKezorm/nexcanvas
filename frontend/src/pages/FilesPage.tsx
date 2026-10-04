@@ -48,7 +48,7 @@ export function FilesPage() {
             {boards.bin.length === 0 && <li className="px-4 py-3 text-sm text-mist-600">{t('files.trashEmpty')}</li>}
             {boards.bin.map((b) => (
               <li key={b.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 basis-48">
                   <div className="truncate text-sm text-mist-100">{b.title}</div>
                   <div className="text-xs text-mist-600">
                     {boards.space(b.space)?.name} · {t('files.deleted', { when: ago(b.deleted!, i18n.language) })}
@@ -76,7 +76,7 @@ export function FilesPage() {
             </button>
             <button
               type="button"
-              className="nc-btn bg-bad-500 text-white hover:opacity-90"
+              className="nc-btn bg-bad-500 text-on-bad hover:opacity-90"
               onClick={async () => {
                 await boards.purge(purging.id)
                 setPurging(null)

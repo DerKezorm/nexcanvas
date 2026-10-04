@@ -10,6 +10,7 @@ import { catalogDoc } from '../board/templates'
 import type { Doc } from '../board/types'
 import { Dialog } from './Dialog'
 import { TemplatePicker, useOwnTemplates, type Start } from './Templates'
+import { useSuiteConnected } from './Suite'
 
 /**
  * Name, space and a starting point. The space decides who sees the board, as in nexlore. A board can also come from a
@@ -53,17 +54,21 @@ export function NewBoardDialog({
   const name = title.trim() || t('board.untitled')
   const navigate = useNavigate()
   const file = useRef<HTMLInputElement>(null)
+  const connected = useSuiteConnected()
   if (writable.length === 0) {
+    // Connected, spaces and rights come from nexsuite: a new space here would only fail (Prüfgang F4).
     return (
       <Dialog title={t('board.new')} onClose={onClose}>
-        <p className="text-sm text-mist-300">{t('board.noSpace')}</p>
+        <p className="text-sm text-mist-300">{connected ? t('board.noSpaceSuite') : t('board.noSpace')}</p>
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="nc-btn nc-btn-ghost">
-            {t('common.cancel')}
+            {connected ? t('common.close') : t('common.cancel')}
           </button>
-          <button type="button" onClick={onNewSpace} className="nc-btn nc-btn-accent">
-            {t('sidebar.newSpace')}
-          </button>
+          {!connected && (
+            <button type="button" onClick={onNewSpace} className="nc-btn nc-btn-accent">
+              {t('sidebar.newSpace')}
+            </button>
+          )}
         </div>
       </Dialog>
     )

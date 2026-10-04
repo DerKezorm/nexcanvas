@@ -90,7 +90,7 @@ export function AppShell() {
             <button type="button" onClick={() => setSearching(true)} className="inline-flex shrink-0 items-center gap-2 rounded-full border border-ink-700 bg-ink-850 px-2 py-1.5 text-sm text-mist-500 hover:text-mist-100 xl:pr-2 xl:pl-3" aria-label={t('search.button')}>
               <Search className="h-4 w-4" strokeWidth={1.8} />
               <span className="hidden w-32 text-left xl:inline">{t('search.button')}</span>
-              <kbd className="hidden xl:inline">Ctrl K</kbd>
+              <kbd className="hidden xl:inline">{t('keys.ctrl')} K</kbd>
             </button>
             <div className="hidden sm:block">
               <ThemeSwitcher />

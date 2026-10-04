@@ -16,7 +16,7 @@ from sqlalchemy import func, select
 
 from ..deps import Account, DbSession
 from ..errors import error
-from ..models import MANAGE, OPERATOR, SPACE_ROLES, Board, Membership, Space, Team, TeamGrant
+from ..models import MANAGE, OPERATOR, SPACE_ROLES, Board, Membership, Space, Team, TeamGrant, TeamMember
 from ..models import Account as AccountRow
 from ..services import rights, spaces, suite
 
@@ -59,12 +59,16 @@ def _view(db: DbSession, account: AccountRow, space: Space) -> dict[str, Any]:
         select(TeamGrant, Team).join(Team, Team.id == TeamGrant.team_id).where(TeamGrant.space_id == space.id)
         .order_by(Team.name)
     ).all()
+    team_ids = [grant.team_id for grant, _team in teams]
+    in_teams = set(db.scalars(select(TeamMember.account_id).where(TeamMember.team_id.in_(team_ids))))
     return {
         "id": space.id,
         "name": space.name,
         "color": space.color,
         "role": rights.role_in(db, account, space.id),
         "boards": int(count or 0),
+        # Everybody who gets in, through an own right or a team, each once (Prüfgang D3).
+        "people": len({person.id for _m, person in rows} | in_teams),
         # Its rights come from nexsuite: changed there, not here.
         "managed": bool(space.external_id) and suite.connected(db),
         "teams": [{"id": team.id, "name": team.name, "color": team.color, "role": grant.role} for grant, team in teams],

@@ -547,9 +547,10 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
         elif not blocked and row.blocked_at is not None:
             row.blocked_at = None
         account_of[pid] = row.id
-    # People nexsuite no longer has can no longer sign in here.
+    # People nexsuite no longer has can no longer sign in here; the emergency account neither, as when blocked there
+    # (Prüfgang D8, decided 04.10.2026). Disconnecting lets it in again.
     for subject, row in by_subject.items():
-        if subject not in account_of and row.blocked_at is None and row.id != keeper:
+        if subject not in account_of and row.blocked_at is None:
             row.blocked_at = utcnow()
             signed_out.append(row.id)
     db.flush()
@@ -707,6 +708,12 @@ def _disconnect(db: Session, *, tell: bool) -> tuple[list[str], list[str]]:
         team.source, team.external_id = TEAM_LOCAL, ""
     for space in db.scalars(select(Space).where(Space.external_id != "")):
         space.external_id = ""
+    keeper = db.get(Account, int(settings_service.get(db, "suite_emergency_account") or 0))
+    if keeper is not None and keeper.blocked_at is not None:
+        # Blocked because nexsuite blocked or deleted the person: with nexsuite gone, it is the way in again (D8).
+        keeper.blocked_at = None
+        logger.warning("Emergency account %s let in again on disconnecting", keeper.name)
+        db.flush()
     without = []
     for row in db.scalars(select(Account).where(Account.oidc_subject != "")):
         row.oidc_subject = ""

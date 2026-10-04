@@ -198,7 +198,7 @@ function LeaveDialog({ mode, onClose, onDone }: { mode: 'password' | 'code'; onC
           <button type="button" className="nc-btn nc-btn-ghost" onClick={onClose}>
             {t('common.cancel')}
           </button>
-          <button type="submit" className="nc-btn bg-bad-500 text-white" disabled={!password || (mode === 'code' && !code.trim()) || action.busy}>
+          <button type="submit" className="nc-btn bg-bad-500 text-on-bad" disabled={!password || (mode === 'code' && !code.trim()) || action.busy}>
             <Unplug className="h-4 w-4" /> {t('suite.disconnect')}
           </button>
         </div>

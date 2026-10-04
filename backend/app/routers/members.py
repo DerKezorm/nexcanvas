@@ -22,7 +22,18 @@ from sqlalchemy import func, select
 
 from ..deps import Account, DbSession, OperatorAccount, client_ip
 from ..errors import detail, error
-from ..models import MANAGE, OPERATOR, SPACE_ROLES, Invite, Membership, Space, SpaceNotice, TeamGrant, TeamMember
+from ..models import (
+    MANAGE,
+    OPERATOR,
+    SPACE_ROLES,
+    Invite,
+    Membership,
+    Space,
+    SpaceNotice,
+    Team,
+    TeamGrant,
+    TeamMember,
+)
 from ..models import Account as AccountRow
 from ..security import MIN_PASSWORD, SESSION_COOKIE, brake, session_account
 from ..services import accounts, mailer, notices, rights, settings_service, suite
@@ -117,9 +128,24 @@ class MemberIn(BaseModel):
 
 @router.get("/spaces/{space_id}/members", summary="Who is in the space, and the open invitations")
 def members(space_id: SpaceId, account: Account, db: DbSession) -> dict[str, Any]:
-    space = _space(db, account, space_id, operator_may=True)
+    # Everybody in the space sees who else is (all see all), with the teams that have a right; changing it and the
+    # open invitations are the managers' (Prüfgang D3: readers and writers saw a form that only failed).
+    space = db.get(Space, space_id)
+    if space is None or space.deleted_at is not None:
+        raise error("not_found", "No such space.", 404)
+    role = rights.role_in(db, account, space.id)
+    if not rights.at_least(role, rights.READ) and not rights.operator_powers(account):
+        raise error("not_found", "No such space.", 404)
+    managing = rights.at_least(role, MANAGE) or rights.operator_powers(account)
     rows = _members(db, space.id)
     invites = list(db.scalars(select(Invite).where(Invite.space_id == space.id).order_by(Invite.created_at)))
+    grants = list(db.execute(select(TeamGrant, Team).join(Team, Team.id == TeamGrant.team_id)
+                             .where(TeamGrant.space_id == space.id).order_by(Team.name)))
+    in_teams = {
+        grant.team_id: set(db.scalars(select(TeamMember.account_id).where(TeamMember.team_id == grant.team_id)))
+        for grant, _team in grants
+    }
+    everybody = {person.id for _membership, person in rows}.union(*in_teams.values())
     return {
         "space": space.name,
         "space_id": space.id,
@@ -127,13 +153,34 @@ def members(space_id: SpaceId, account: Account, db: DbSession) -> dict[str, Any
             {"name": person.name, "role": membership.role, "you": person.id == account.id}
             for membership, person in rows
         ],
-        "invites": [_invite_view(invite, db) for invite in invites if not accounts.expired(invite)],
+        "teams": [{"id": team.id, "name": team.name, "color": team.color, "role": grant.role,
+                   "people": len(in_teams[team.id])} for grant, team in grants],
+        "count": len(everybody),
+        "invites": [_invite_view(invite, db) for invite in invites if not accounts.expired(invite)] if managing else [],
+        # Invitations by name not answered yet: seen and withdrawn by the managers (F2).
+        "asked": [{"id": notice.id, "name": person.name, "role": notice.role, "at": notice.created_at.isoformat()}
+                  for notice, person in db.execute(
+                      select(SpaceNotice, AccountRow).join(AccountRow, AccountRow.id == SpaceNotice.account_id)
+                      .where(SpaceNotice.space_id == space.id, SpaceNotice.kind == notices.INVITE,
+                             SpaceNotice.done_at.is_(None)).order_by(AccountRow.name))] if managing else [],
         "role": rights.role_in(db, account, space.id),
         # Connected to nexsuite: the accounts come from there (no invitation links), and so do the rights of a space
         # nexsuite gives this app.
         "suite": suite.connected(db),
         "managed": bool(space.external_id) and suite.connected(db),
     }
+
+
+@router.delete("/spaces/{space_id}/asked/{notice_id}", status_code=204, summary="Withdraw an invitation by name")
+def withdraw_asked(space_id: SpaceId, notice_id: Annotated[int, PathParam(ge=1)], account: Account,
+                   db: DbSession) -> None:
+    space = _space(db, account, space_id, operator_may=True)
+    notice = db.get(SpaceNotice, notice_id)
+    if notice is None or notice.space_id != space.id or notice.kind != notices.INVITE or notice.done_at is not None:
+        raise error("not_found", "No such invitation.", 404)
+    db.delete(notice)
+    db.commit()
+    logger.info("Invitation by name withdrawn space_id=%s by=%s", space.id, account.name)
 
 
 @router.put("/spaces/{space_id}/members/{person}", summary="Change a member's right, or invite an account by name")
@@ -310,6 +357,12 @@ def _create(db: DbSession, request: Request, by: AccountRow, space: Space | None
         if brake.wait_seconds(key, MAILS_PER_HOUR):
             raise error("too_many_attempts", "Too many invitation mails. Try again later.", 429)
         brake.failed(key)
+    if email:
+        # One open invitation per address and place: a second one replaces the first (Prüfgang F2), so no old link
+        # stays valid beside the new one.
+        place = Invite.space_id == space.id if space else Invite.space_id.is_(None)
+        for old in db.scalars(select(Invite).where(func.lower(Invite.email) == email.lower(), place)):
+            db.delete(old)
     try:
         invite, token = accounts.create_invite(
             db, by, space_id=space.id if space else None, space_role=payload.role if space else "",
@@ -321,7 +374,9 @@ def _create(db: DbSession, request: Request, by: AccountRow, space: Space | None
     sent = False
     if payload.send:
         try:
-            mailer.send_invite(db, email, link, by=by.name, space=space.name if space else None)
+            # Named as others see the inviter; the link says until when it works (g3-6, b3-20).
+            mailer.send_invite(db, email, link, by=by.display_name or by.name, space=space.name if space else None,
+                               until=invite.expires_at.date().isoformat())
             sent = True
         except mailer.MailError as exc:
             # The link was to go by mail only: kept, the invitation would stand without anybody holding its link.

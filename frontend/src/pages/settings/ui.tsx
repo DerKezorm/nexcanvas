@@ -79,6 +79,8 @@ export function Input({
   autoComplete = 'off',
   min,
   max,
+  list,
+  maxLength,
 }: {
   label: string
   value: string
@@ -90,6 +92,9 @@ export function Input({
   autoComplete?: string
   min?: number
   max?: number
+  /** The id of a datalist with suggestions. */
+  list?: string
+  maxLength?: number
 }) {
   const hintId = useId()
   return (
@@ -103,6 +108,8 @@ export function Input({
           autoComplete={autoComplete}
           min={min}
           max={max}
+          list={list}
+          maxLength={maxLength}
           aria-describedby={hint ? hintId : undefined}
           onChange={(event) => onChange(event.target.value)}
           className="mt-1 h-9 w-full rounded-lg border border-ink-700 bg-ink-850 px-3 text-sm text-mist-100 outline-none placeholder:text-mist-600 focus:border-accent-500"
@@ -260,7 +267,7 @@ export function Confirm({ title, text, confirm, danger = false, password = false
           <button type="button" className="nc-btn nc-btn-ghost" onClick={onCancel}>
             {t('common.cancel')}
           </button>
-          <button type="submit" disabled={busy} className={'nc-btn ' + (danger ? 'bg-bad-500 text-white hover:opacity-90' : 'nc-btn-accent')}>
+          <button type="submit" disabled={busy} className={'nc-btn ' + (danger ? 'bg-bad-500 text-on-bad hover:opacity-90' : 'nc-btn-accent')}>
             {confirm}
           </button>
         </div>

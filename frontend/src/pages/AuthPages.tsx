@@ -134,6 +134,8 @@ export function LoginPage({ emergency = false }: { emergency?: boolean }) {
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(params.get('error'))
   const next = safeNext(params.get('next'))
+  /** Sent here from an open board whose session ended (blocked, signed out everywhere, E2). */
+  const ended = params.get('ended') === '1'
 
   useEffect(() => {
     void authApi.methods().then(setMethods, () => setMethods({ password: true, oidc: false, oidc_name: '' }))
@@ -204,6 +206,7 @@ export function LoginPage({ emergency = false }: { emergency?: boolean }) {
   if (methods?.suite && !emergency) {
     return (
       <AuthFrame title={t('auth.login.title')} text={t('suite.loginText')}>
+        {ended && <p className="mb-3 rounded-xl border border-warn-500/30 bg-warn-500/10 px-3 py-2 text-xs text-mist-200">{t('auth.login.ended')}</p>}
         <Problem code={problem} />
         <a href={`/api/oidc/start?next=${encodeURIComponent(next)}`} className="nc-btn nc-btn-accent flex h-10 w-full items-center justify-center">
           {t('suite.loginButton')}
@@ -217,8 +220,10 @@ export function LoginPage({ emergency = false }: { emergency?: boolean }) {
     )
   }
 
+  // The emergency page speaks of nexsuite only while connected; alone it is the usual sign-in (H, b3).
+  const emergencyNow = emergency && !!methods?.suite
   return (
-    <AuthFrame title={emergency ? t('suite.emergencyTitle') : t('auth.login.title')} text={emergency ? t('suite.emergencyLoginText') : t('auth.login.text')}>
+    <AuthFrame title={emergencyNow ? t('suite.emergencyTitle') : t('auth.login.title')} text={emergencyNow ? t('suite.emergencyLoginText') : t('auth.login.text')}>
       <form
         className="space-y-4"
         onSubmit={(event) => {
@@ -226,12 +231,20 @@ export function LoginPage({ emergency = false }: { emergency?: boolean }) {
           void submit()
         }}
       >
+        {ended && <p className="rounded-xl border border-warn-500/30 bg-warn-500/10 px-3 py-2 text-xs text-mist-200">{t('auth.login.ended')}</p>}
         <Problem code={problem} />
         <Field label={t('auth.name')} value={name} onChange={setName} autoComplete="username" autoFocus />
         <Field label={t('auth.password')} value={password} onChange={setPassword} type="password" autoComplete="current-password" />
         <Primary busy={busy}>{t('auth.login.submit')}</Primary>
-        {methods && !methods.password && <p className="text-xs text-mist-500">{t('auth.login.passwordOff')}</p>}
+        {methods && !methods.password && !emergencyNow && <p className="text-xs text-mist-500">{t('auth.login.passwordOff')}</p>}
       </form>
+      {emergencyNow && (
+        <p className="mt-4 text-center text-xs text-mist-600">
+          <Link to="/login" className="hover:text-mist-300">
+            {t('auth.backToLogin')}
+          </Link>
+        </p>
+      )}
       {methods?.oidc && !emergency && (
         <>
           <div className="my-4 flex items-center gap-3 text-xs text-mist-600">
@@ -272,11 +285,23 @@ export function InvitePage() {
     return (
       <AuthFrame title={t('auth.invite.invalidTitle')}>
         <p className="text-sm text-mist-400">{t('auth.invite.invalidText')}</p>
+        <BackLink />
       </AuthFrame>
     )
   }
   if (!state) return null
   const text = state.space ? t('auth.invite.intoSpace', { space: state.space, role: t(`roles.${state.role}`) }) : t('auth.invite.intoApp')
+
+  if (state.signed_in_as && !state.space) {
+    // A link for a new account, opened by somebody signed in already: there is nothing to join (F2).
+    return (
+      <AuthFrame title={t('auth.invite.title')} text={t('auth.invite.haveAccount', { name: state.signed_in_as })}>
+        <Link to="/" className="nc-btn nc-btn-accent flex h-10 w-full items-center justify-center">
+          {t('auth.invite.toApp')}
+        </Link>
+      </AuthFrame>
+    )
+  }
 
   if (state.signed_in_as) {
     return (
@@ -336,5 +361,15 @@ export function InvitePage() {
         </>
       )}
     </AuthFrame>
+  )
+}
+
+/** The way back from a page behind a link that does not hold (G3). */
+function BackLink() {
+  const { t } = useTranslation()
+  return (
+    <Link to="/login" className="nc-btn nc-btn-ghost mt-4 flex h-10 w-full items-center justify-center">
+      {t('auth.backToLogin')}
+    </Link>
   )
 }

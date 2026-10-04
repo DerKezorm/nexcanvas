@@ -14,6 +14,7 @@ import { MembersDialog } from '../components/MembersDialog'
 import { NewSpaceDialog } from '../components/NewSpaceDialog'
 import { Popover } from '../components/Popover'
 import { Sidebar } from '../components/Sidebar'
+import { useSuiteConnected } from '../components/Suite'
 import { Confirm } from './settings/ui'
 import { ago } from '../lib/time'
 
@@ -33,6 +34,7 @@ export function BoardsPage() {
   const [sort, setSort] = useState<Sort>('updated')
   const [members, setMembers] = useState(false)
   const [renaming, setRenaming] = useState<Board | null>(null)
+  const connected = useSuiteConnected()
 
   const list = boards.boards
     .filter((b) => !b.deleted && (!space || b.space === space.id))
@@ -43,6 +45,23 @@ export function BoardsPage() {
       <Sidebar />
       <main className="nc-scroll min-w-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-8">
+          {/* A phone has no side bar: the spaces sit here as a row (Prüfgang F3). */}
+          <nav className="nc-scroll -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 md:hidden" aria-label={t('sidebar.spaces')}>
+            <Link to="/" className={'shrink-0 rounded-full border px-3 py-1 text-xs ' + (!space ? 'border-accent-500 text-mist-100' : 'border-ink-700 text-mist-400')}>
+              {t('boards.all')}
+            </Link>
+            {boards.spaces.map((entry) => (
+              <Link key={entry.id} to={`/?space=${entry.id}`} className={'flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs ' + (space?.id === entry.id ? 'border-accent-500 text-mist-100' : 'border-ink-700 text-mist-400')}>
+                <span className="h-2 w-2 rounded-full" style={{ background: entry.color }} />
+                {entry.name}
+              </Link>
+            ))}
+            {!connected && (
+              <button type="button" onClick={() => shell.newSpace()} className="flex shrink-0 items-center gap-1 rounded-full border border-dashed border-ink-700 px-3 py-1 text-xs text-mist-400">
+                <Plus className="h-3.5 w-3.5" /> {t('sidebar.newSpace')}
+              </button>
+            )}
+          </nav>
           <div className="flex flex-wrap items-center gap-3">
             {space && <span className="h-3 w-3 rounded-full" style={{ background: space.color }} />}
             <h1 className="text-2xl font-bold tracking-tight text-mist-100">{space ? space.name : t('boards.all')}</h1>
@@ -54,7 +73,7 @@ export function BoardsPage() {
                   ))}
                 </span>
                 <Users className="h-3.5 w-3.5" />
-                {t('members.button', { count: space.members.length })}
+                {t('members.button', { count: space.people ?? space.members.length })}
               </button>
             )}
             {space?.role === 'manage' && (

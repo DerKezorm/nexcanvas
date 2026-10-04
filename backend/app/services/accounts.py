@@ -64,7 +64,7 @@ def by_name(db: Session, name: str) -> Account | None:
 def check_name(db: Session, name: str) -> str:
     cleaned = name.strip().lower()
     if not NAME_PATTERN.match(cleaned):
-        raise AccountError("invalid_name", "Use 2 to 64 letters, digits, dots, dashes or underscores.", 422)
+        raise AccountError("invalid_account_name", "Use 2 to 64 letters, digits, dots, dashes or underscores.", 422)
     if by_name(db, cleaned) is not None:
         raise AccountError("name_taken", "This name is already taken.", 409)
     return cleaned

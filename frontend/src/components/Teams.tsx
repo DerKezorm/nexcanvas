@@ -16,6 +16,7 @@ import { Managed } from './Suite'
 import { Avatar } from './Avatar'
 import { Dialog } from './Dialog'
 import { SPACE_COLORS } from './NewSpaceDialog'
+import { COLOR_NAMES } from './NewSpaceDialog'
 
 const ROLES: Role[] = ['read', 'write', 'manage']
 
@@ -156,11 +157,11 @@ function TeamDialog({ team, operator, people, onClose, onSaved }: { team: Team |
           <>
             <label className="block space-y-1.5">
               <span className={label}>{t('teams.name')}</span>
-              <input className="nc-field" value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder={t('teams.namePlaceholder')} />
+              <input className="nc-field" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} autoFocus placeholder={t('teams.namePlaceholder')} />
             </label>
             <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t('teams.color')}>
               {SPACE_COLORS.map((c) => (
-                <button key={c} type="button" role="radio" aria-checked={color === c} aria-label={c} onClick={() => setColor(c)} className={'h-7 w-7 rounded-full ring-offset-2 ring-offset-ink-900 ' + (color === c ? 'ring-2 ring-accent-500' : '')} style={{ background: c }} />
+                <button key={c} type="button" role="radio" aria-checked={color === c} aria-label={t(`colorNames.${COLOR_NAMES[c] ?? 'grey'}`)} onClick={() => setColor(c)} className={'h-7 w-7 rounded-full ring-offset-2 ring-offset-ink-900 ' + (color === c ? 'ring-2 ring-accent-500' : '')} style={{ background: c }} />
               ))}
             </div>
           </>
@@ -201,7 +202,7 @@ function TeamDialog({ team, operator, people, onClose, onSaved }: { team: Team |
         <div className="flex items-center justify-between gap-2">
           {team && operator ? (
             confirming ? (
-              <button type="button" className="nc-btn bg-bad-500 text-white" onClick={remove}>
+              <button type="button" className="nc-btn bg-bad-500 text-on-bad" onClick={remove}>
                 <Trash2 className="h-4 w-4" /> {t('teams.deleteSure')}
               </button>
             ) : (

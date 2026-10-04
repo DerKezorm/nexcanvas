@@ -56,7 +56,9 @@ def person_view(row: AccountRow) -> dict[str, Any]:
 
 @router.get("/directory", summary="Everybody on the server and every team")
 def directory(account: Account, db: DbSession) -> dict[str, Any]:
-    people = db.scalars(select(AccountRow).order_by(AccountRow.display_name, AccountRow.name))
+    # As people read them: by the shown name, any case (b3-20).
+    people = sorted(db.scalars(select(AccountRow)),
+                    key=lambda row: ((row.display_name or row.name).casefold(), row.name))
     # Blocked accounts (here, or gone or blocked in nexsuite) are no colleagues to pick; the operator still sees
     # them, marked (D6).
     operator = account.role == "operator"

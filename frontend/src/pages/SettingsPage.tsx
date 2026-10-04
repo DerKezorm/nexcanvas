@@ -91,9 +91,9 @@ function ServerPart({ part }: { part: Part }) {
     case 'accounts':
       return (
         <>
-          {connected ? <ManagedCard title={t('settings.parts.accounts')} text={t('suite.managedAccounts')} /> : <AccountsCard />}
+          <AccountsCard readOnly={connected} />
           <AllSpacesCard />
-          {me?.suite_mail ? <ManagedCard title={t('suite.mailTitle')} text={t('suite.managedMail')} /> : <MailCard server={server} />}
+          <MailCard server={server} readOnly={!!me?.suite_mail} />
         </>
       )
     case 'signin':
@@ -275,11 +275,11 @@ function Spaces() {
           {boards.spaces.map((s) => (
             <li key={s.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
-              <span className="min-w-0 flex-1 truncate font-medium text-mist-100">{s.name}</span>
+              <span className="min-w-0 flex-1 basis-40 truncate font-medium text-mist-100">{s.name}</span>
               <span className="text-xs text-mist-500">
                 {t(`roles.${s.role}`)} · {t('boards.count', { count: s.boards })}
               </span>
-              <span className="flex -space-x-1.5">
+              <span className="hidden -space-x-1.5 sm:flex">
                 {s.members.slice(0, 5).map((m) => (
                   <Avatar key={m.id} person={m} className="h-6 w-6 text-[11px]" ring />
                 ))}
