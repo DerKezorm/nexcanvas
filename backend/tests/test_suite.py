@@ -456,3 +456,23 @@ def test_the_profile_picture_comes_from_nexsuite_once_per_change(client: TestCli
     refused = client.put("/api/auth/avatar", content=png.getvalue())
     assert refused.status_code == 409 and refused.json()["detail"]["code"] == "managed_by_suite"
     assert client.delete("/api/auth/avatar").status_code == 409
+
+
+def test_a_right_nexsuite_takes_away_closes_the_open_board_at_once(client: TestClient, operator: Account,
+                                                                   world: dict, fake: FakeSuite) -> None:
+    # The sync changes rights with bulk statements the commit hook does not see; it nudges the connections itself.
+    from app.services import live
+
+    from .test_live import Browser, cookie_of, make_board, wait_for
+
+    connect(client, world, operator)
+    client.post("/api/suite/sync")
+    external = _row_space(world["studio"]).external_id
+    board_id = make_board(client, world["studio"])
+    with client.websocket_connect(f"/api/boards/{board_id}/live",
+                                  headers={"cookie": cookie_of(world["anna"])}) as socket:
+        Browser(socket).sync()
+        fake.spaces[external]["people"], fake.spaces[external]["teams"] = [], []
+        client.post("/api/suite/sync")
+        room = live.room_of(board_id)
+        wait_for(lambda: room is None or not room.peers, seconds=2.5)

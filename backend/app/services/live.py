@@ -7,8 +7,10 @@ connections and their rights.
 * **Who may read follows along, who may write changes.** An update from a connection without the right to write is
   dropped, not applied; the browser of a reader never sends one, so a dropped update means a forged one.
 * **Every update is stored before it is passed on**, so nothing anybody saw can be lost by a crash.
-* **Rights are checked again** now and then while a connection stays open: taken out of the space, the connection
-  is closed.
+* **Session and rights are checked again** while a connection stays open, by a watcher of its own (a connection
+  that only listens is checked too): every ``RECHECK_SECONDS``, and at once after a change that can take them
+  (``nudge``: a session ended, an account blocked, a right or team changed, a sync with nexsuite). Signed out,
+  blocked, deleted or taken out of the space, the connection is closed (Prüfgang 04.10.2026, A2/A3).
 * **The room folds** the stored updates into the board every ``FOLD_AFTER`` updates and when the last one leaves.
 
 One process serves the rooms; nexcanvas runs one worker (the database is SQLite anyway).
@@ -37,8 +39,10 @@ from . import boards, rights
 
 logger = logging.getLogger("nexcanvas.live")
 
-#: How often the rights of an open connection are looked at again, in seconds.
-RECHECK_SECONDS = 30
+#: How often session and rights of an open connection are looked at again without a reason, in seconds.
+RECHECK_SECONDS = 5
+#: How often a watcher looks whether there is a reason (``nudge``), in seconds.
+WATCH_TICK = 0.5
 #: Close codes the browser understands: 4403 gone (right taken), 4413 too large, 4404 board gone.
 CLOSE_FORBIDDEN = 4403
 CLOSE_TOO_LARGE = 4413
@@ -57,9 +61,13 @@ class Peer:
     account_id: int
     name: str
     can_write: bool
+    #: The browser session the connection was opened with: when it ends, the connection ends.
+    token: str = ""
     checked: float = field(default_factory=time.monotonic)
     #: The awareness client ids this connection announced, to say goodbye for them when it leaves.
     clients: set[int] = field(default_factory=set)
+    #: Closed by its watcher: gets nothing more, sends nothing more.
+    gone: bool = False
 
 
 class Room:
@@ -75,7 +83,7 @@ class Room:
 
     async def broadcast(self, data: bytes, skip: Peer | None = None) -> None:
         for peer in list(self.peers):
-            if peer is skip:
+            if peer is skip or peer.gone:
                 continue
             try:
                 await peer.socket.send_bytes(data)
@@ -85,6 +93,43 @@ class Room:
 
 _rooms: dict[str, Room] = {}
 _rooms_guard = asyncio.Lock()
+#: Counts the changes that can take a session or a right; every watcher looks again when it moved. Changed from the
+#: request threads too: an int under the GIL is enough, a missed step only means the next timed check.
+_epoch = 0
+
+
+def nudge() -> None:
+    """Something that can take a session or a right changed: every open connection is checked again at once."""
+    global _epoch
+    _epoch += 1
+
+
+#: What can take a session or a right when it changes (``watch``).
+_WATCHED_NAMES = ("Account", "AuthSession", "Membership", "Space", "Team", "TeamMember", "TeamGrant")
+
+
+def watch(factory: Any) -> None:
+    """Nudges the connections after every commit that touched an account, a session, a right, a space or a team.
+    Bulk statements (``delete(...)``) pass by; who uses them for these calls ``nudge`` itself."""
+    from sqlalchemy import event
+
+    from .. import models
+
+    watched = tuple(getattr(models, name) for name in _WATCHED_NAMES)
+
+    @event.listens_for(factory, "after_flush")
+    def _seen(session: Any, _context: Any) -> None:
+        if any(isinstance(obj, watched) for obj in (*session.new, *session.dirty, *session.deleted)):
+            session.info["live_nudge"] = True
+
+    @event.listens_for(factory, "after_commit")
+    def _done(session: Any) -> None:
+        if session.info.pop("live_nudge", False):
+            nudge()
+
+    @event.listens_for(factory, "after_rollback")
+    def _undone(session: Any) -> None:
+        session.info.pop("live_nudge", None)
 
 
 def forget() -> None:
@@ -174,12 +219,18 @@ def _awareness_gone(client: int, clock: int) -> bytes:
     return bytes([YMessageType.AWARENESS]) + _with_length(inner.to_bytes())
 
 
-async def _still_allowed(peer: Peer, board_id: str) -> bool | None:
-    """True: may write; False: may only read; None: may not even read (or the board went)."""
+def _allowed_now(peer: Peer, board_id: str) -> bool | None:
+    """True: may write; False: may only read; None: may not even read (session ended, account blocked or gone,
+    second factor required, out of the space, or the board went)."""
+    from ..security import session_account
+    from . import totp
+
     with SessionLocal() as db:
-        account = db.get(Account, peer.account_id)
+        account = session_account(db, peer.token)
+        if account is None or account.id != peer.account_id or totp.setup_required(db, account):
+            return None
         board = db.get(Board, board_id)
-        if account is None or board is None or board.deleted_at is not None:
+        if board is None or board.deleted_at is not None:
             return None
         role = rights.role_in(db, account, board.space_id)
     if not rights.at_least(role, rights.READ):
@@ -187,11 +238,40 @@ async def _still_allowed(peer: Peer, board_id: str) -> bool | None:
     return rights.at_least(role, rights.WRITE)
 
 
-async def serve(socket: Any, board_id: str, account: Account, can_write: bool) -> None:
-    """One connection, from the first message to the last. ``socket`` is a Starlette WebSocket already accepted."""
+async def _still_allowed(peer: Peer, board_id: str) -> bool | None:
+    return await asyncio.to_thread(_allowed_now, peer, board_id)
+
+
+async def _watch(room: Room, peer: Peer, board_id: str) -> None:
+    """Looks at the connection again on every nudge and every ``RECHECK_SECONDS``; closes it when it may not stay."""
+    seen = _epoch
+    while True:
+        await asyncio.sleep(WATCH_TICK)
+        if _epoch == seen and time.monotonic() - peer.checked < RECHECK_SECONDS:
+            continue
+        seen = _epoch
+        peer.checked = time.monotonic()
+        allowed = await _still_allowed(peer, board_id)
+        if allowed is None:
+            # Nothing more goes in or out from here, even before the browser sees the close.
+            peer.can_write = False
+            peer.gone = True
+            room.peers.discard(peer)
+            try:
+                await peer.socket.close(CLOSE_FORBIDDEN)
+            except Exception:  # noqa: BLE001, S110 - closed already
+                pass
+            return
+        peer.can_write = allowed
+
+
+async def serve(socket: Any, board_id: str, account: Account, can_write: bool, token: str) -> None:
+    """One connection, from the first message to the last. ``socket`` is a Starlette WebSocket already accepted;
+    ``token`` the browser session it came with."""
     room = await _open_room(board_id)
-    peer = Peer(socket=socket, account_id=account.id, name=account.name, can_write=can_write)
+    peer = Peer(socket=socket, account_id=account.id, name=account.name, can_write=can_write, token=token)
     room.peers.add(peer)
+    watcher = asyncio.create_task(_watch(room, peer, board_id))
     logger.debug("Joined board=%s name=%s write=%s peers=%s", board_id, account.name, can_write, len(room.peers))
     try:
         # The server opens with its own state vector, as y-websocket does; then everyone already here.
@@ -201,13 +281,8 @@ async def serve(socket: Any, board_id: str, account: Account, can_write: bool) -
             await socket.send_bytes(data)
         while True:
             message = await socket.receive_bytes()
-            if time.monotonic() - peer.checked > RECHECK_SECONDS:
-                peer.checked = time.monotonic()
-                allowed = await _still_allowed(peer, board_id)
-                if allowed is None:
-                    await socket.close(CLOSE_FORBIDDEN)
-                    return
-                peer.can_write = allowed
+            if peer.gone:
+                return
             if not message:
                 continue
             if message[0] == YMessageType.SYNC:
@@ -220,6 +295,7 @@ async def serve(socket: Any, board_id: str, account: Account, can_write: bool) -
     except _TooLarge:
         await socket.close(CLOSE_TOO_LARGE)
     finally:
+        watcher.cancel()
         await _leave(room, peer)
         logger.debug("Left board=%s name=%s peers=%s", board_id, account.name, len(room.peers))
 

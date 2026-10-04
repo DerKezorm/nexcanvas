@@ -421,7 +421,8 @@ async def live_socket(socket: WebSocket, board_id: str) -> None:
         return
     await socket.accept()
     try:
-        await live.serve(socket, board_id, account, rights.at_least(role, WRITE))
+        token = socket.cookies.get(SESSION_COOKIE, "")
+        await live.serve(socket, board_id, account, rights.at_least(role, WRITE), token)
     except Exception as exc:
         if type(exc).__name__ not in ("WebSocketDisconnect", "ClientDisconnected", "CancelledError"):
             logger.exception("Live connection failed board=%s", board_id)

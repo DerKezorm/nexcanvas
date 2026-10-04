@@ -490,6 +490,10 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
     db.commit()
     for account_id in signed_out:
         end_all_sessions(db, account_id)
+    # Rights, teams and spaces may have changed with bulk statements the commit hook does not see.
+    from . import live
+
+    live.nudge()
 
 
 def _set_grants(db: Session, space_id: int, people: dict[int, str], teams: dict[int, str]) -> None:

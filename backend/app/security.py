@@ -125,6 +125,14 @@ def end_session(db: Session, token: str | None) -> None:
     if token:
         db.execute(delete(AuthSession).where(AuthSession.token_hash == hash_token(token)))
         db.commit()
+        _sessions_ended()
+
+
+def _sessions_ended() -> None:
+    """Open board connections of an ended session close at once (``live``), not only at their next check."""
+    from .services import live
+
+    live.nudge()
 
 
 def end_all_sessions(db: Session, account_id: int, except_token: str | None = None) -> None:
@@ -135,6 +143,7 @@ def end_all_sessions(db: Session, account_id: int, except_token: str | None = No
         statement = statement.where(AuthSession.token_hash != hash_token(except_token))
     db.execute(statement)
     db.commit()
+    _sessions_ended()
 
 
 def purge_sessions(db: Session) -> int:

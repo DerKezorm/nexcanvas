@@ -76,6 +76,11 @@ def _sort(value: Any) -> str | None:
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
+# Every commit that can take a session or a right makes the open board connections look again (``services/live.py``).
+from .services import live as _live  # noqa: E402
+
+_live.watch(SessionLocal)
+
 
 def get_db() -> Iterator[Session]:
     with SessionLocal() as session:

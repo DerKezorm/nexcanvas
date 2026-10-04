@@ -22,7 +22,7 @@ from pycrdt import (
 from sqlalchemy import func, select
 
 from app.db import SessionLocal
-from app.models import Account, Board, BoardUpdate
+from app.models import Account, Board, BoardUpdate, utcnow
 from app.security import SESSION_COOKIE, start_session
 from app.services import boards, live
 
@@ -327,3 +327,74 @@ def test_what_was_deleted_stays_deleted_after_everyone_left(client: TestClient, 
         board = db.get(Board, board_id)
         assert board is not None
         assert boards.snapshot_of(boards.load(db, board))["items"] == []
+
+
+def _peers(board_id: str) -> int:
+    room = live.room_of(board_id)
+    return len(room.peers) if room is not None else 0
+
+
+def test_a_listener_that_never_sends_loses_the_board_at_once(client: TestClient, operator: Account,
+                                                              space: int) -> None:
+    # Prüfgang 04.10.2026, A3: a connection was only looked at again when it sent something itself.
+    board_id = make_board(client, space)
+    rita = make_account("rita")
+    join(client, space, "rita", "read")
+    with client.websocket_connect(f"/api/boards/{board_id}/live", headers={"cookie": cookie_of(rita)}) as two:
+        Browser(two).sync()
+        assert _peers(board_id) == 1
+        assert client.delete(f"/api/spaces/{space}/members/rita").status_code == 204
+        wait_for(lambda: _peers(board_id) == 0, seconds=2.5)  # well before RECHECK_SECONDS: the nudge did it
+        with pytest.raises(Exception):  # noqa: B017 - closed by the server
+            two.receive_bytes()
+
+
+@pytest.mark.parametrize("how", ["blocked", "signed_out_everywhere", "new_password"])
+def test_a_blocked_or_signed_out_account_loses_its_open_board(client: TestClient, operator: Account, space: int,
+                                                               how: str) -> None:
+    # Prüfgang 04.10.2026, A2: the right in the space stayed, so the connection did too.
+    board_id = make_board(client, space)
+    anna = make_account("anna")
+    join(client, space, "anna", "write")
+    elsewhere = cookie_of(anna)  # a second browser of anna's, made before: its making nudges nobody later
+    with client.websocket_connect(f"/api/boards/{board_id}/live", headers={"cookie": cookie_of(anna)}) as two:
+        browser = Browser(two)
+        browser.sync()
+        time.sleep(3 * live.WATCH_TICK)  # every nudge so far is seen
+        if how == "blocked":
+            with SessionLocal() as db:
+                db.get(Account, anna.id).blocked_at = utcnow()  # type: ignore[union-attr]
+                db.commit()
+        else:
+            with new_client() as other:
+                other.headers["cookie"] = elsewhere
+                if how == "signed_out_everywhere":
+                    assert other.post("/api/auth/logout-all").status_code == 204
+                else:
+                    from .conftest import PASSWORD
+
+                    changed = other.put("/api/auth/password", json={"current": PASSWORD, "new": "a fresh long password"})
+                    assert changed.status_code == 204, changed.text
+        wait_for(lambda: _peers(board_id) == 0, seconds=2.5)
+        with pytest.raises(Exception):  # noqa: B017
+            browser.change("late", {"kind": "note", "x": 0, "y": 0, "w": 1, "h": 1, "color": "gray", "text": "no"})
+            two.receive_bytes()
+    assert stored_updates(board_id) == 0
+
+
+def test_without_a_nudge_the_watcher_still_looks_again(client: TestClient, operator: Account, space: int,
+                                                       monkeypatch: pytest.MonkeyPatch) -> None:
+    from sqlalchemy import delete
+
+    from app.models import Membership
+
+    monkeypatch.setattr(live, "RECHECK_SECONDS", 1)
+    board_id = make_board(client, space)
+    rita = make_account("rita")
+    join(client, space, "rita", "read")
+    with client.websocket_connect(f"/api/boards/{board_id}/live", headers={"cookie": cookie_of(rita)}) as two:
+        Browser(two).sync()
+        with SessionLocal() as db:  # a bulk statement passes by the commit hook
+            db.execute(delete(Membership).where(Membership.account_id == rita.id))
+            db.commit()
+        wait_for(lambda: _peers(board_id) == 0, seconds=3)

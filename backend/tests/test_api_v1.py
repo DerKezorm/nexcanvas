@@ -190,3 +190,20 @@ def test_a_board_as_a_picture_holds_nothing_that_runs(client: TestClient, operat
     empty = board(client, space, "Leer")
     blank = client.get(f"/api/v1/boards/{empty}/picture.svg", headers=bearer(token)).text
     assert blank.count("<rect") == 1 and 'fill="#111117"' in blank
+
+
+def test_a_blocked_account_reads_nothing_with_its_token(client: TestClient, operator: Account) -> None:
+    switch_on(client)
+    anna = make_account("anna")
+    with new_client() as browser:
+        from .conftest import sign_in
+
+        sign_in(browser, anna)
+        token = make_token(browser)
+    with new_client() as program:
+        assert program.get("/api/v1/me", headers=bearer(token)).status_code == 200
+        with SessionLocal() as db:  # blocked here or in nexsuite (Prüfgang 04.10.2026, A4)
+            db.get(Account, anna.id).blocked_at = utcnow()  # type: ignore[union-attr]
+            db.commit()
+        assert program.get("/api/v1/me", headers=bearer(token)).status_code == 401
+        assert program.get("/api/v1/boards", headers=bearer(token)).status_code == 401
