@@ -1,4 +1,40 @@
 {
+  "0.2.0": {
+    "lead": "nexcanvas für Teams: Wer zusammenarbeitet, bekommt Rechte als Gruppe, jedes Mitglied sieht, wer in einem Bereich ist, und der Betreiber behält alle Bereiche und Konten im Griff.",
+    "sections": [
+      {
+        "title": "Teams",
+        "where": "Einstellungen, Teams; Rechte je Bereich unter Einstellungen, Bereiche, Knopf „Teams“",
+        "body": "Der Betreiber legt Teams mit Namen, Farbe und Leitung an, die Leitung pflegt danach die Mitglieder. Gibt ein Bereich einem Team ein Recht, hat es jedes Mitglied, und wer selbst ein höheres Recht hat, behält es. Damit man Kolleginnen und Kollegen findet, sehen alle auf dem Server die Namen und Bilder der anderen, auch ohne gemeinsamen Bereich."
+      },
+      {
+        "title": "Wer in einem Bereich ist",
+        "where": "Einstellungen, Bereiche, „Mitglieder verwalten“",
+        "body": "Jedes Mitglied sieht jetzt, wer Zugang hat, mit den Teams und wie viele Personen es zusammen sind. Einladungen per Name stehen in der Liste und lassen sich zurückziehen. Ein zweiter Einladungslink an dieselbe Adresse ersetzt den ersten."
+      },
+      {
+        "title": "Der Betreiber sieht jeden Bereich",
+        "where": "Einstellungen, Bereiche",
+        "body": "Der Betreiber verwaltet jeden Bereich, auch einen, in dem er selbst kein Recht hat. Ändert er dort Rechte, bekommen die Mitglieder einen Hinweis. Unter „Bereiche im Papierkorb“ sieht er auch alle gelöschten Bereiche und holt sie zurück."
+      },
+      {
+        "title": "Konten sperren",
+        "where": "Einstellungen, Server, Konten, Knopf „Sperren“",
+        "body": "Ein gesperrtes Konto kommt nicht mehr herein: offene Sitzungen und Boards schließen sich sofort, seine API-Token antworten nicht mehr, und für Teams und Einladungen steht es nicht mehr zur Wahl. Entsperren geht jederzeit."
+      }
+    ],
+    "smallTitle": "Außerdem",
+    "small": [
+      "Eine Einladung lässt sich auch über den Anmeldeanbieter annehmen, und ist die Anmeldung mit Passwort aus, endet sie nicht mehr in einer Sackgasse.",
+      "Endet die Sitzung oder entfällt ein Recht, schließt sich ein offenes Board sofort und sagt, warum.",
+      "Ein Bereich im Papierkorb nimmt seine öffentlichen Seiten mit; endgültig löschen darf nur, wer ihn verwaltet.",
+      "Ist der zweite Faktor Pflicht, führt der Weg nach der Anmeldung direkt zur Kontoseite.",
+      "Kopierknöpfe funktionieren auch ohne HTTPS im Heimnetz.",
+      "Auf dem Handy stehen die Bereiche in einer Reihe, und wer nur lesen darf, sieht kein Rückgängig mehr.",
+      "Dialoge, die höher als der Bildschirm sind, rollen in sich.",
+      "Texte, Mehrzahlformen, Farbnamen und Tastenkürzel in der eigenen Sprache, gefährliche Knöpfe mit besserem Kontrast."
+    ]
+  },
   "0.1.0": {
     "lead": "Die erste Fassung von nexcanvas: ein Whiteboard auf deinem eigenen Server, an dem mehrere Leute gleichzeitig zeichnen, schreiben und ordnen.",
     "sections": [

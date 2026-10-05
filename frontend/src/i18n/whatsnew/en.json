@@ -1,4 +1,40 @@
 {
+  "0.2.0": {
+    "lead": "nexcanvas for teams: people who work together get rights as a group, every member sees who is in a space, and the operator keeps every space and account in hand.",
+    "sections": [
+      {
+        "title": "Teams",
+        "where": "Settings, Teams; rights per space under Settings, Spaces, \"Teams\" button",
+        "body": "The operator makes teams with a name, a colour and a lead, and the lead looks after the members from then on. When a space gives a team a right, every member has it, and whoever has a higher right of their own keeps it. So that colleagues can find each other, everybody on the server sees the names and pictures of the others, also without a space in common."
+      },
+      {
+        "title": "Who is in a space",
+        "where": "Settings, Spaces, \"Manage members\"",
+        "body": "Every member now sees who has access, with the teams and how many people that comes to. Invitations by name are in the list and can be withdrawn. A second invitation link to the same address replaces the first."
+      },
+      {
+        "title": "The operator sees every space",
+        "where": "Settings, Spaces",
+        "body": "The operator manages every space, also one without a right of their own. When they change rights there, the members are told. Under \"Spaces in the bin\" they also see every deleted space and can bring it back."
+      },
+      {
+        "title": "Blocking accounts",
+        "where": "Settings, Server, Accounts, \"Block\" button",
+        "body": "A blocked account no longer gets in: open sessions and boards close at once, its API tokens stop answering, and it is no longer offered for teams and invitations. Unblocking works at any time."
+      }
+    ],
+    "smallTitle": "Also",
+    "small": [
+      "An invitation can also be accepted through the sign-in provider, and with password sign-in off it is no longer a dead end.",
+      "When the session ends or a right goes, an open board closes at once and says why.",
+      "A space in the bin takes its public pages along; only those who manage it can delete it for good.",
+      "When a second factor is required, sign-in leads straight to the account page.",
+      "Copy buttons work without HTTPS on a home network too.",
+      "On the phone the spaces sit in a row, and readers no longer see undo.",
+      "Dialogs taller than the screen scroll inside.",
+      "Texts, plurals, colour names and keyboard shortcuts in the reader's language, and better contrast for dangerous buttons."
+    ]
+  },
   "0.1.0": {
     "lead": "The first version of nexcanvas: a whiteboard on your own server where several people draw, write and arrange at the same time.",
     "sections": [
