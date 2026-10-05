@@ -112,7 +112,7 @@ SUITE_NOTICE = "/api/suite/event"
 MAX_BODY = 16 * 1024 * 1024
 #: Where a larger body is expected, with its own limit checked while streaming. An upload's limit is the operator's
 #: setting, checked by the route while the file arrives; this is only the ceiling above every setting.
-LARGE_BODIES = {"/api/media": 4 * 1024**3, "/api/backups/upload": 64 * 1024**3}
+LARGE_BODIES = {"/api/media": 4 * 1024**3}
 
 
 class BodyTooLarge(Exception):

@@ -74,21 +74,6 @@ def test_unknown_api_paths_are_404_not_the_start_page(tmp_path: Path) -> None:
         assert response.json()["detail"]["code"] == "not_found"
 
 
-def test_the_service_worker_is_always_fetched_anew_and_the_manifest_has_its_type(tmp_path: Path) -> None:
-    client = _built(tmp_path)
-    dist = tmp_path / "dist"
-    (dist / "sw.js").write_bytes(b"self.addEventListener('fetch', () => {})")
-    (dist / "manifest.webmanifest").write_bytes(b'{"name": "nexcanvas"}')
-    worker = client.get("/sw.js")
-    assert worker.status_code == 200
-    assert worker.headers["content-type"].startswith("text/javascript")
-    # A kept old worker would keep an old app: the browser asks for it every time.
-    assert worker.headers["cache-control"] == "no-cache"
-    manifest = client.get("/manifest.webmanifest")
-    assert manifest.headers["content-type"].startswith("application/manifest+json")
-    assert manifest.json() == {"name": "nexcanvas"}
-
-
 def test_a_cookie_suffix_keeps_two_instances_on_one_host_apart(monkeypatch) -> None:
     from app.config import Settings
 

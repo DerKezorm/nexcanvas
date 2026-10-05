@@ -642,10 +642,10 @@ export function BackupsCard({ server }: { server: Server }) {
           className="flex items-end gap-2"
           onSubmit={(event) => {
             event.preventDefault()
-            void server.save({ backup_keep: Math.max(1, Math.min(100, Number(keep ?? s.backup_keep) || 7)) }, t('settings.saved'))
+            void server.save({ backup_keep: Math.max(1, Math.min(365, Number(keep ?? s.backup_keep) || 7)) }, t('settings.saved'))
           }}
         >
-          <Input label={t('server.keep')} type="number" min={1} max={100} value={keep ?? String(s.backup_keep)} onChange={setKeep} className="w-28" />
+          <Input label={t('server.keep')} type="number" min={1} max={365} value={keep ?? String(s.backup_keep)} onChange={setKeep} className="w-28" />
           <Button type="submit" busy={server.busy}>
             {t('common.save')}
           </Button>

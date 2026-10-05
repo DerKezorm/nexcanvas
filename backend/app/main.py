@@ -198,11 +198,6 @@ def _mount_frontend(target: FastAPI, dist: Path) -> None:
             return JSONResponse(status_code=404, content={"detail": detail("not_found", "Not found.")})
         candidate = (dist / path).resolve()
         if path and candidate.is_file() and root in candidate.parents and candidate != start_page:
-            if path == "sw.js":
-                # The service worker: always the newest, and allowed to act for the whole app.
-                return FileResponse(candidate, media_type="text/javascript", headers={"Cache-Control": "no-cache"})
-            if path.endswith(".webmanifest"):
-                return FileResponse(candidate, media_type="application/manifest+json")
             return FileResponse(candidate)
         return FileResponse(index, headers={"Cache-Control": "no-cache"})
 

@@ -1,6 +1,6 @@
 # The nexcanvas API
 
-Programs such as [nexdeck](https://github.com/DerKezorm/nexdeck) or n8n read nexcanvas over `/api/v1`: the boards,
+Programs such as n8n or your own scripts read nexcanvas over `/api/v1`: the boards,
 numbers for a dashboard and a small picture of a board. The API only reads; nothing under `/api/v1` changes a board.
 
 ## Switching it on

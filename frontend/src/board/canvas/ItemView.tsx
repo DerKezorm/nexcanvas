@@ -1,4 +1,4 @@
-import { Download, ExternalLink, FileText, Globe, Lock } from 'lucide-react'
+import { Download, ExternalLink, FileText, Film, Globe, Lock, Play } from 'lucide-react'
 import { memo, useContext, useLayoutEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -10,7 +10,7 @@ import { LibShape } from '../library/LibShape'
 import { useLibrary } from '../library/registry'
 import { inkPath } from '../ink'
 import { NOTE_COLORS, paint, textOn } from '../palette'
-import type { FrameItem, Item, TextSize } from '../types'
+import type { FileItem, FrameItem, Item, TextSize } from '../types'
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const TEXT_SIZES: Record<TextSize, number> = { s: 15, m: 20, l: 28, xl: 44 }
@@ -277,6 +277,7 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
       )
     case 'file':
       if (item.ext === 'pdf') return <PdfPage item={item} />
+      if (VIDEO.has(item.ext)) return <VideoCard item={item} />
       return (
         <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-ink-600 bg-ink-850 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6)]">
           <div className="relative flex flex-1 items-center justify-center bg-ink-800 p-4">
@@ -323,4 +324,42 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
         </div>
       )
   }
+}
+
+/** Kinds a browser plays by itself; the server sends them inline (``media_store.SHOWN``). */
+const VIDEO = new Set(['mp4', 'mov'])
+
+/** A video on the board: a card that opens it in the browser to play, and the download next to it. */
+function VideoCard({ item }: { item: FileItem }) {
+  const { t } = useTranslation()
+  const mediaUrl = useMediaUrl()
+  return (
+    <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-ink-600 bg-ink-850 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6)]">
+      <div className="relative flex flex-1 items-center justify-center bg-ink-900">
+        <a
+          href={mediaUrl(item.media)}
+          target="_blank"
+          rel="noopener noreferrer"
+          onPointerDown={(e) => e.stopPropagation()}
+          className="grid h-14 w-14 place-items-center rounded-full bg-white/90 text-ink-950 shadow hover:bg-white"
+          title={t('media.play')}
+          aria-label={t('media.play')}
+        >
+          <Play className="ml-0.5 h-6 w-6" fill="currentColor" />
+        </a>
+      </div>
+      <div className="flex items-center gap-2 border-t border-ink-700 px-3 py-2.5">
+        <Film className="h-4 w-4 shrink-0 text-mist-500" />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium text-mist-100">{item.name}</div>
+          <div className="truncate text-[11px] text-mist-600">
+            {item.ext.toUpperCase()} · {item.sizeLabel}
+          </div>
+        </div>
+        <a href={mediaUrl(item.media, { download: true })} download onPointerDown={(e) => e.stopPropagation()} className="shrink-0 rounded-md p-1 text-mist-500 hover:bg-ink-800 hover:text-mist-100" title={t('media.download')} aria-label={t('media.download')}>
+          <Download className="h-4 w-4" />
+        </a>
+      </div>
+    </div>
+  )
 }

@@ -182,7 +182,7 @@ a group a frame, and a file card the photo or file of that name from the archive
 
 ## For programs
 
-nexdeck, n8n and scripts can read nexcanvas with an API token: the boards, numbers for a dashboard and a small
+n8n and your own scripts can read nexcanvas with an API token: the boards, numbers for a dashboard and a small
 picture of each board. Off until the operator switches it on; every account then makes its own tokens. Reading only.
 The routes are in [docs/api.md](docs/api.md).
 
