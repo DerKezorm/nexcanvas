@@ -1,4 +1,25 @@
 {
+  "0.2.1": {
+    "lead": "Moving to a new server now works in the interface, and videos on the board can be played.",
+    "sections": [
+      {
+        "title": "Upload a backup",
+        "where": "Settings, Server, Backup, \"Upload a backup\"",
+        "body": "A downloaded backup comes back in, say on a new server: upload it, check it, restore it. It is listed as \"uploaded\", and the automatic clean-up leaves it alone. Uploading asks for your password, like downloading."
+      },
+      {
+        "title": "Play videos",
+        "where": "Drop a video (MP4 or MOV) on a board",
+        "body": "A video on the board shows a button to play it; the video opens in the browser. The download is still next to it, on public pages too."
+      }
+    ],
+    "smallTitle": "Also",
+    "small": [
+      "The button on a backup is now called \"Restore\", because it restores exactly that backup.",
+      "\"Keep\" allows up to 365 backups, as the server does.",
+      "The hint when adding a link says where the card takes its title from."
+    ]
+  },
   "0.2.0": {
     "lead": "nexcanvas for teams: people who work together get rights as a group, every member sees who is in a space, and the operator keeps every space and account in hand.",
     "sections": [

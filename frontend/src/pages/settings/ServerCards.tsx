@@ -7,7 +7,7 @@ import { Box, Download, Files, Globe, History, Info, KeyRound, Mail, RotateCcw, 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, apiTokensApi, type AnyApiToken, type Me, type SpaceInfo } from '../../api/client'
+import { api, apiTokensApi, passwordHeader, type AnyApiToken, type Me, type SpaceInfo } from '../../api/client'
 import { Avatar } from '../../components/Avatar'
 import { MembersDialog } from '../../components/MembersDialog'
 import { forgetAddedLanguages, templateFile } from '../../i18n'
@@ -603,7 +603,7 @@ export function MailCard({ server, readOnly = false }: { server: Server; readOnl
   )
 }
 
-type Backup = { name: string; size: number; created: string; kind: string; note: string; boards: number; files: number; version: string }
+type Backup = { name: string; size: number; created: string; kind: string; note: string; boards: number; files: number; version: string; uploaded?: boolean }
 type Brief = { usable: boolean; boards: number; files: number; would_add: number; would_change: number; would_remove: number; damaged: string[]; created: string }
 
 export function BackupsCard({ server }: { server: Server }) {
@@ -611,10 +611,12 @@ export function BackupsCard({ server }: { server: Server }) {
   const { me } = useAuth()
   const [list, setList] = useState<Backup[]>([])
   const [brief, setBrief] = useState<(Brief & { name: string }) | null>(null)
-  const [asking, setAsking] = useState<{ kind: 'restore' | 'download' | 'delete'; name: string } | null>(null)
+  const [asking, setAsking] = useState<{ kind: 'restore' | 'download' | 'delete' | 'upload'; name: string; file?: File } | null>(null)
+  const picker = useRef<HTMLInputElement>(null)
   const connected = useSuiteConnected()
   const [keep, setKeep] = useState<string | null>(null)
   const [restarting, setRestarting] = useState(false)
+  const [uploaded, setUploaded] = useState(false)
   const action = useAction()
   const load = useCallback(() => {
     api<Backup[]>('/api/backups').then(setList, () => undefined)
@@ -650,7 +652,26 @@ export function BackupsCard({ server }: { server: Server }) {
             {t('common.save')}
           </Button>
         </form>
-        <span className="ml-auto">
+        <span className="ml-auto flex flex-wrap gap-2">
+          {!connected && (
+            <>
+              <input
+                ref={picker}
+                type="file"
+                accept=".zip,application/zip"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  event.target.value = ''
+                  if (file) setAsking({ kind: 'upload', name: file.name, file })
+                }}
+              />
+              <Button onClick={() => picker.current?.click()}>
+                <Upload className="h-4 w-4" strokeWidth={1.8} />
+                {t('server.uploadBackup')}
+              </Button>
+            </>
+          )}
           <Button
             accent
             busy={action.busy}
@@ -673,7 +694,7 @@ export function BackupsCard({ server }: { server: Server }) {
             <div className="min-w-0 flex-1">
               <div className="text-mist-100">{new Date(entry.created).toLocaleString(i18n.language)}</div>
               <div className="text-xs text-mist-500">
-                {t(`server.kinds.${entry.kind}`)} · {t('server.backupContent', { boards: t('server.countBoards', { count: entry.boards }), files: t('server.countFiles', { count: entry.files }) })} · {size(entry.size)} · {entry.version}
+                {entry.uploaded ? t('server.uploaded') : t(`server.kinds.${entry.kind}`)} · {t('server.backupContent', { boards: t('server.countBoards', { count: entry.boards }), files: t('server.countFiles', { count: entry.files }) })} · {size(entry.size)} · {entry.version}
               </div>
             </div>
             <button type="button" className={icon} title={t('server.check')} aria-label={t('server.check')} onClick={() => void action.run(async () => setBrief({ ...(await api<Brief>(`/api/backups/${entry.name}/check`, { method: 'POST' })), name: entry.name }))}>
@@ -703,6 +724,7 @@ export function BackupsCard({ server }: { server: Server }) {
           {brief.usable ? t('server.checkOk', { boards: t('server.countBoards', { count: brief.boards }), files: t('server.countFiles', { count: brief.files }), add: t('server.countFiles', { count: brief.would_add }), remove: t('server.countFiles', { count: brief.would_remove }) }) : t('server.checkBad')}
         </div>
       )}
+      {uploaded && <p className="rounded-xl border border-ok-500/40 bg-ok-500/10 px-4 py-3 text-sm text-mist-200">{t('server.uploadedHint')}</p>}
       {restarting && <p className="rounded-xl border border-warn-500/40 bg-warn-500/10 px-4 py-3 text-sm text-warn-500">{t('server.restarting')}</p>}
       <Feedback problem={action.problem} done={action.done} />
       {asking && (
@@ -721,6 +743,11 @@ export function BackupsCard({ server }: { server: Server }) {
             if (asking.kind === 'delete') {
               await api(`/api/backups/${asking.name}`, { method: 'DELETE', body: { password } })
               load()
+            }
+            if (asking.kind === 'upload' && asking.file) {
+              await api('/api/backups/upload', { method: 'POST', raw: asking.file, headers: { 'X-Nexcanvas-Password': passwordHeader(password) } })
+              load()
+              setUploaded(true)
             }
             if (asking.kind === 'restore') {
               await api(`/api/backups/${asking.name}/restore`, { method: 'POST', body: { password } })

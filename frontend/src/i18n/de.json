@@ -567,6 +567,9 @@
     "keep": "Behalten",
     "backupNow": "Jetzt sichern",
     "restore": "Wiederherstellen",
+    "uploadBackup": "Sicherung hochladen",
+    "uploaded": "hochgeladen",
+    "uploadedHint": "Hochgeladen. Sie steht jetzt in der Liste: erst prüfen, dann wiederherstellen.",
     "download": "Herunterladen",
     "languages": "Sprachen",
     "languagesHint": "Deutsch und Englisch sind eingebaut. Weitere als JSON-Datei hinzufügen, fehlende Texte fallen auf Englisch zurück.",
@@ -675,6 +678,11 @@
         "title": "{{name}} sperren?",
         "text": "{{name}} kommt danach nicht mehr herein, offene Sitzungen und Boards schließen sich sofort. Entsperren geht jederzeit.",
         "button": "Sperren"
+      },
+      "backup_upload": {
+        "title": "Sicherung hochladen?",
+        "text": "Die Datei kommt in die Liste der Sicherungen. Wiederhergestellt wird erst, wenn du es dort bestätigst.",
+        "button": "Hochladen"
       }
     },
     "backupMade": "Sicherung erstellt.",

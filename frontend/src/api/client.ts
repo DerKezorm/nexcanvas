@@ -49,6 +49,8 @@ type Options = {
   raw?: Blob
   /** The answer is a file, not JSON. */
   blob?: boolean
+  /** Headers of its own, next to the ones every request carries (the password of an upload). */
+  headers?: Record<string, string>
 }
 
 const BUSY_TRIES = 3
@@ -72,7 +74,7 @@ async function once<T>(path: string, options: Options): Promise<T> {
     if (Array.isArray(value)) for (const item of value) url.searchParams.append(key, item)
     else if (value !== undefined) url.searchParams.set(key, String(value))
   }
-  const headers: Record<string, string> = { Accept: 'application/json', 'X-Nexcanvas-Client': tabId() }
+  const headers: Record<string, string> = { ...options.headers, Accept: 'application/json', 'X-Nexcanvas-Client': tabId() }
   let body: BodyInit | undefined
   if (options.raw) body = options.raw
   else if (options.body !== undefined) {
@@ -339,6 +341,13 @@ export const mediaApi = {
 }
 
 /** Where a photo or file of a board is shown from. Only ever built from an id, never from what a board says. */
+/** The password for an upload rides in a header, as base64 of its UTF-8: a header carries no umlauts. */
+export function passwordHeader(password: string): string {
+  let bytes = ''
+  for (const byte of new TextEncoder().encode(password)) bytes += String.fromCharCode(byte)
+  return btoa(bytes)
+}
+
 export function mediaUrl(id: string, preview = false): string {
   const safe = /^[A-Za-z0-9_-]{8,40}$/.test(id) ? id : 'invalid0'
   return `/api/media/${safe}${preview ? '?preview=1' : ''}`

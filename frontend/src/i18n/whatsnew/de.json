@@ -1,4 +1,25 @@
 {
+  "0.2.1": {
+    "lead": "Umziehen auf einen neuen Server geht jetzt in der Oberfläche, und Videos auf dem Board lassen sich abspielen.",
+    "sections": [
+      {
+        "title": "Sicherung hochladen",
+        "where": "Einstellungen, Server, Sicherung, „Sicherung hochladen“",
+        "body": "Eine heruntergeladene Sicherung kommt wieder hinein, etwa auf einem neuen Server: hochladen, prüfen, wiederherstellen. Sie steht als „hochgeladen“ in der Liste, und das automatische Aufräumen lässt sie stehen. Hochladen fragt wie Herunterladen nach deinem Passwort."
+      },
+      {
+        "title": "Videos abspielen",
+        "where": "Ein Video (MP4 oder MOV) auf ein Board ziehen",
+        "body": "Ein Video auf dem Board zeigt einen Knopf zum Abspielen; das Video öffnet sich im Browser. Herunterladen geht weiter daneben, auch auf öffentlichen Seiten."
+      }
+    ],
+    "smallTitle": "Außerdem",
+    "small": [
+      "Der Knopf an einer Sicherung heißt jetzt „Wiederherstellen“, denn er stellt genau diese Sicherung her.",
+      "„Behalten“ erlaubt bis zu 365 Sicherungen, wie der Server.",
+      "Der Hinweis beim Einfügen eines Links sagt, woher die Karte ihren Titel nimmt."
+    ]
+  },
   "0.2.0": {
     "lead": "nexcanvas für Teams: Wer zusammenarbeitet, bekommt Rechte als Gruppe, jedes Mitglied sieht, wer in einem Bereich ist, und der Betreiber behält alle Bereiche und Konten im Griff.",
     "sections": [

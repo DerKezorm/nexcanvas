@@ -148,6 +148,9 @@ Back it up with nexcanvas's own backups (Settings, Server, Backup), which copy t
 runs and take every photo and file along. A backup is a plain ZIP; whoever has it has everything, so keep
 downloaded copies as carefully as the data directory itself.
 
+Moving to a new server: download a backup, set up nexcanvas there, upload the backup under Settings, Server,
+Backup, check it and restore it. Afterwards the new server has the old accounts, spaces, boards, photos and files.
+
 ## Updating
 
 With an image: `docker compose pull && docker compose up -d`. Built from source: pull the new code and run
