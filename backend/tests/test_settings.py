@@ -161,3 +161,16 @@ def test_a_backup_keeps_the_secret_key_and_a_restore_signs_everybody_out(
             assert settings_service.get(db, "smtp_host") == "mail.example.com"
     finally:
         key_file.unlink(missing_ok=True)
+
+
+@pytest.mark.parametrize(("value", "status"), [(1, 200), (100, 200), (365, 200), (0, 422), (366, 422)])
+def test_backups_to_keep_go_up_to_365_as_the_interface_offers(client: TestClient, operator: Account, value: int,
+                                                              status: int) -> None:
+    """The interface offers 1 to 365 and the backup job reads up to 365; the setting must take the same (0.2.1 took
+    only up to 100 and refused what the interface let through)."""
+    answer = client.put("/api/settings", json={"backup_keep": value})
+    assert answer.status_code == status, answer.text
+    if status == 200:
+        assert answer.json()["backup_keep"] == value
+        with SessionLocal() as db:
+            assert backups.keep(db) == value
