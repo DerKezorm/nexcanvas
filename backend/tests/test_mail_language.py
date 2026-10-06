@@ -85,7 +85,8 @@ def test_an_invitation_to_an_address_without_an_account_speaks_the_inviters_lang
     message = sent[-1]
     assert message["Subject"] == "Robin Keller lädt dich zu nexcanvas ein"
     body = _body(message)
-    assert body.startswith("Robin Keller lädt dich zu nexcanvas ein. In nexcanvas ")
+    assert body.startswith("Robin Keller lädt dich zu nexcanvas ein. In nexcanvas arbeitet ein Team gemeinsam auf "
+                           "Whiteboards.")
     assert answer.json()["link"] in body
     # The date in German order, as a German reader writes it.
     assert "Der Link gilt einmal, bis " in body
@@ -113,7 +114,8 @@ def test_an_english_invitation_keeps_its_wording_and_writes_the_date_the_interna
     message = sent[-1]
     assert message["Subject"] == "tester invites you to nexcanvas"
     body = _body(message)
-    assert body.startswith('tester invites you to the space "Team" in nexcanvas, a whiteboard to work on together.')
+    assert body.startswith('tester invites you to the space "Team" in nexcanvas, where a team works together on '
+                           "whiteboards.")
     until = body.split("The link works once, until ", 1)[1].split(".")[0]
     year, month, day = until.split("-")
     assert len(year) == 4 and len(month) == 2 and len(day) == 2
@@ -139,6 +141,27 @@ def test_without_anybody_saying_a_language_the_first_operators_counts(
         answer = other.post("/api/invites", json={"email": "new@example.com", "send": True})
     assert answer.status_code == 201, answer.text
     assert "lädt dich" in str(sent[-1]["Subject"])
+
+
+def test_names_lose_every_control_character(client: TestClient, operator: Account, sent: list[EmailMessage]) -> None:
+    """Not only line breaks: DEL, C1 controls such as NEL and the Unicode line and paragraph separators break a header
+    or a line too, and none of them belongs in a name."""
+    odd = "Robin" + chr(127) + "Keller" + chr(0x85) + "aus" + chr(0x2028) + "Team" + chr(0x2029) + "Nord" + chr(27) + "!" + chr(0x9b) + "2J"
+    _set("tester", display_name=odd)
+    answer = client.post("/api/invites", json={"email": "new@example.com", "send": True})
+    assert answer.status_code == 201, answer.text
+    message = sent[-1]
+    assert message["Subject"] == "Robin Keller aus Team Nord ! 2J invites you to nexcanvas"
+    assert _body(message).startswith("Robin Keller aus Team Nord ! 2J invites you to nexcanvas,")
+
+
+def test_the_test_mail_finds_the_account_whatever_the_case_of_the_address(
+        client: TestClient, operator: Account, sent: list[EmailMessage]) -> None:
+    make_account("zoe")
+    _set("zoe", email="zoe@example.com", language="de")
+    answer = client.post("/api/settings/mail-test", json={"to": "Zoe@Example.COM", "language": "en"})
+    assert answer.status_code == 204, answer.text
+    assert sent[-1]["Subject"] == "nexcanvas: Testmail"
 
 
 @pytest.mark.parametrize(("owner", "operator_language", "page", "expect"), [

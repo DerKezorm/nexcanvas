@@ -13,6 +13,7 @@ import logging
 import re
 import smtplib
 import ssl
+import unicodedata
 from datetime import date
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
@@ -76,7 +77,7 @@ INVITE_MAIL = {
         "subject": "{by} lädt dich zu nexcanvas ein",
         "where": "in den Bereich „{space}“ in nexcanvas",
         "app": "zu nexcanvas",
-        "body": "{by} lädt dich {where} ein. In nexcanvas arbeitet ihr live gemeinsam auf Whiteboards.\n\n"
+        "body": "{by} lädt dich {where} ein. In nexcanvas arbeitet ein Team gemeinsam auf Whiteboards.\n\n"
                 "Öffne diesen Link, um die Einladung anzunehmen:\n{link}\n\n"
                 "Der Link gilt einmal, {runs}. Wenn du diese Mail nicht erwartet hast, ignoriere sie.\n",
         "until": "bis {day}",
@@ -87,7 +88,7 @@ INVITE_MAIL = {
         "subject": "{by} invites you to nexcanvas",
         "where": 'to the space "{space}" in nexcanvas',
         "app": "to nexcanvas",
-        "body": "{by} invites you {where}, a whiteboard to work on together.\n\n"
+        "body": "{by} invites you {where}, where a team works together on whiteboards.\n\n"
                 "Open this link to accept:\n{link}\n\n"
                 "The link works once, {runs}. If you did not expect this mail, ignore it.\n",
         "until": "until {day}",
@@ -143,8 +144,8 @@ def language_for(db: Session, receiver: Account | None, *fallback: str) -> str:
 
 
 def _one_line(text: str) -> str:
-    """A name in a mail: one line, no control characters."""
-    return " ".join("".join(char if ord(char) >= 32 and ord(char) != 127 else " " for char in text).split())
+    """A name in a mail: one line, no control characters (C0, DEL, C1, line and paragraph separators)."""
+    return " ".join("".join(" " if unicodedata.category(char) in {"Cc", "Zl", "Zp"} else char for char in text).split())
 
 
 def send_invite(db: Session, to: str, link: str, *, by: str, space: str | None, until: date | None = None,
