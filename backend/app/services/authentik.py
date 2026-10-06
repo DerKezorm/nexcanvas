@@ -214,14 +214,20 @@ def _instance_names(redirect_uri: str) -> tuple[str, str]:
     return f"{NAME} ({host})", f"{SLUG}-{suffix}"
 
 
-async def _names(api: _Api, redirect_uri: str) -> tuple[str, str]:
-    """The plain names, unless a provider of that name sends people back to another address: then a second instance of
-    the app is at work here, and taking the plain names would break the first one's sign-in (Prüfgang C12)."""
+async def _names(db: Session, api: _Api, redirect_uri: str) -> tuple[str, str]:
+    """The plain names, unless a provider of that name sends people back to another address and is not the one this
+    nexcanvas signs in with: then a second instance of the app is at work here, and taking the plain names would break
+    the first one's sign-in (Prüfgang C12). A provider whose client id this nexcanvas has stored is its own, even under
+    a new address (the operator moved nexcanvas and runs the button again); a second provider would change the issuer
+    and loosen every account bound to the old one."""
     existing = await api.find_one("/providers/oauth2/", {"name": NAME}, "name", NAME)
     if existing is None:
         return NAME, SLUG
     urls = {str(entry.get("url", "")) for entry in existing.get("redirect_uris") or [] if isinstance(entry, dict)}
     if not urls or redirect_uri in urls:
+        return NAME, SLUG
+    own_client = str(settings_service.get(db, "oidc_client_id") or "")
+    if own_client and own_client == str(existing.get("client_id") or ""):
         return NAME, SLUG
     return _instance_names(redirect_uri)
 
@@ -291,7 +297,7 @@ async def setup(db: Session, base_url: str, token: str, redirect_uri: str) -> Se
                 elif key == "mapping":
                     mappings, detail = await _mappings(api)
                 elif key == "provider":
-                    name, slug = await _names(api, redirect_uri)
+                    name, slug = await _names(db, api, redirect_uri)
                     result.issuer = issuer_for(base_url, slug)
                     provider_pk, client_id, client_secret, detail = await _provider(
                         api, redirect_uri, signing_key, mappings, name

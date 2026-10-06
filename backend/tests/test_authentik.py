@@ -55,6 +55,9 @@ class FakeAuthentik:
     existing: set[str] = field(default_factory=set)
     fail: tuple[str, str, int] | None = None
     discovery_ok: bool = True
+    #: The address the existing provider "nexcanvas" sends people back to, and the client id it carries.
+    provider_redirect: str = ""
+    provider_client: str = "generated-client-id"
     calls: list[Recorded] = field(default_factory=list)
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
@@ -117,8 +120,8 @@ class FakeAuthentik:
                 rows = [{"pk": "flow-invalidation", "slug": "default-provider-invalidation-flow"}]
             return httpx.Response(200, json={"results": rows})
         if (method, path) == ("GET", "/providers/oauth2/"):
-            rows = [{"pk": 7, "name": "nexcanvas"}] if "provider" in self.existing else []
-            if rows and getattr(self, "provider_redirect", ""):
+            rows = [{"pk": 7, "name": "nexcanvas", "client_id": self.provider_client}] if "provider" in self.existing else []
+            if rows and self.provider_redirect:
                 rows[0]["redirect_uris"] = [{"matching_mode": "strict", "url": self.provider_redirect}]
             if "name" in query:
                 rows = [row for row in rows if row["name"] == query["name"]]
@@ -337,6 +340,7 @@ def test_a_second_instance_takes_names_of_its_own(client: TestClient, operator: 
     back here. The first one stays untouched, this one gets a provider, an application and an issuer of its own."""
     fake.existing = {"cert", "mapping", "provider", "application"}
     fake.provider_redirect = "https://first.example.com/api/oidc/callback"
+    fake.provider_client = "the-first-instance"
     result = run_setup(client)
     methods = [(call.method, call.path) for call in fake.calls]
     assert ("PATCH", "/api/v3/providers/oauth2/7/") not in methods, "the first instance's provider stays"
@@ -348,3 +352,23 @@ def test_a_second_instance_takes_names_of_its_own(client: TestClient, operator: 
     fake.calls.clear()
     run_setup(client)
     assert ("PATCH", "/api/v3/providers/oauth2/7/") in [(c.method, c.path) for c in fake.calls], "its own: updated"
+
+
+def test_its_own_provider_keeps_the_plain_names(client: TestClient, operator: Account, fake: FakeAuthentik) -> None:
+    """#job-165: the plain provider is this nexcanvas's own when it already sends people here, and also when it carries
+    the client id stored here: the operator moved nexcanvas to a new address and runs the button again. Both update,
+    the issuer stays and the accounts bound to it keep their sign-in."""
+    fake.existing = {"cert", "mapping", "provider", "application"}
+    fake.provider_redirect = REDIRECT
+    run_setup(client)
+    assert ("PATCH", "/api/v3/providers/oauth2/7/") in [(call.method, call.path) for call in fake.calls]
+    assert stored()["oidc_client_id"] == "generated-client-id"
+    fake.provider_redirect = "https://old-address.example.com/api/oidc/callback"
+    fake.calls.clear()
+    result = run_setup(client)
+    methods = [(call.method, call.path) for call in fake.calls]
+    assert ("PATCH", "/api/v3/providers/oauth2/7/") in methods, "moved, still its own: updated"
+    assert ("PATCH", "/api/v3/core/applications/nexcanvas/") in methods
+    assert ("POST", "/api/v3/providers/oauth2/") not in methods
+    assert result["issuer"] == ISSUER
+    assert stored()["oidc_issuer"] == ISSUER
