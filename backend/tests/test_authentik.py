@@ -508,6 +508,26 @@ def test_a_second_instance_keeps_its_own_provider_after_a_move(
         assert db.get(Account, member).oidc_subject == "subject-1"  # type: ignore[union-attr]
 
 
+def test_its_own_provider_renamed_in_authentik_keeps_its_name_and_issuer(
+    client: TestClient, operator: Account, fake: FakeAuthentik
+) -> None:
+    """The operator renamed the provider in authentik. Found by the stored client id, it keeps the name it has there,
+    and the slug comes from the stored issuer, so the issuer stays."""
+    fake.existing = {"cert", "mapping", "provider", "application"}
+    fake.provider_redirect = "https://first.example.com/api/oidc/callback"
+    fake.provider_client = "the-first-instance"
+    fake.others = [{"pk": 8, "name": "Whiteboards", "client_id": "own-client",
+                    "redirect": f"https://{OLD_HOST}/api/oidc/callback", "slug": OWN_SLUG}]
+    configured_as(OWN_ISSUER, "own-client")
+    result = run_setup(client)
+    methods = [(call.method, call.path) for call in fake.calls]
+    assert ("PATCH", "/api/v3/providers/oauth2/8/") in methods
+    assert ("PATCH", f"/api/v3/core/applications/{OWN_SLUG}/") in methods
+    assert ("POST", "/api/v3/providers/oauth2/") not in methods
+    patched = next(call for call in fake.calls if (call.method, call.path) == ("PATCH", "/api/v3/providers/oauth2/8/"))
+    assert patched.body["name"] == "Whiteboards"
+    assert result["issuer"] == OWN_ISSUER
+
 def test_a_stored_client_id_never_takes_over_another_instances_provider(
     client: TestClient, operator: Account, fake: FakeAuthentik
 ) -> None:

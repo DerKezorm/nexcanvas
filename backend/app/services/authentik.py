@@ -229,33 +229,20 @@ async def _flow(api: _Api, designation: str, preferred: str) -> Any:
 
 #: The slug in an issuer this button stored: ``<authentik>/application/o/<slug>/``.
 _ISSUER_SLUG = re.compile(r"/application/o/([a-z0-9-]+)/?$")
-#: The name the button gives a provider when another instance holds the plain one: ``nexcanvas (host)``.
-_INSTANCE_NAME = re.compile(rf"^{re.escape(NAME)} \((.+)\)$")
-
-
-def _host_slug(host: str) -> str:
-    return f"{SLUG}-{re.sub(r'[^a-z0-9]+', '-', host.lower()).strip('-')[:40] or 'instance'}"
 
 
 def _instance_names(redirect_uri: str) -> tuple[str, str]:
     """Name and slug of this instance when another one of the same app holds the plain names already."""
     host = urlsplit(redirect_uri).netloc.lower()
-    return f"{NAME} ({host})", _host_slug(host)
+    suffix = re.sub(r"[^a-z0-9]+", "-", host).strip("-")[:40] or "instance"
+    return f"{NAME} ({host})", f"{SLUG}-{suffix}"
 
 
 def _own_names(db: Session, provider: dict[str, Any]) -> tuple[str, str] | None:
-    """Name and slug of the provider this nexcanvas signs in with, found by its client id. The slug is the one in the
-    stored issuer, so the issuer stays; failing that, the one the button derives from the name."""
-    name = str(provider.get("name") or "")
-    if name == NAME:
-        return NAME, SLUG
+    """Name and slug of the provider this nexcanvas signs in with, found by its client id: its name as authentik has
+    it, and the slug in the stored issuer, so the issuer stays. None when the stored issuer names no slug."""
     found = _ISSUER_SLUG.search(str(settings_service.get(db, "oidc_issuer") or ""))
-    if found:
-        return name, found.group(1)
-    instance = _INSTANCE_NAME.match(name)
-    if instance:
-        return name, _host_slug(instance.group(1))
-    return None
+    return (str(provider.get("name") or NAME), found.group(1)) if found else None
 
 
 async def _names(db: Session, api: _Api, redirect_uri: str) -> tuple[str, str]:
