@@ -227,27 +227,59 @@ async def _flow(api: _Api, designation: str, preferred: str) -> Any:
     return _pk(results[0], "flow")
 
 
+#: The slug in an issuer this button stored: ``<authentik>/application/o/<slug>/``.
+_ISSUER_SLUG = re.compile(r"/application/o/([a-z0-9-]+)/?$")
+#: The name the button gives a provider when another instance holds the plain one: ``nexcanvas (host)``.
+_INSTANCE_NAME = re.compile(rf"^{re.escape(NAME)} \((.+)\)$")
+
+
+def _host_slug(host: str) -> str:
+    return f"{SLUG}-{re.sub(r'[^a-z0-9]+', '-', host.lower()).strip('-')[:40] or 'instance'}"
+
+
 def _instance_names(redirect_uri: str) -> tuple[str, str]:
     """Name and slug of this instance when another one of the same app holds the plain names already."""
     host = urlsplit(redirect_uri).netloc.lower()
-    suffix = re.sub(r"[^a-z0-9]+", "-", host).strip("-")[:40] or "instance"
-    return f"{NAME} ({host})", f"{SLUG}-{suffix}"
+    return f"{NAME} ({host})", _host_slug(host)
+
+
+def _own_names(db: Session, provider: dict[str, Any]) -> tuple[str, str] | None:
+    """Name and slug of the provider this nexcanvas signs in with, found by its client id. The slug is the one in the
+    stored issuer, so the issuer stays; failing that, the one the button derives from the name."""
+    name = str(provider.get("name") or "")
+    if name == NAME:
+        return NAME, SLUG
+    found = _ISSUER_SLUG.search(str(settings_service.get(db, "oidc_issuer") or ""))
+    if found:
+        return name, found.group(1)
+    instance = _INSTANCE_NAME.match(name)
+    if instance:
+        return name, _host_slug(instance.group(1))
+    return None
 
 
 async def _names(db: Session, api: _Api, redirect_uri: str) -> tuple[str, str]:
-    """The plain names, unless a provider of that name sends people back to another address and is not the one this
-    nexcanvas signs in with: then a second instance of the app is at work here, and taking the plain names would break
-    the first one's sign-in (Prüfgang C12). A provider whose client id this nexcanvas has stored is its own, even under
-    a new address (the operator moved nexcanvas and runs the button again); a second provider would change the issuer
-    and loosen every account bound to the old one."""
+    """The names of the provider and application to make or update.
+
+    First the provider whose client id this nexcanvas has stored: that is its own, whatever its name and wherever it
+    sends people back to (the operator moved nexcanvas and runs the button again). Its names stay, so the issuer stays;
+    a new provider would change it and loosen every account bound to the old one. This holds for the plain names and
+    for those of a second instance (``nexcanvas (old host)``).
+
+    Without one: the plain names, unless a provider of that name sends people back to another address. Then a second
+    instance of the app is at work here, and taking the plain names would break the first one's sign-in
+    (Prüfgang C12)."""
+    own_client = str(settings_service.get(db, "oidc_client_id") or "")
+    if own_client:
+        own = await api.find_one("/providers/oauth2/", {"client_id": own_client}, "client_id", own_client)
+        names = _own_names(db, own) if own is not None else None
+        if names is not None:
+            return names
     existing = await api.find_one("/providers/oauth2/", {"name": NAME}, "name", NAME)
     if existing is None:
         return NAME, SLUG
     urls = {str(entry.get("url", "")) for entry in existing.get("redirect_uris") or [] if isinstance(entry, dict)}
     if not urls or redirect_uri in urls:
-        return NAME, SLUG
-    own_client = str(settings_service.get(db, "oidc_client_id") or "")
-    if own_client and own_client == str(existing.get("client_id") or ""):
         return NAME, SLUG
     return _instance_names(redirect_uri)
 

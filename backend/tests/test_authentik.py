@@ -23,6 +23,7 @@ from fastapi.testclient import TestClient
 from app.db import SessionLocal
 from app.main import app
 from app.models import Account
+from app.security import encrypt_secret
 from app.services import authentik, oidc, settings_service
 
 from .conftest import make_account, sign_in
@@ -61,6 +62,9 @@ class FakeAuthentik:
     #: The address the existing provider "nexcanvas" sends people back to, and the client id it carries.
     provider_redirect: str = ""
     provider_client: str = "generated-client-id"
+    #: More providers, each with its application: ``{"pk", "name", "client_id", "redirect", "slug"}``. The provider
+    #: of another instance, or this one's own under a name with the host added.
+    others: list[dict] = field(default_factory=list)
     calls: list[Recorded] = field(default_factory=list)
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
@@ -72,20 +76,23 @@ class FakeAuthentik:
         self.calls.append(Recorded(method, path, query, request.headers.get("authorization", ""), body))
         if self.fail and (method, path) == self.fail[:2]:
             return httpx.Response(self.fail[2], text="<html>authentik error page</html>")
-        if path == "/application/o/nexcanvas/.well-known/openid-configuration":
+        if path.startswith("/application/o/nexcanvas") and path.endswith("/.well-known/openid-configuration"):
             if not self.discovery_ok:
                 return httpx.Response(404, text="not found")
+            issuer = f"{URL}{path.removesuffix('.well-known/openid-configuration')}"
             return httpx.Response(
                 200,
                 json={
-                    "issuer": ISSUER,
-                    "authorization_endpoint": f"{ISSUER}authorize/",
+                    "issuer": issuer,
+                    "authorization_endpoint": f"{issuer}authorize/",
                     "token_endpoint": f"{URL}/application/o/token/",
-                    "jwks_uri": f"{ISSUER}jwks/",
+                    "jwks_uri": f"{issuer}jwks/",
                 },
             )
         if not path.startswith("/api/v3/"):
             return httpx.Response(404)
+        if request.headers.get("authorization") == "Bearer expired-token":
+            return httpx.Response(401, json={"detail": "Token invalid/expired"})
         if request.headers.get("authorization") != f"Bearer {TOKEN}":
             return httpx.Response(403, json={"detail": "Authentication credentials were not provided."})
         return self._api(method, path[len("/api/v3") :], query, body)
@@ -126,14 +133,30 @@ class FakeAuthentik:
             rows = [{"pk": 7, "name": "nexcanvas", "client_id": self.provider_client}] if "provider" in self.existing else []
             if rows and self.provider_redirect:
                 rows[0]["redirect_uris"] = [{"matching_mode": "strict", "url": self.provider_redirect}]
-            if "name" in query:
-                rows = [row for row in rows if row["name"] == query["name"]]
+            rows += [
+                {"pk": other["pk"], "name": other["name"], "client_id": other["client_id"],
+                 "redirect_uris": [{"matching_mode": "strict", "url": other["redirect"]}]}
+                for other in self.others
+            ]
+            for key in ("name", "client_id"):
+                if key in query:
+                    rows = [row for row in rows if row[key] == query[key]]
             return httpx.Response(200, json={"results": rows})
         if (method, path) in (("POST", "/providers/oauth2/"), ("PATCH", "/providers/oauth2/7/")):
             status = 201 if method == "POST" else 200
-            return httpx.Response(status, json={**body, "pk": 7, "client_id": "generated-client-id", "client_secret": "generated-secret"})
+            client = "generated-client-id" if method == "POST" else self.provider_client
+            return httpx.Response(status, json={**body, "pk": 7, "client_id": client, "client_secret": "generated-secret"})
+        for other in self.others:
+            if (method, path) == ("PATCH", f"/providers/oauth2/{other['pk']}/"):
+                return httpx.Response(200, json={**body, "pk": other["pk"], "client_id": other["client_id"],
+                                                  "client_secret": "generated-secret"})
+            if (method, path) == ("PATCH", f"/core/applications/{other['slug']}/"):
+                return httpx.Response(200, json={**body, "pk": f"app-{other['pk']}"})
         if (method, path) == ("GET", "/core/applications/"):
             rows = [{"pk": "app-uuid", "slug": "nexcanvas", "name": "nexcanvas"}] if "application" in self.existing else []
+            rows += [{"pk": f"app-{other['pk']}", "slug": other["slug"], "name": other["name"]} for other in self.others]
+            if "slug" in query:
+                rows = [row for row in rows if row["slug"] == query["slug"]]
             return httpx.Response(200, json={"results": rows})
         if (method, path) in (("POST", "/core/applications/"), ("PATCH", "/core/applications/nexcanvas/")):
             return httpx.Response(201 if method == "POST" else 200, json={**body, "pk": "app-uuid"})
@@ -435,3 +458,92 @@ def test_every_reason_the_server_sends_has_a_sentence_in_both_languages() -> Non
         missing = sorted(reason for reason in reasons if not str(sentences.get(reason, "")).strip())
         assert not missing, f"{language}.json has no sentence for {missing}"
         assert sorted(sentences) == sorted(reasons), f"{language}.json has sentences for reasons the server never sends"
+
+
+OLD_HOST = "old.example.com"
+OWN_SLUG = "nexcanvas-old-example-com"
+OWN_ISSUER = f"{URL}/application/o/{OWN_SLUG}/"
+
+
+def configured_as(issuer: str, client_id: str) -> int:
+    """nexcanvas set up by an earlier run of the button, with one account bound to the provider; returns its id."""
+    with SessionLocal() as db:
+        settings_service.save(db, {"oidc_issuer": issuer, "oidc_client_id": client_id,
+                                   "oidc_client_secret_enc": encrypt_secret("old-secret"), "oidc_provider_name": "authentik"})
+        db.commit()
+    member = make_account("bound")
+    with SessionLocal() as db:
+        row = db.get(Account, member.id)
+        assert row is not None
+        row.oidc_subject = "subject-1"
+        db.commit()
+    return member.id
+
+
+def test_a_second_instance_keeps_its_own_provider_after_a_move(
+    client: TestClient, operator: Account, fake: FakeAuthentik
+) -> None:
+    """The second nexcanvas at an authentik has a provider named after its old host. Moved to a new address, it finds
+    that provider by the client id it stored and updates it: no third provider, the issuer stays, nobody's sign-in
+    is dropped (Prüfer, block 3)."""
+    fake.existing = {"cert", "mapping", "provider", "application"}
+    fake.provider_redirect = "https://first.example.com/api/oidc/callback"
+    fake.provider_client = "the-first-instance"
+    fake.others = [{"pk": 8, "name": f"nexcanvas ({OLD_HOST})", "client_id": "own-client",
+                    "redirect": f"https://{OLD_HOST}/api/oidc/callback", "slug": OWN_SLUG}]
+    member = configured_as(OWN_ISSUER, "own-client")
+    result = run_setup(client)
+    assert steps(result) == [(key, True) for key in authentik.STEP_KEYS]
+    methods = [(call.method, call.path) for call in fake.calls]
+    assert ("PATCH", "/api/v3/providers/oauth2/8/") in methods
+    assert ("PATCH", f"/api/v3/core/applications/{OWN_SLUG}/") in methods
+    assert ("POST", "/api/v3/providers/oauth2/") not in methods
+    assert ("POST", "/api/v3/core/applications/") not in methods
+    assert ("PATCH", "/api/v3/providers/oauth2/7/") not in methods, "the first instance's provider stays"
+    patched = next(call for call in fake.calls if (call.method, call.path) == ("PATCH", "/api/v3/providers/oauth2/8/"))
+    assert patched.body["name"] == f"nexcanvas ({OLD_HOST})"
+    assert patched.body["redirect_uris"] == [{"matching_mode": "strict", "url": REDIRECT}]
+    assert result["issuer"] == OWN_ISSUER and stored()["oidc_issuer"] == OWN_ISSUER
+    with SessionLocal() as db:
+        assert db.get(Account, member).oidc_subject == "subject-1"  # type: ignore[union-attr]
+
+
+def test_a_stored_client_id_never_takes_over_another_instances_provider(
+    client: TestClient, operator: Account, fake: FakeAuthentik
+) -> None:
+    """The client id stored here belongs to this instance's own provider, not to the one with the plain name, which
+    another instance signs in with. While the own one is there, it is updated; once it is gone from authentik, a new
+    one is made under this host's name and the other instance's provider is still left alone."""
+    fake.existing = {"cert", "mapping", "provider", "application"}
+    fake.provider_redirect = "https://first.example.com/api/oidc/callback"
+    fake.provider_client = "the-first-instance"
+    fake.others = [{"pk": 8, "name": "nexcanvas (testserver)", "client_id": "own-client", "redirect": REDIRECT,
+                    "slug": "nexcanvas-testserver"}]
+    configured_as(f"{URL}/application/o/nexcanvas-testserver/", "own-client")
+    run_setup(client)
+    methods = [(call.method, call.path) for call in fake.calls]
+    assert ("PATCH", "/api/v3/providers/oauth2/8/") in methods
+    assert ("PATCH", "/api/v3/providers/oauth2/7/") not in methods
+    fake.others = []
+    fake.calls.clear()
+    result = run_setup(client)
+    methods = [(call.method, call.path) for call in fake.calls]
+    assert ("PATCH", "/api/v3/providers/oauth2/7/") not in methods, "never the other instance's provider"
+    assert ("PATCH", "/api/v3/core/applications/nexcanvas/") not in methods
+    made = next(call for call in fake.calls if (call.method, call.path) == ("POST", "/api/v3/providers/oauth2/"))
+    assert made.body["name"] == "nexcanvas (testserver)"
+    assert result["issuer"] == f"{URL}/application/o/nexcanvas-testserver/"
+
+
+def test_an_expired_token_is_named_as_the_token(client: TestClient, operator: Account, fake: FakeAuthentik) -> None:
+    result = run_setup(client, token="expired-token")
+    assert steps(result) == [("reached", False)]
+    assert (result["steps"][0]["reason"], result["steps"][0]["status"]) == ("token", 401)
+
+
+def test_an_answer_without_json_carries_its_status(client: TestClient, operator: Account, fake: FakeAuthentik) -> None:
+    """Something answers 200 with a web page: the page says so with that status, not with 0."""
+    fake.fail = ("GET", "/api/v3/admin/version/", 200)
+    result = run_setup(client)
+    assert steps(result) == [("reached", False)]
+    assert (result["steps"][0]["reason"], result["steps"][0]["status"]) == ("answered", 200)
