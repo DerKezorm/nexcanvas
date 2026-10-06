@@ -20,10 +20,13 @@ locked out by OIDC, because the password sign-in stays open for the operator (``
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Annotated, Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, Query, Request, Response
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
@@ -44,6 +47,8 @@ HOME = "/"
 #: Where a linking attempt ends, with ``linked=1`` or ``error=<code>`` in the address.
 ACCOUNT_PAGE = "/account"
 DEFAULT_PROVIDER_NAME = "OpenID Connect"
+#: How long a sign-in waits for the directory fetch for a person not here yet (B20); a fetch gives up after 10 s.
+SYNC_WAIT_SECONDS = 12.0
 #: How much of a provider's error text goes into the log; it comes from outside and has no length limit.
 FOREIGN_TEXT_MAX = 200
 
@@ -125,11 +130,12 @@ def forget_subjects(db: DbSession, previous: str, issuer: str) -> None:
 
 
 def _set_attempt_cookie(
-    response: Response, request: Request, attempt: oidc.Attempt, link_account_id: int | None, invite: str | None
+    response: Response, request: Request, attempt: oidc.Attempt, link_account_id: int | None, invite: str | None,
+    next_path: str | None = None,
 ) -> None:
     response.set_cookie(
         oidc.COOKIE_NAME,
-        oidc.pack_attempt(attempt, link_account_id, invite),
+        oidc.pack_attempt(attempt, link_account_id, invite, next_path),
         max_age=oidc.ATTEMPT_MINUTES * 60,
         path=oidc.COOKIE_PATH,
         httponly=True,
@@ -145,10 +151,14 @@ async def start(
     request: Request,
     db: DbSession,
     invite: Annotated[str | None, Query(max_length=64, pattern=r"^[A-Za-z0-9_-]+$")] = None,
+    # No length rule here: a ``next`` too long or not one of ours is dropped by ``safe_next``, never a JSON refusal.
+    next_path: Annotated[str | None, Query(alias="next")] = None,
 ) -> RedirectResponse:
-    # Public: this is the sign-in button. Failures land on the sign-in page with a code.
+    # Public: this is the sign-in button. Failures land on the sign-in page with a code. ``next`` is the page the
+    # button was pressed for (a direct link); only a page of nexcanvas' own goes along (Prüfgang B10).
+    landing = oidc.safe_next(next_path)
     if not _configured(db):
-        return _to_login("oidc_not_configured")
+        return _to_login("oidc_not_configured", landing)
     if invite is not None and (suite.connected(db) or accounts.find_invite(db, invite) is None):
         # Connected, accounts come from nexsuite: an old invitation is no way in (C9).
         return _to_login("invite_invalid")
@@ -156,12 +166,12 @@ async def start(
         description = await oidc.discovery(str(settings_service.get(db, "oidc_issuer")))
     except oidc.OidcError as exc:
         logger.warning("OIDC sign-in could not be started: %s", exc.code)
-        return _to_login(exc.code)
+        return _to_login(exc.code, landing)
     attempt = oidc.new_attempt()
     client_id = str(settings_service.get(db, "oidc_client_id"))
     url = oidc.authorization_url(description, client_id, _redirect_uri(db, request), attempt)
     response = RedirectResponse(url, status_code=302)
-    _set_attempt_cookie(response, request, attempt, None, invite)
+    _set_attempt_cookie(response, request, attempt, None, invite, landing)
     return response
 
 
@@ -175,6 +185,8 @@ async def start_link(
 ) -> dict[str, Any]:
     """Linking hands the account to whoever the browser is at the provider, so it asks for the password: a page
     elsewhere cannot start it (the tab header), and neither can somebody at an unattended browser."""
+    # Connected, the provider is nexsuite and the link is the person: nothing to link here (B8).
+    suite.refuse_if_managed(db)
     row = db.get(AccountRow, account.id)
     assert row is not None
     if row.sign_in != SIGN_IN_PASSWORD:
@@ -194,7 +206,7 @@ async def start_link(
     client_id = str(settings_service.get(db, "oidc_client_id"))
     url = oidc.authorization_url(description, client_id, _redirect_uri(db, request), attempt)
     _set_attempt_cookie(response, request, attempt, row.id, None)
-    logger.info("Account %s starts linking to the provider", row.name)
+    logger.info("Account starts linking to the provider name=%s", row.name)
     return {"url": url}
 
 
@@ -213,6 +225,8 @@ async def callback(
     # those exits leave only a DEBUG line; foreign text goes into the log at that level only, truncated and repr'd.
     attempt = oidc.read_attempt(request.cookies.get(oidc.COOKIE_NAME))
     linking = attempt is not None and attempt.get("link") is not None
+    # Checked again coming back: the cookie is signed, but the rule may have grown since it was made.
+    landing = oidc.safe_next(attempt.get("next")) if attempt is not None else None
 
     def refuse(code_out: str, reason: str, *, real: bool = True) -> RedirectResponse:
         line = "OIDC callback refused (%s): code=%s"
@@ -220,10 +234,13 @@ async def callback(
             logger.warning(line, reason, code_out)
         else:
             logger.debug(line, reason, code_out)
-        return _to_account(code_out) if linking else _to_login(code_out)
+        return _to_account(code_out) if linking else _to_login(code_out, landing)
 
     if not _configured(db):
         return refuse("oidc_not_configured", "OIDC is not set up", real=False)
+    if linking and suite.connected(db):
+        # Started before connecting and come back after: no link while nexsuite keeps who is who (B8).
+        return refuse("managed_by_suite", "linking while connected to nexsuite", real=False)
     key = "oidc:" + client_ip(request)
     if brake.wait_seconds(key):
         return refuse("too_many_attempts", "sender is braked", real=False)
@@ -262,6 +279,14 @@ async def callback(
     # From here on the provider vouches for the identity; the rest are account questions.
     if linking:
         return _finish_link(db, request, attempt, identity, refuse)
+    if suite.connected(db) and identity.subject.strip() and suite.account_of_person(db, identity.subject) is None:
+        # A person made in nexsuite a moment ago: the directory once, off the event loop and not waited on for
+        # longer than a fetch may take (Prüfgang B20).
+        try:
+            await asyncio.wait_for(run_in_threadpool(suite.sync_for_unknown, identity.subject), SYNC_WAIT_SECONDS)
+        except TimeoutError:
+            logger.info("Directory fetch for a new person took too long; the sign-in goes on without it")
+        db.expire_all()
     invite_token = attempt.get("invite")
     invite = accounts.find_invite(db, str(invite_token)) if invite_token else None
     if invite_token and (invite is None or not accounts.consume(db, invite)):
@@ -279,7 +304,7 @@ async def callback(
     if invite is not None:
         accounts.redeem(db, invite, account, consumed=True)
 
-    response = RedirectResponse(HOME, status_code=303)
+    response = RedirectResponse(landing or HOME, status_code=303)
     _delete_attempt_cookie(response)
     token = start_session(db, account, client_ip(request), request.headers.get("user-agent", ""))
     _set_cookie(response, request, token)
@@ -351,9 +376,12 @@ def _to_account(code: str) -> RedirectResponse:
     return response
 
 
-def _to_login(code: str) -> RedirectResponse:
-    # 303: the browser loads the target with GET whatever way it came.
-    response = RedirectResponse(f"{LOGIN_PAGE}?error={code}", status_code=303)
+def _to_login(code: str, next_path: str | None = None) -> RedirectResponse:
+    # 303: the browser loads the target with GET whatever way it came. The page asked for stays with the sign-in
+    # page, so a second try still lands there (Prüfgang B10).
+    landing = oidc.safe_next(next_path)
+    after = f"&next={quote(landing, safe='')}" if landing else ""
+    response = RedirectResponse(f"{LOGIN_PAGE}?error={code}{after}", status_code=303)
     _delete_attempt_cookie(response)
     return response
 
@@ -381,7 +409,7 @@ def _finish_link(
         current.email = identity.email
     db.commit()
     logs.set_actor(current.name)
-    logger.info("Account %s linked to its OIDC identity by its owner", current.name)
+    logger.info("Account linked to its OIDC identity by its owner name=%s", current.name)
     response = RedirectResponse(f"{ACCOUNT_PAGE}?linked=1", status_code=303)
     _delete_attempt_cookie(response)
     return response
@@ -400,7 +428,7 @@ def unlink(account: Account, db: DbSession) -> None:
     row.oidc_subject = ""
     row.email = ""
     db.commit()
-    logger.info("Account %s unlinked from its OIDC identity", row.name)
+    logger.info("Account unlinked from its OIDC identity name=%s", row.name)
 
 
 def _resolve(db: DbSession, identity: oidc.Identity, auto_create: bool, *, invited: bool = False) -> AccountRow | str:
@@ -416,6 +444,15 @@ def _resolve(db: DbSession, identity: oidc.Identity, auto_create: bool, *, invit
         # An empty subject would match every account that has none; the provider is misconfigured, not us.
         logger.warning("OIDC sign-in refused: the provider sent an empty subject")
         return "oidc_token_invalid"
+    if suite.connected(db):
+        # Only an account nexsuite knows by this person: one left out with a link of its own that looks the same
+        # ("3" from Forgejo) is somebody else.
+        known = suite.account_of_person(db, identity.subject)
+        if known is not None:
+            return known
+        # Connected, accounts come from nexsuite, found by the person's id only; the callback fetched the directory
+        # for one not here yet (Prüfgang B20). No bridge by address: that would hand an account to another person.
+        return "suite_no_account"
     existing = db.scalar(select(AccountRow).where(AccountRow.oidc_subject == identity.subject))
     if existing is not None:
         return existing
@@ -425,14 +462,14 @@ def _resolve(db: DbSession, identity: oidc.Identity, auto_create: bool, *, invit
         if by_email is not None:
             if by_email.oidc_subject:
                 logger.warning(
-                    "OIDC sign-in refused: the address %s belongs to account %r with a different subject",
+                    "OIDC sign-in refused: the address %s belongs to an account with a different subject name=%s",
                     oidc.masked(identity.email),
                     by_email.name,
                 )
                 return "oidc_email_taken"
             by_email.oidc_subject = identity.subject
             db.commit()
-            logger.info("Account %s linked to its OIDC identity by verified address", by_email.name)
+            logger.info("Account linked to its OIDC identity by verified address name=%s", by_email.name)
             return by_email
     elif not invited:
         # The provider does not vouch for the address (authentik's default since 2025.10, also Keycloak and

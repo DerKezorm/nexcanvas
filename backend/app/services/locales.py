@@ -175,7 +175,7 @@ def _examine(path: Path) -> Locale | None:
     except FileNotFoundError:
         return None
     except (LocaleError, OSError) as exc:
-        logger.warning("Language file %s skipped: %s", path.name, exc)
+        logger.warning("Language file name=%s skipped: %s", path.name, exc)
         return None
     return Locale(code=code, name=name or code, keys=keys)
 
@@ -193,7 +193,7 @@ def save(code: str, raw: bytes) -> Locale:
     partial = directory / f".{code}.json.part"
     partial.write_bytes(raw)
     partial.replace(target)
-    logger.info("Language file %s saved keys=%s", target.name, keys)
+    logger.info("Language file name=%s saved keys=%s", target.name, keys)
     return Locale(code=code, name=name or code, keys=keys)
 
 
@@ -203,5 +203,5 @@ def remove(code: str) -> bool:
     except (FileNotFoundError, LocaleError):
         return False
     path.unlink()
-    logger.info("Language file %s removed", path.name)
+    logger.info("Language file name=%s removed", path.name)
     return True

@@ -464,7 +464,7 @@ def _remove_tree(folder_path: Path) -> None:
         if not folder_path.exists():
             return
         time.sleep(0.2 * (attempt + 1))
-    logger.warning("A folder set aside by a restore could not be removed yet: %s", folder_path.name)
+    logger.warning("A folder set aside by a restore could not be removed yet name=%s", folder_path.name)
 
 
 def apply_pending() -> bool:

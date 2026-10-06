@@ -62,6 +62,9 @@ DEFAULTS: dict[str, Any] = {
     "suite_emergency": [],
     "suite_mail": False,
     "suite_last_sync": None,
+    #: The address of the nexsuite of the last connection, kept after a disconnect: ``suite_person`` of the accounts
+    #: counts only when connecting to that one again (Prüfgang B8).
+    "suite_former_url": "",
     "suite_revision": 0,
     "suite_problem": "",
     #: Reports nexsuite has not heard yet, with the address and key they go to (A11).

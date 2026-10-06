@@ -222,6 +222,9 @@ def methods(db: DbSession) -> dict[str, Any]:
         "oidc_name": values["oidc_provider_name"] if oidc else "",
         # Connected to nexsuite: people sign in there; the password form is the operator's emergency way.
         "suite": suite.connected(db),
+        # Where nexsuite opens, for "Sign in as someone else": signing out there first (B11). The button to sign in
+        # leads there anyway, so the address tells nobody more than that.
+        "suite_url": str(settings_service.get(db, "suite_url") or "") if suite.connected(db) else "",
     }
 
 
@@ -319,6 +322,8 @@ def me(account: Account, db: DbSession) -> dict[str, Any]:
         "preferences": preferences_of(account.preferences),
         "suite": suite.state(db),
         "suite_mail": bool(settings_service.get(db, "suite_mail")),
+        # Where nexsuite opens, for the links to where password, second factor and profile are changed (G3).
+        "suite_url": str(settings_service.get(db, "suite_url") or "") if suite.connected(db) else "",
         # Connected: this account is the emergency account (its password and second factor are for that only).
         "suite_emergency": suite.connected(db)
         and account.id == int(settings_service.get(db, "suite_emergency_account") or 0),

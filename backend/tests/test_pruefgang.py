@@ -266,7 +266,7 @@ def test_d8_the_emergency_account_goes_with_the_person_and_comes_back_on_disconn
     with new_client() as browser:
         assert browser.post("/api/auth/login", json={"name": "tester", "password": PASSWORD}).status_code == 401
     with SessionLocal() as db:
-        _without, blocked = suite.disconnect(db, tell=False)
+        _without, blocked, _back = suite.disconnect(db, tell=False)
     assert "tester" not in blocked
     with new_client() as browser:
         assert browser.post("/api/auth/login", json={"name": "tester", "password": PASSWORD}).status_code == 200

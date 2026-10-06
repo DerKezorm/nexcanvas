@@ -23,7 +23,8 @@ router = APIRouter(prefix="/api/suite", tags=["nexsuite"])
 
 class StartIn(BaseModel):
     url: str = Field(min_length=8, max_length=500)
-    code: str = Field(min_length=4, max_length=40)
+    #: Checked in ``suite.start`` (4 to 40 characters once trimmed), so a wrong length reads as a wrong code (B24).
+    code: str = Field(min_length=1, max_length=500)
 
 
 class FinishIn(BaseModel):
@@ -52,7 +53,11 @@ def status(account: Account, db: DbSession) -> dict[str, Any]:
     view = suite.view(db)
     if account.role != "operator":
         return {"state": view["state"], "url": view["url"]}
-    return view
+    # Who stops being an operator when disconnecting, for the dialog (B17), by the names people see. A connection from
+    # before the roles were kept changes no role: the dialog says so and names the operators who stay.
+    return {**view, "operators_from_suite": [suite.shown(row) for row in suite.operators_from_suite(db)],
+            "roles_kept": suite.roles_kept(db),
+            "operators_staying": [suite.shown(row) for row in suite.operators_staying(db)]}
 
 
 @router.post("/start", summary="Pair with nexsuite using a one-time code; returns what to match (operator)")
@@ -75,6 +80,25 @@ def proposal(_operator: OperatorAccount, db: DbSession) -> dict[str, Any]:
         raise _fail(exc) from exc
 
 
+class ChoicesIn(FinishIn):
+    #: The step of the assistant the operator stood at (2: accounts, 3: spaces and teams).
+    step: int = Field(default=2, ge=2, le=3)
+
+
+@router.put("/choices", status_code=204, summary="Keep the choices so far, while connecting (operator)")
+def keep_choices(payload: ChoicesIn, _operator: OperatorAccount, db: DbSession) -> None:
+    # Bounded like everything else kept: not more entries than an instance has accounts, spaces and teams.
+    if len(payload.accounts) + len(payload.spaces) + len(payload.teams) > 5000:
+        raise error("too_many", "Too many choices.", 422)
+    try:
+        suite.keep_choices(db, {"accounts": {str(k): v[:40] for k, v in payload.accounts.items()},
+                                "spaces": {str(k): v[:40] for k, v in payload.spaces.items()},
+                                "teams": {str(k): v[:40] for k, v in payload.teams.items()},
+                                "step": payload.step})
+    except suite.SuiteError as exc:
+        raise _fail(exc) from exc
+
+
 @router.post("/finish", summary="Apply the matches and connect (operator)")
 def finish(payload: FinishIn, operator: OperatorAccount, db: DbSession) -> dict[str, Any]:
     try:
@@ -88,7 +112,10 @@ def finish(payload: FinishIn, operator: OperatorAccount, db: DbSession) -> dict[
 
 @router.post("/abort", status_code=204, summary="Give up a connection that did not finish (operator)")
 def abort(_operator: OperatorAccount, db: DbSession) -> None:
-    suite.abort(db)
+    try:
+        suite.abort(db)
+    except suite.SuiteError as exc:
+        raise _fail(exc) from exc
 
 
 @router.post("/sync", summary="Fetch the directory now (operator)")
@@ -106,11 +133,11 @@ def disconnect(payload: ConfirmIn, request: Request, operator: OperatorAccount, 
     if not suite.connected(db):
         raise error("not_connected", "nexcanvas is not connected to nexsuite.", 409)
     try:
-        without, blocked = suite.disconnect(db)
+        without, blocked, back = suite.disconnect(db)
     except suite.SuiteError as exc:
         raise _fail(exc) from exc
     logger.warning("Disconnected from nexsuite by=%s", operator.name)
-    return {"without_password": without, "blocked": blocked}
+    return {"without_password": without, "blocked": blocked, "operators_back": back}
 
 
 @router.post("/emergency", summary="Disconnect with an emergency code, nexsuite out of reach (operator)")
@@ -122,9 +149,9 @@ def emergency(payload: EmergencyIn, request: Request, operator: OperatorAccount,
     if not suite.emergency_ok(db, payload.code):
         raise error("emergency_code_wrong", "This emergency code is not valid.", 403)
     suite.report(db, "emergency_disconnect", operator.name)
-    without, blocked = suite.disconnect(db, tell=False)
+    without, blocked, back = suite.disconnect(db, tell=False)
     logger.warning("Disconnected from nexsuite with an emergency code by=%s", operator.name)
-    return {"without_password": without, "blocked": blocked}
+    return {"without_password": without, "blocked": blocked, "operators_back": back}
 
 
 def _sync_later() -> None:

@@ -89,6 +89,9 @@ class Space(Base):
     external_id: Mapped[str] = mapped_column(String(40), default="")
     #: Set when a manager deleted the space; it lies in the bin with its boards for 30 days.
     deleted_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
+    #: While connected: since when nexsuite no longer gives this app the space (its tick taken away, or deleted there
+    #: after that). Its boards stay, only the operator sees it, marked, and may put it into the trash (B18).
+    suite_dropped_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
 
 
 class Account(Base):
@@ -110,6 +113,14 @@ class Account(Base):
     oidc_subject: Mapped[str] = mapped_column(String(255), default="")
     #: The interface language chosen in the account menu; empty: the browser's.
     language: Mapped[str] = mapped_column(String(16), default="")
+    #: The person in nexsuite this account belongs to (while connected) or belonged to before the last disconnect:
+    #: connecting again to the same nexsuite suggests that person, so an account nexsuite once brought is not made a
+    #: second time (Prüfgang B8). Empty for an account left out when connecting.
+    suite_person: Mapped[str] = mapped_column(String(64), default="")
+    #: While connected: the account's own link to a provider from before (authentik, Forgejo …), kept out of
+    #: ``oidc_subject`` so its subject can never pass for a person in nexsuite (``3`` there is somebody else); given
+    #: back on disconnecting (#job-172).
+    oidc_subject_local: Mapped[str] = mapped_column(String(255), default="")
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
     last_seen_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
     failed_logins: Mapped[int] = mapped_column(Integer, default=0)

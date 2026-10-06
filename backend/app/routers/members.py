@@ -433,6 +433,11 @@ def _valid(db: DbSession, token: str) -> Invite:
 @router.get("/invite/{token}", summary="What an invitation offers (no sign-in needed)")
 def invite_state(token: Token, request: Request, db: DbSession) -> dict[str, Any]:
     row = _valid(db, token)
+    if suite.connected(db):
+        # Connected, people and rights come from nexsuite: a link from before is no way in, and the page says so at
+        # once instead of naming a space and a right as if it held (Prüfgang B26).
+        raise error("invite_suite", "nexcanvas is connected to nexsuite now; this invitation is not valid any more.",
+                    404)
     space = db.get(Space, row.space_id) if row.space_id else None
     signed_in = session_account(db, request.cookies.get(SESSION_COOKIE))
     return {

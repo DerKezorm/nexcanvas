@@ -8,7 +8,7 @@ import logging
 from datetime import timedelta
 
 from pycrdt import Doc, Map
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from ..db import SessionLocal
 from ..models import Board, BoardVersion, Media, Space, utcnow
@@ -53,9 +53,10 @@ def run_once() -> None:
             db.delete(board)
             logger.info("Board deleted after 30 days in the trash id=%s", board.id)
         # A space from nexsuite goes when nexsuite says so ("gone"): by the clock here it went up to a day early,
-        # and a restore there then brought back an empty space (E3).
-        for space in db.scalars(select(Space).where(Space.deleted_at < now - timedelta(days=BIN_DAYS),
-                                                    Space.external_id == "")):
+        # and a restore there then brought back an empty space (E3). One nexsuite no longer gives this app was put
+        # into the trash here by the operator (B18): nexsuite says nothing about it, so the clock here counts.
+        for space in db.scalars(select(Space).where(Space.deleted_at < now - timedelta(days=BIN_DAYS), or_(
+                Space.external_id == "", Space.suite_dropped_at.is_not(None)))):
             db.delete(space)
             logger.info("Space deleted after 30 days in the trash id=%s", space.id)
         db.commit()

@@ -139,4 +139,4 @@ def _add_missing_columns() -> None:
                 if default is not None:
                     statement += f" DEFAULT {_sql_literal(default)}"
                 connection.execute(text(statement))
-                logger.info("Added column %s.%s", table.name, column.name)
+                logger.info("Added column name=%s", f"{table.name}.{column.name}")

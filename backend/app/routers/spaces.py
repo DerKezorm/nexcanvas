@@ -71,6 +71,8 @@ def _view(db: DbSession, account: AccountRow, space: Space) -> dict[str, Any]:
         "people": len({person.id for _m, person in rows} | in_teams),
         # Its rights come from nexsuite: changed there, not here.
         "managed": bool(space.external_id) and suite.connected(db),
+        # nexsuite no longer gives this app the space: only the operator sees it, and may put it into the trash (B18).
+        "dropped": suite.dropped(db, space),
         "teams": [{"id": team.id, "name": team.name, "color": team.color, "role": grant.role} for grant, team in teams],
         "members": [
             {
@@ -115,7 +117,9 @@ def change(space_id: SpaceId, payload: SpaceChange, account: Account, db: DbSess
 
 @router.delete("/{space_id}", status_code=204, summary="Move a space with its boards to the trash (managers)")
 def trash(space_id: SpaceId, account: Account, db: DbSession) -> None:
-    suite.refuse_if_space_managed(db, space_id, account)
+    # A space nexsuite no longer gives this app: the operator puts it into the trash here (B18, decided 05.10.2026).
+    if not (suite.dropped(db, db.get(Space, space_id)) and rights.operator_powers(account)):
+        suite.refuse_if_space_managed(db, space_id, account)
     try:
         space = rights.check(db, account, space_id, MANAGE)
     except rights.RightsError as exc:
@@ -134,7 +138,7 @@ def bin_listing(account: Account, db: DbSession) -> list[dict[str, Any]]:
     # The operator sees every space in the bin (D4); one deleted in nexsuite says so and comes back there (E1).
     return [
         {"id": space.id, "name": space.name, "color": space.color, "deleted_at": space.deleted_at.isoformat(),
-         "in_suite": bool(space.external_id) and connected}
+         "in_suite": bool(space.external_id) and connected and space.suite_dropped_at is None}
         for space in db.scalars(query.order_by(Space.deleted_at.desc()))
     ]
 
@@ -146,7 +150,9 @@ def restore(space_id: SpaceId, account: Account, db: DbSession) -> dict[str, Any
     allowed = account.role == OPERATOR or (membership is not None and membership.role == MANAGE)
     if space is None or space.deleted_at is None or not allowed:
         raise error("not_found", "Not found.", 404)
-    suite.refuse_if_space_managed(db, space.id)
+    # One the operator put into the trash after nexsuite let it go comes back the same way (B18).
+    if not (suite.dropped(db, space) and rights.operator_powers(account)):
+        suite.refuse_if_space_managed(db, space.id)
     space.deleted_at = None
     db.commit()
     return _view(db, account, space)
