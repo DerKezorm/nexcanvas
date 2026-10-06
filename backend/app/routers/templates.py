@@ -23,6 +23,7 @@ from ..errors import error
 from ..models import MANAGE, OPERATOR, READ, BoardTemplate, utcnow
 from ..models import Account as AccountRow
 from ..services import boards, rights
+from ..services.names import CONTROL_TEXT, has_control
 
 logger = logging.getLogger("nexcanvas.templates")
 
@@ -76,8 +77,10 @@ def _row(db: DbSession, account: AccountRow, key: int) -> BoardTemplate:
 
 
 def _clean_name(name: str) -> str:
+    if has_control(name):
+        raise error("invalid_characters", CONTROL_TEXT, 422)
     cleaned = " ".join(name.split())
-    if not cleaned or any(ord(c) < 32 for c in cleaned):
+    if not cleaned:
         raise error("invalid_name", "A template needs a name.", 422)
     return cleaned
 

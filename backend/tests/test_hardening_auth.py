@@ -10,7 +10,9 @@ from fastapi.testclient import TestClient
 
 from app import security
 from app.config import get_settings
+from app.db import SessionLocal
 from app.main import app
+from app.models import Account
 from app.security import DEVICE_COOKIE, brake
 from app.services import accounts
 
@@ -108,7 +110,10 @@ def test_a_device_cookie_of_another_account_or_forged_does_not_open_a_lock(clien
     bob = make_account("bob")
     lock("anna")
     other = fresh()
-    other.cookies.set(DEVICE_COOKIE, security.device_token(bob.id), path="/api/auth")
+    with SessionLocal() as db:
+        row = db.get(Account, bob.id)
+        assert row is not None
+        other.cookies.set(DEVICE_COOKIE, security.device_token(db, row), path="/api/auth")
     assert other.post("/api/auth/login", json={"name": "anna", "password": PASSWORD}).status_code == 401
     forged = fresh()
     forged.cookies.set(DEVICE_COOKIE, "1.abc." + "0f" * 16, path="/api/auth")  # well-formed, not signed

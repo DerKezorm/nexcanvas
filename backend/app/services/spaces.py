@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import MANAGE, Account, Membership, Space, utcnow
+from .names import CONTROL_TEXT, has_control
 
 logger = logging.getLogger("nexcanvas.spaces")
 
@@ -27,8 +28,10 @@ class SpaceError(Exception):
 
 
 def clean_name(name: str) -> str:
+    if has_control(name):
+        raise SpaceError("invalid_characters", CONTROL_TEXT)
     text = " ".join(name.split())
-    if not text or len(text) > MAX_NAME or any(ord(char) < 32 for char in text):
+    if not text or len(text) > MAX_NAME:
         raise SpaceError("invalid_name", "A space needs a name of 1 to 80 characters.")
     return text
 

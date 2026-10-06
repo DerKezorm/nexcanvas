@@ -9,11 +9,11 @@ from __future__ import annotations
 import logging
 from typing import Any, Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
 from ..config import get_settings
-from ..deps import DbSession, OperatorAccount
+from ..deps import DbSession, OperatorAccount, unknown_proxy_seen
 from ..errors import error
 from ..models import SIGN_IN_PASSWORD
 from ..security import encrypt_secret
@@ -38,10 +38,13 @@ class SettingsOut(BaseModel):
     smtp_password_set: bool
     smtp_from: str
     api_tokens_allowed: bool
+    team_leads_edit: bool
     upload_max_mb: int
     upload_ceiling_mb: int
     strip_location: bool
     update_check: bool
+    #: Requests come with proxy headers, but no trusted proxy is configured (only in the answer of GET).
+    proxy_unknown: bool = False
 
 
 class SettingsIn(BaseModel):
@@ -59,6 +62,7 @@ class SettingsIn(BaseModel):
     smtp_password: str | None = Field(default=None, max_length=500)
     smtp_from: str | None = Field(default=None, max_length=255)
     api_tokens_allowed: bool | None = None
+    team_leads_edit: bool | None = None
     upload_max_mb: int | None = Field(default=None, ge=1, le=100_000)
     strip_location: bool | None = None
     update_check: bool | None = None
@@ -84,6 +88,7 @@ def _view(db: DbSession) -> SettingsOut:
         smtp_password_set=bool(values["smtp_password_enc"]),
         smtp_from=values["smtp_from"],
         api_tokens_allowed=bool(values["api_tokens_allowed"]),
+        team_leads_edit=bool(values["team_leads_edit"]),
         upload_max_mb=settings_service.upload_max_mb(db),
         upload_ceiling_mb=get_settings().upload_max_mb,
         strip_location=bool(values["strip_location"]),
@@ -92,8 +97,10 @@ def _view(db: DbSession) -> SettingsOut:
 
 
 @router.get("", response_model=SettingsOut)
-def read(_operator: OperatorAccount, db: DbSession) -> SettingsOut:
-    return _view(db)
+def read(request: Request, _operator: OperatorAccount, db: DbSession) -> SettingsOut:
+    # Requests come through a proxy nexcanvas was not told about: the sign-in brake sees one sender for everybody
+    # (A5). The page names the setting.
+    return _view(db).model_copy(update={"proxy_unknown": unknown_proxy_seen(request)})
 
 
 @router.put("", response_model=SettingsOut)
@@ -102,7 +109,9 @@ def save(payload: SettingsIn, operator: OperatorAccount, db: DbSession) -> Setti
     sent = {key for key, value in payload.model_dump(exclude_unset=True).items() if value is not None}
     mail_managed = bool(settings_service.get(db, "suite_mail")) and any(k.startswith("smtp_") for k in sent)
     # The public address too: nexsuite knows the app by it, and the return address of the sign-in hangs on it (A9).
-    if suite.connected(db) and (sent & {"password_login", "two_factor_required", "public_url"} or mail_managed):
+    # What team leads may as well: nexsuite keeps the teams and has its own switch for it (D3).
+    kept_there = {"password_login", "two_factor_required", "public_url", "team_leads_edit"}
+    if suite.connected(db) and (sent & kept_there or mail_managed):
         raise error("managed_by_suite", "This is kept in nexsuite now.", 409)
     for key, value in payload.model_dump(exclude_unset=True).items():
         if value is None:
@@ -147,4 +156,5 @@ def mail_test(payload: TestMailIn, _operator: OperatorAccount, db: DbSession) ->
     try:
         mailer.send_test(db, to)
     except mailer.MailError as exc:
-        raise error(exc.code, str(exc), 502) from exc
+        # No mail server is a setting, not a failing server: no gateway error, no ERROR in the log (G12).
+        raise error(exc.code, str(exc), 409 if exc.code == "mail_off" else 502) from exc

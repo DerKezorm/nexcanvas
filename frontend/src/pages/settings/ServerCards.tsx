@@ -29,10 +29,14 @@ export type ServerSettings = {
   smtp_password_set: boolean
   smtp_from: string
   api_tokens_allowed: boolean
+  /** Whether the lead of a team changes its members (D3); off from the start. */
+  team_leads_edit: boolean
   upload_max_mb: number
   upload_ceiling_mb: number
   strip_location: boolean
   update_check: boolean
+  /** Requests come with proxy headers, but no trusted proxy is set (read only). */
+  proxy_unknown?: boolean
 }
 
 type Change = Partial<ServerSettings> & { smtp_password?: string }
@@ -53,6 +57,21 @@ export function useServerSettings() {
     if (!ok) setSettings(before)
   }
   return { settings, save, ...action }
+}
+
+/** Requests come with proxy headers, but no proxy is named: the sign-in brake sees one sender for everybody (A5). */
+export function ProxyHint() {
+  const { t } = useTranslation()
+  const [seen, setSeen] = useState(false)
+  useEffect(() => {
+    api<ServerSettings>('/api/settings').then((answer) => setSeen(!!answer.proxy_unknown), () => undefined)
+  }, [])
+  if (!seen) return null
+  return (
+    <p role="status" className="rounded-xl border border-warn-500/30 bg-warn-500/10 px-4 py-3 text-sm text-mist-100" data-testid="proxy-hint">
+      {t('server.proxyUnknown')}
+    </p>
+  )
 }
 
 type AccountRow = Me & { spaces: number; locked: boolean; blocked?: boolean; has_password?: boolean; created_at: string; last_seen_at: string | null }

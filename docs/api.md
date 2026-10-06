@@ -12,6 +12,8 @@ its own tokens under **My account → Connections**:
 - It runs out after 30, 90 or 365 days, or never. The list marks a token a week before it runs out.
 - It is shown once, right after it was made. nexcanvas keeps only a checksum.
 - The operator sees every token (never the token itself) and can block one for good.
+- An account locked for a while after wrong passwords keeps its tokens: a stranger guessing cannot switch off your
+  programs. Blocking the account or deleting it ends them.
 
 ## Asking
 
@@ -27,7 +29,7 @@ JSON, the picture of a board is SVG.
 | Answer | Code | Meaning |
 |---|---|---|
 | 401 | `api_off` | The operator has not switched API tokens on. |
-| 401 | `token_invalid` | No such token, or it ran out, was blocked or deleted. |
+| 401 | `token_invalid` | No such token, or it ran out, was deleted or blocked by the operator, its account is blocked or deleted, or the operator requires a second factor its account has not set up yet. |
 | 403 | `origin_refused` | The request came from a web page. |
 | 404 | `not_found` | No such board or space, or the token may not read it. Both answer the same. |
 | 429 | `slow_down` | More than 600 requests in a minute with this token; `Retry-After` says when to go on. |

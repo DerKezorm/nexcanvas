@@ -155,6 +155,9 @@ export type Me = {
   suite_url?: string
   /** Connected: this account is the app's emergency account. */
   suite_emergency?: boolean
+  /** Whether a team this account leads may be changed by it: the operator always, a lead when the operator allows it
+   * (D3), nobody while nexsuite keeps the teams. */
+  may_edit_led_teams?: boolean
 }
 
 export type Preferences = {

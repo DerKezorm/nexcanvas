@@ -104,8 +104,12 @@ class Caller:
 
 
 def authenticate(db: Session, token: str | None) -> Caller | None:
-    """The account behind a token, or None: no such token, run out, blocked, or the account locked or waiting for
-    its second factor. Tokens being switched off is the caller's to check (``allowed``)."""
+    """The account behind a token, or None: no such token, run out, blocked, or the account blocked, deleted or
+    waiting for its second factor. Tokens being switched off is the caller's to check (``allowed``).
+
+    An account locked for a while after wrong passwords keeps its tokens: a stranger with ten guesses would otherwise
+    switch off every program it feeds (decided 2026-10-05, as in nextasks and nexbrand). Blocking, deleting and
+    rights taken away still count."""
     if not token or not token.startswith(TOKEN_PREFIX) or len(token) > 200:
         return None
     row = db.scalar(select(ApiToken).where(ApiToken.token_hash == digest(token)))
@@ -113,8 +117,7 @@ def authenticate(db: Session, token: str | None) -> Caller | None:
     if row is None or row.blocked_at is not None or (row.expires_at is not None and row.expires_at <= now):
         return None
     account = db.get(Account, row.account_id)
-    if account is None or account.blocked_at is not None or (
-            account.locked_until is not None and account.locked_until > now):
+    if account is None or account.blocked_at is not None:
         # Blocked (here or in nexsuite) means no way in at all, a token included (Prüfgang 04.10.2026, A4).
         return None
     if totp.setup_required(db, account):

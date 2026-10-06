@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from ..config import get_settings
 from ..models import Account, Media
-from . import media, settings_service
+from . import avatars, media, settings_service
 
 logger = logging.getLogger("nexcanvas.media")
 
@@ -39,6 +39,9 @@ SHOWN = {
 }
 IMAGES = {"jpeg", "png", "gif", "webp", "avif", "bmp"}
 MAX_NAME = 200
+#: Pixels a picture may have, the same line as for profile pictures: a PNG of a few hundred kilobytes can open as
+#: gigabytes (11,000 by 11,000 took the server of a sister app past 1 GB, Prüfgang 05.10.2026 A7).
+MAX_PIXELS = avatars.MAX_PIXELS
 
 
 class MediaError(Exception):
@@ -47,6 +50,10 @@ class MediaError(Exception):
         self.code = code
         self.text = text
         self.status = status
+
+    def values(self) -> dict[str, int]:
+        """What the message names, for the page to say it in its language."""
+        return {"max_million": MAX_PIXELS // 1_000_000} if self.code == "too_many_pixels" else {}
 
 
 @dataclass
@@ -86,7 +93,10 @@ def preview_of(media_id: str) -> Path:
 
 
 def _make_preview(source: Path, target: Path) -> bool:
-    """A WebP of at most ``PREVIEW_SIDE`` pixels on its longer side, upright, without any metadata."""
+    """A WebP of at most ``PREVIEW_SIDE`` pixels on its longer side, upright, without any metadata. Never of a picture
+    of more than ``MAX_PIXELS``: counted from its header first, before anything decodes it."""
+    if _pixels(source) > MAX_PIXELS:
+        return False
     try:
         from PIL import Image, ImageOps
 
@@ -141,6 +151,24 @@ def _picture_size(path: Path) -> tuple[int, int]:
         return 0, 0
 
 
+def _pixels(path: Path, kind: str = "") -> int:
+    """Width times height from the picture's header, before a pixel is decoded; 0 when it cannot be read."""
+    try:
+        from PIL import Image
+
+        if kind == "heic":
+            import pillow_heif
+
+            pillow_heif.register_heif_opener()
+        with Image.open(path) as image:
+            return int(image.width) * int(image.height)
+    except Exception as exc:  # noqa: BLE001 - a broken picture fails in the decoder's own way
+        # Pillow refuses a header beyond twice its own limit before reading on: as many pixels as that, at least.
+        if type(exc).__name__ == "DecompressionBombError":
+            return MAX_PIXELS + 1
+        return 0
+
+
 def _pdf_pages(path: Path) -> int:
     try:
         from pypdf import PdfReader
@@ -151,9 +179,13 @@ def _pdf_pages(path: Path) -> int:
 
 
 def finish(db: Session, account: Account, space_id: int, received: Path, name: str) -> Stored:
-    """The file at ``received`` (a temporary file in the media folder) becomes a media file, or is found as one."""
+    """The file at ``received`` (a temporary file in the media folder) becomes a media file, or is found as one.
+    ``MediaError`` for a picture of more pixels than ``MAX_PIXELS``, counted before anything decodes it."""
     with open(received, "rb") as handle:
         kind = media.sniff(handle.read(64)) or "file"
+    if kind in IMAGES | {"heic"} and _pixels(received, kind) > MAX_PIXELS:
+        logger.info("Picture refused why=pixels by=%s", account.name)
+        raise MediaError("too_many_pixels", "This picture has more pixels than nexcanvas takes.", 422)
     removed: set[str] = set()
     if kind in IMAGES | media.VIDEOS | {"heic"} and settings_service.get(db, "strip_location"):
         removed = media.strip(received, kind)

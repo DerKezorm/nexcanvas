@@ -128,7 +128,8 @@ nexcanvas is made to be reachable from outside, for yourself on the road or for 
    through, and send HSTS from the proxy.
 3. **Tell nexcanvas about the proxy**: `NEXCANVAS_PUBLIC_URL` (the address people use), `NEXCANVAS_TRUSTED_PROXIES`
    (the proxy's address or network; without it every sign-in seems to come from the proxy and the brake against
-   guessing cannot tell people apart), and `NEXCANVAS_COOKIE_SECURE: "on"`.
+   guessing cannot tell people apart; Settings, Server says so while it is missing), and
+   `NEXCANVAS_COOKIE_SECURE: "on"`.
 4. **A second factor**: set up your own under My account, Security. Or sign in through your OpenID Connect provider.
 5. **Leave the switches closed you do not need**: public pages and API tokens are off until you open them.
 6. **Optionally keep the operator's settings at home**: `NEXCANVAS_OPERATOR_NETWORKS: "192.168.0.0/16"` refuses them
@@ -191,8 +192,11 @@ The routes are in [docs/api.md](docs/api.md).
 
 ## Security in short
 
-- Passwords are hashed with Argon2id; failed sign-ins lock an account for a while, and a brake per sender slows
-  guessing on top. With a second factor, the password alone opens nothing.
+- Passwords are hashed with Argon2id; failed sign-ins lock an account for a while (its API tokens keep working), and
+  a brake per name and per sender across all names slows guessing on top. A browser that signed in as a name before
+  is let through the brake per sender, so somebody guessing cannot keep everybody out. With a second factor, the
+  password alone opens nothing.
+- Pictures of more than 50 million pixels are refused before they are decoded.
 - Every changing request needs the header `X-Nexcanvas-Client`, which a page on another site cannot send; the live
   connection checks where it comes from and checks the rights of each connection again every 30 seconds, so a
   member taken out of a space is out of its boards at once.

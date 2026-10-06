@@ -1,6 +1,6 @@
 /**
  * Teams: who works together, the same in every app of the family (nextasks has them too). The operator makes them;
- * the lead of a team changes its members. A space gives a team a right, and then everybody in it has that right.
+ * the lead of a team changes its members when the operator allows it (off from the start, D3). A space gives a team a right, and then everybody in it has that right.
  * Everybody on the server sees everybody, as in nextasks.
  */
 import { Mail, Plus, Trash2, UsersRound } from 'lucide-react'
@@ -8,9 +8,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
-import { directoryApi, spacesApi, type Directory, type Person, type Role, type Team } from '../api/client'
+import { api, authApi, directoryApi, spacesApi, type Directory, type Person, type Role, type Team } from '../api/client'
 import { useBoards, type Space } from '../board/store'
-import { Button, Card, Feedback, useAction } from '../pages/settings/ui'
+import { Button, Card, Feedback, Toggle, useAction } from '../pages/settings/ui'
 import { useAuth } from '../state/auth'
 import { Managed } from './Suite'
 import { Avatar } from './Avatar'
@@ -50,18 +50,46 @@ export function TeamBadge({ team, className = 'h-6 w-6 text-[11px]' }: { team: {
 /** Settings, tab Teams. */
 export function TeamsCard() {
   const { t } = useTranslation()
-  const { me } = useAuth()
+  const { me, setMe } = useAuth()
   const managed = me?.suite === 'connected'
   const operator = me?.role === 'operator' && !managed
   const { directory, reload, person } = useDirectory()
   const [editing, setEditing] = useState<Team | 'new' | null>(null)
   const teams = directory?.teams ?? []
+  // Whether leads change their teams: the operator's switch (D3). Connected, nexsuite decides.
+  const [leadsEdit, setLeadsEdit] = useState<boolean | null>(null)
+  const switching = useAction()
+  useEffect(() => {
+    if (operator) api<{ team_leads_edit: boolean }>('/api/settings').then((s) => setLeadsEdit(s.team_leads_edit), () => undefined)
+  }, [operator])
   return (
     <Card icon={UsersRound} title={t('settings.tabs.teams')} text={t('teams.text')}>
       {managed && <Managed text={t('suite.managedTeams')} />}
+      {operator && leadsEdit !== null && (
+        <Toggle
+          label={t('teams.leadsSwitch')}
+          hint={t('teams.leadsSwitchHint')}
+          checked={leadsEdit}
+          disabled={switching.busy}
+          onChange={(value) => {
+            const before = leadsEdit
+            setLeadsEdit(value)
+            void switching
+              .run(async () => {
+                const saved = await api<{ team_leads_edit: boolean }>('/api/settings', { method: 'PUT', body: { team_leads_edit: value } })
+                setLeadsEdit(saved.team_leads_edit)
+                setMe(await authApi.me())
+              })
+              .then((ok) => {
+                if (!ok) setLeadsEdit(before)
+              })
+          }}
+        />
+      )}
+      {switching.problem && <Feedback problem={switching.problem} />}
       {directory && teams.length === 0 && <p className="text-sm text-mist-500">{t('teams.none')}</p>}
       {teams.map((team) => {
-        const mayChange = !managed && (operator || (team.lead === directory?.me && team.source === 'local'))
+        const mayChange = !managed && (operator || (!!me?.may_edit_led_teams && team.lead === directory?.me && team.source === 'local'))
         const lead = team.lead ? person(team.lead) : undefined
         return (
           <div key={team.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-ink-700 bg-ink-850 px-4 py-3 text-sm">

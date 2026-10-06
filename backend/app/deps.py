@@ -79,18 +79,27 @@ def _is_trusted_proxy(text: str) -> bool:
 
 
 _warned_unknown_proxy = False
+#: Headers a reverse proxy adds; any of them without a trusted proxy configured means one stands in front unnamed.
+PROXY_HEADERS = ("x-forwarded-for", "x-real-ip", "forwarded")
 
 
 def behind_unknown_proxy(request: Request) -> bool:
-    """A request that came through a proxy nexcanvas was not told to believe: all senders look alike then."""
+    """A request that came through a proxy nexcanvas was not told to believe: all senders look alike then. Noted once
+    in the log, and remembered for the hint under Settings, Server (``unknown_proxy_seen``)."""
     global _warned_unknown_proxy
-    if not request.headers.get("x-forwarded-for") or _trusted_networks(get_settings().trusted_proxies):
+    if _trusted_networks(get_settings().trusted_proxies) or not any(request.headers.get(h) for h in PROXY_HEADERS):
         return False
     if not _warned_unknown_proxy:
         _warned_unknown_proxy = True
-        logger.warning("Requests arrive with X-Forwarded-For, but NEXCANVAS_TRUSTED_PROXIES is not set: every sender "
+        logger.warning("Requests arrive with proxy headers, but NEXCANVAS_TRUSTED_PROXIES is not set: every sender "
                        "looks like the proxy. Set it to the proxy's address so the sign-in brake can tell them apart.")
     return True
+
+
+def unknown_proxy_seen(request: Request) -> bool:
+    """Whether this request or one before came through a proxy that is not configured (while none is)."""
+    return behind_unknown_proxy(request) or (
+        _warned_unknown_proxy and not _trusted_networks(get_settings().trusted_proxies))
 
 
 def client_ip(request: Request) -> str:

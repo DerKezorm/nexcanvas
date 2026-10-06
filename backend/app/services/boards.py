@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 
 from ..models import Account, Board, BoardUpdate, BoardVersion, utcnow
 from . import shapepacks
+from .names import CONTROL_TEXT, has_control
 
 logger = logging.getLogger("nexcanvas.boards")
 
@@ -76,8 +77,10 @@ def new_id() -> str:
 
 
 def clean_title(title: str) -> str:
+    if has_control(title):
+        raise BoardError("invalid_characters", CONTROL_TEXT)
     text = " ".join(title.split())
-    if not text or len(text) > MAX_TITLE or any(ord(char) < 32 for char in text):
+    if not text or len(text) > MAX_TITLE:
         raise BoardError("invalid_title", "A board needs a name of 1 to 200 characters.")
     return text
 

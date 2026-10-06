@@ -18,11 +18,12 @@ import { useAuth } from './state/auth'
  * that still has to set up its second factor (the operator requires one) reaches its own account page only; before,
  * it saw an empty app with no way on (Prüfgang 04.10.2026, F1). */
 function SignedIn({ children }: { children: ReactNode }) {
-  const { status, me } = useAuth()
+  const { status, me, ended } = useAuth()
   const location = useLocation()
   if (status === 'loading') return null
   if (status === 'setup') return <Navigate to="/setup" replace />
-  if (status === 'signedOut') return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />
+  // Ended while open (blocked, signed out everywhere): the sign-in says why (`auth.login.ended`).
+  if (status === 'signedOut') return <Navigate to={`/login?${ended ? 'ended=1&' : ''}next=${encodeURIComponent(location.pathname + location.search)}`} replace />
   if (me?.second_factor_setup_required && location.pathname !== '/account') return <Navigate to="/account?tab=security" replace />
   return (
     <BoardsProvider>

@@ -63,6 +63,8 @@ async def upload(
         stored = await run_in_threadpool(finish)
     except ClientDisconnect as exc:
         raise error("upload_aborted", "The upload stopped before the end.") from exc
+    except media_store.MediaError as exc:
+        raise error(exc.code, exc.text, exc.status, **exc.values()) from exc
     finally:
         received.unlink(missing_ok=True)
     return asdict(stored)

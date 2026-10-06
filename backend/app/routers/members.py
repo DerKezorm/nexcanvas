@@ -349,6 +349,9 @@ def _create(db: DbSession, request: Request, by: AccountRow, space: Space | None
     if payload.send and not email:
         raise error("invalid_email", "Sending needs a mail address.", 422)
     if payload.send:
+        if not mailer.configured(db):
+            # No mail server is a setting, not a failing server: said before anything is made or counted (G12).
+            raise error("mail_off", "No mail server is set up.", 409)
         # A mail goes out under the operator's mail server: never with a link to an address the request made up
         # (the Host header), and not without end.
         if not settings_service.public_url(db):
@@ -382,7 +385,7 @@ def _create(db: DbSession, request: Request, by: AccountRow, space: Space | None
             # The link was to go by mail only: kept, the invitation would stand without anybody holding its link.
             db.delete(invite)
             db.commit()
-            raise error(exc.code, str(exc), 502) from exc
+            raise error(exc.code, str(exc), 409 if exc.code == "mail_off" else 502) from exc
     return {**_invite_view(invite, db), "link": link, "sent": sent}
 
 

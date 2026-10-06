@@ -40,6 +40,10 @@ DEFAULTS: dict[str, Any] = {
     "shares_allowed": False,
     #: Tokens for programs such as n8n or nexdeck (``/api/v1``): closed until the operator opens it.
     "api_tokens_allowed": False,
+    #: Whether the lead of a team changes its members: off unless the operator turns it on, also in installations from
+    #: before (Prüfgang 05.10.2026 D3, decided 2026-10-06). Taking somebody into a team gives them the team's rights in
+    #: every space.
+    "team_leads_edit": False,
     #: Ask GitHub once a day whether a newer nexcanvas is out (services/updates). Only the question goes out, so on.
     "update_check": True,
     #: Invitation mail: without a host nothing is sent, the link to copy is enough.

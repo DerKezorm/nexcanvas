@@ -1,7 +1,8 @@
 """People and teams as the pages need them, the same in every app of the family (nextasks has it too): everybody on the
 server sees everybody.
 
-Teams are made and deleted by the operator; the members of a local team change by the operator or the team's lead.
+Teams are made and deleted by the operator; the members of a local team change by the operator, and by the team's lead
+when the operator allows it (``team_leads_edit``, off from the start, D3).
 """
 
 from __future__ import annotations
@@ -16,9 +17,9 @@ from sqlalchemy import select
 
 from ..deps import Account, DbSession, OperatorAccount
 from ..errors import error
-from ..models import OPERATOR, Team
+from ..models import OPERATOR, TEAM_LOCAL, Team
 from ..models import Account as AccountRow
-from ..services import suite, teams
+from ..services import settings_service, suite, teams
 
 logger = logging.getLogger("nexcanvas.teams")
 
@@ -93,13 +94,17 @@ def _set_lead(db: DbSession, team: Team, lead: int | None) -> None:
     db.commit()
 
 
-@router.patch("/teams/{team_id}", summary="Rename, recolour, change members or lead (operator; members also the lead)")
+@router.patch("/teams/{team_id}", summary="Rename, recolour, change members or lead (operator; members also the lead, "
+                                         "when the operator allows it)")
 def change_team(team_id: TeamId, payload: TeamChange, account: Account, db: DbSession) -> dict[str, Any]:
     suite.refuse_if_managed(db)
     team = db.get(Team, team_id)
     if team is None:
         raise error("not_found", "Not found.", 404)
-    if not teams.may_change(account, team):
+    if not teams.may_change(account, team, bool(settings_service.get(db, "team_leads_edit"))):
+        if team.lead_id == account.id and team.source == TEAM_LOCAL:
+            # The lead hears why: the operator has not let team leads change their teams (D3).
+            raise error("team_leads_off", "The operator has not let team leads change their teams.", 403)
         raise error("forbidden", "Only the operator or the team's lead changes a team.", 403)
     lead_only = account.role != OPERATOR
     try:

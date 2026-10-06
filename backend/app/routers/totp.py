@@ -186,6 +186,13 @@ def login_code(payload: CodeIn, request: Request, response: Response, db: DbSess
         totp.finish_pending(token)
         _clear_pending_cookie(response)
         raise error("second_factor_expired", "Start again with your password.", 401)
+    if row.blocked_at is not None:
+        # Blocked between the password and the code (here or in nexsuite): no session, and the same answer as after
+        # the password (A16).
+        totp.finish_pending(token)
+        _clear_pending_cookie(response)
+        logger.warning("Sign-in refused at the code, account blocked name=%s", row.name)
+        raise error("account_blocked", "This account is blocked. Ask the operator to unblock it.", 403)
     if accounts.is_locked(row):
         # Wrong codes count against the account like wrong passwords, whatever address they come from.
         totp.finish_pending(token)

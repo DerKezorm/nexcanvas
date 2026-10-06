@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import OPERATOR, TEAM_LOCAL, Account, Team, TeamMember
+from .names import CONTROL_TEXT, has_control
 
 logger = logging.getLogger("nexcanvas.teams")
 
@@ -30,8 +31,10 @@ class TeamError(Exception):
 
 
 def clean_name(name: str) -> str:
+    if has_control(name):
+        raise TeamError("invalid_characters", CONTROL_TEXT)
     text = " ".join(name.split())
-    if not text or len(text) > MAX_NAME or any(ord(char) < 32 for char in text):
+    if not text or len(text) > MAX_NAME:
         raise TeamError("invalid_name", "A team needs a name of 1 to 80 characters.")
     return text
 
@@ -56,9 +59,11 @@ def is_member(db: Session, team_id: int, account_id: int) -> bool:
     return db.get(TeamMember, (team_id, account_id)) is not None
 
 
-def may_change(account: Account, team: Team) -> bool:
-    """The operator changes every team; the lead the members of a local team."""
-    return account.role == OPERATOR or (team.lead_id == account.id and team.source == TEAM_LOCAL)
+def may_change(account: Account, team: Team, leads_edit: bool) -> bool:
+    """The operator changes every team; the lead the members of a local team, when the operator allows leads to
+    (``team_leads_edit``, off from the start as in nextasks and nexbrand, also for installations from before:
+    decided 2026-10-06, D3)."""
+    return account.role == OPERATOR or (leads_edit and team.lead_id == account.id and team.source == TEAM_LOCAL)
 
 
 def view(db: Session, team: Team) -> dict:

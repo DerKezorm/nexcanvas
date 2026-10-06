@@ -39,7 +39,7 @@ import { TeamBadge, TeamRightsDialog, TeamsCard } from '../components/Teams'
 import { changeLanguage, languageOptions, templateFile, type LanguageOption } from '../i18n'
 import { applyMode, storedMode, type Mode } from '../lib/theme'
 import { useAuth } from '../state/auth'
-import { AccountsCard, AllSpacesCard, ApiTokensCard, BackupsCard, FilesCard, LanguagesCard, LogCard, MailCard, SharesCard, SignInCard, useServerSettings } from './settings/ServerCards'
+import { AccountsCard, AllSpacesCard, ApiTokensCard, BackupsCard, FilesCard, LanguagesCard, LogCard, MailCard, ProxyHint, SharesCard, SignInCard, useServerSettings } from './settings/ServerCards'
 import { Button, Card, Feedback, saveAsFile, TabRow, Toggle, useAction, type Tab } from './settings/ui'
 
 type Top = 'general' | 'looks' | 'spaces' | 'teams' | 'server'
@@ -74,6 +74,7 @@ export function SettingsPage() {
           {top === 'looks' && <Looks />}
           {top === 'spaces' && <Spaces />}
           {top === 'teams' && <TeamsCard />}
+          {top === 'server' && <ProxyHint />}
           {top === 'server' && <ServerPart part={part} />}
         </div>
       </div>

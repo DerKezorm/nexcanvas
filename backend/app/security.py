@@ -17,11 +17,11 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from .config import get_settings
-from .models import Account, AuthSession, utcnow
+from .models import Account, AuthSession, new_device_key, utcnow
 
 SESSION_COOKIE = "nexcanvas_session" + get_settings().cookie_name_suffix()
 MIN_PASSWORD = 12
@@ -142,6 +142,8 @@ def end_all_sessions(db: Session, account_id: int, except_token: str | None = No
     if except_token:
         statement = statement.where(AuthSession.token_hash != hash_token(except_token))
     db.execute(statement)
+    # The browsers known from before are forgotten too (their device cookies); the one that stays gets a new one.
+    db.execute(update(Account).where(Account.id == account_id).values(device_key=new_device_key()))
     db.commit()
     _sessions_ended()
 
@@ -222,23 +224,35 @@ DEVICE_COOKIE = "nexcanvas_device" + get_settings().cookie_name_suffix()
 DEVICE_DAYS = 365
 
 
-def device_token(account_id: int) -> str:
+def _device_mark(account_id: int, key: str, nonce: str) -> str:
+    return hashlib.sha256(_server_key() + f"device:{account_id}:{key}:{nonce}".encode()).hexdigest()[:32]
+
+
+def device_token(db: Session, account: Account) -> str:
     """A browser that signed in once as this account: it may still sign in while the account is locked against the
-    rest of the world. Signed with the server's key; nothing about it is stored."""
+    rest of the world, and it passes the brake per sender. Signed with the server's key and the account's own
+    ``device_key`` (drawn anew on a new password, a block or unblock, "sign out everywhere" and a reset second
+    factor); nothing about the browser is stored."""
+    if not account.device_key:
+        account.device_key = new_device_key()
+        db.commit()
     nonce = secrets.token_urlsafe(12)
-    mark = hashlib.sha256(_server_key() + f"device:{account_id}:{nonce}".encode()).hexdigest()[:32]
-    return f"{account_id}.{nonce}.{mark}"
+    return f"{account.id}.{nonce}.{_device_mark(account.id, account.device_key, nonce)}"
 
 
-def device_of(token: str | None) -> int | None:
-    """The account a device cookie was given to, or None when it is missing or not signed by this server."""
+def device_of(db: Session, token: str | None) -> int | None:
+    """The account a device cookie was given to, or None when it is missing, not signed by this server, or from
+    before the account's browsers were forgotten (or from another account that had the same id)."""
     if not token or token.count(".") != 2:
         return None
     account, nonce, mark = token.split(".")
-    if not account.isdigit():
+    if not account.isascii() or not account.isdigit() or len(account) > 18:
         return None
-    expected = hashlib.sha256(_server_key() + f"device:{account}:{nonce}".encode()).hexdigest()[:32]
-    return int(account) if secrets.compare_digest(mark, expected) else None
+    row = db.get(Account, int(account))
+    if row is None or not row.device_key:
+        return None
+    expected = _device_mark(row.id, row.device_key, nonce)
+    return row.id if secrets.compare_digest(mark.encode("utf-8", "replace"), expected.encode()) else None
 
 
 def _aad(context: str) -> bytes:

@@ -90,9 +90,10 @@ DISPLAY_NAME_MAX = 80
 def check_display_name(value: str) -> str:
     """Spaces gathered, no control or format characters, at most DISPLAY_NAME_MAX characters; empty shows the name.
 
-    Format characters (Unicode Cf: the right-to-left override, zero-width spaces) let a name read other than it is.
+    Control characters are Unicode Cc: C0, DEL and C1 (U+0080 to U+009F, which went through before, A13). Format
+    characters (Cf: the right-to-left override, zero-width spaces) let a name read other than it is.
     """
-    if any(ord(char) < 32 or ord(char) == 127 or unicodedata.category(char) == "Cf" for char in value):
+    if any(unicodedata.category(char) in ("Cc", "Cf") for char in value):
         raise error("display_name_invalid", "A display name cannot hold control or invisible characters.", 422)
     clean = " ".join(value.split())
     if len(clean) > DISPLAY_NAME_MAX:
@@ -161,13 +162,19 @@ def account_view(account: AccountRow) -> dict[str, Any]:
     }
 
 
+def known_device(db: DbSession, request: Request, response: Response, account: AccountRow) -> None:
+    """Marks this browser as one the account signed in with (the device cookie)."""
+    response.set_cookie(DEVICE_COOKIE, device_token(db, account), max_age=DEVICE_DAYS * 86400, httponly=True,
+                        samesite="lax", secure=secure_cookie(request), path="/api/auth")
+
+
 def sign_in(db: DbSession, request: Request, response: Response, account: AccountRow) -> dict[str, Any]:
     token = start_session(db, account, client_ip(request), request.headers.get("user-agent", ""))
     _set_cookie(response, request, token)
-    # This browser is known from now on: a lock that strangers cause by guessing does not keep it out.
-    if device_of(request.cookies.get(DEVICE_COOKIE)) != account.id:
-        response.set_cookie(DEVICE_COOKIE, device_token(account.id), max_age=DEVICE_DAYS * 86400, httponly=True,
-                            samesite="lax", secure=secure_cookie(request), path="/api/auth")
+    # This browser is known from now on: a lock that strangers cause by guessing does not keep it out, and the brake
+    # per sender lets it pass (A5).
+    if device_of(db, request.cookies.get(DEVICE_COOKIE)) != account.id:
+        known_device(db, request, response, account)
     logger.info("Signed in name=%s", account.name)
     return account_view(account)
 
@@ -238,11 +245,20 @@ def login(payload: LoginIn, request: Request, response: Response, db: DbSession)
     # neither the answer nor its timing tells which names exist.
     #
     # Two counts: per sender and name, and per sender alone with more room. The second is not reset by a sign-in that
-    # works (whoever has an account would otherwise reset it between guesses at other names), and it is left out
-    # when every sender looks like one proxy: then it would keep everybody out after a stranger's guesses.
+    # works (whoever has an account would otherwise reset it between guesses at other names). It always counts: an
+    # X-Forwarded-For nexcanvas was not told to believe changes nothing about the sender (the connection counts), and
+    # before, any such header took this count away (Prüfgang 05.10.2026 A5). Behind a proxy the operator did not
+    # name, all senders share it; the log and Settings, Server say so and name the setting.
+    #
+    # So that a stranger behind such a proxy cannot keep everybody out with 30 wrong names, a browser that signed in
+    # as this very name before (its device cookie, signed by the server) passes the count per sender; the count per
+    # name stays (decided 2026-10-05, A5). The emergency account gets in that way while somebody guesses.
     ip = client_ip(request)
+    behind_unknown_proxy(request)
     keys = [("login:" + ip + "|" + payload.name.strip().lower()[:64], Brake.FREE)]
-    if not behind_unknown_proxy(request):
+    device = device_of(db, request.cookies.get(DEVICE_COOKIE))
+    known = accounts.by_name(db, payload.name) if device is not None else None
+    if known is None or known.id != device:
         keys.append(("login-ip:" + ip, LOGIN_FREE_PER_SENDER))
     wait = max(brake.wait_seconds(key, free) for key, free in keys)
     if wait:
@@ -252,8 +268,7 @@ def login(payload: LoginIn, request: Request, response: Response, db: DbSession)
             headers={"Retry-After": str(wait)},
         )
     try:
-        account = accounts.authenticate(db, payload.name, payload.password,
-                                        device_of(request.cookies.get(DEVICE_COOKIE)))
+        account = accounts.authenticate(db, payload.name, payload.password, device)
     except AccountError as exc:
         for key, _free in keys:
             brake.failed(key)
@@ -306,8 +321,13 @@ def logout(request: Request, response: Response, db: DbSession) -> None:
 
 
 @router.post("/auth/logout-all", status_code=204, summary="Sign out every other browser of the own account")
-def logout_everywhere(request: Request, account: Account, db: DbSession) -> None:
+def logout_everywhere(request: Request, response: Response, account: Account, db: DbSession) -> None:
     end_all_sessions(db, account.id, except_token=request.cookies.get(SESSION_COOKIE))
+    # The other browsers are not known any more; this one stays known.
+    row = db.get(AccountRow, account.id)
+    if row is not None:
+        db.refresh(row)
+        known_device(db, request, response, row)
     logger.info("All other sessions ended by their owner name=%s", account.name)
 
 
@@ -321,6 +341,10 @@ def me(account: Account, db: DbSession) -> dict[str, Any]:
         "upload_max_mb": settings_service.upload_max_mb(db),
         "preferences": preferences_of(account.preferences),
         "suite": suite.state(db),
+        # Whether the lead of a team changes its members here: never while nexsuite keeps the teams, else the operator
+        # always and a lead when the operator allows it (D3).
+        "may_edit_led_teams": not suite.connected(db)
+        and (account.role == OPERATOR or bool(settings_service.get(db, "team_leads_edit"))),
         "suite_mail": bool(settings_service.get(db, "suite_mail")),
         # Where nexsuite opens, for the links to where password, second factor and profile are changed (G3).
         "suite_url": str(settings_service.get(db, "suite_url") or "") if suite.connected(db) else "",
@@ -331,7 +355,8 @@ def me(account: Account, db: DbSession) -> dict[str, Any]:
 
 
 @router.put("/auth/password", status_code=204, summary="Change the own password")
-def change_password(payload: PasswordChangeIn, request: Request, account: Account, db: DbSession) -> None:
+def change_password(payload: PasswordChangeIn, request: Request, response: Response, account: Account,
+                    db: DbSession) -> None:
     row = db.get(AccountRow, account.id)
     assert row is not None
     if row.sign_in != SIGN_IN_PASSWORD:
@@ -345,8 +370,10 @@ def change_password(payload: PasswordChangeIn, request: Request, account: Accoun
             reauth_failed(request, db, row)
         raise fail(exc) from exc
     reauth_succeeded(request, db, row)
-    # Other browsers must sign in again; this one stays.
+    # Other browsers must sign in again and are not known any more; this one stays, and stays known.
     end_all_sessions(db, row.id, except_token=request.cookies.get(SESSION_COOKIE))
+    db.refresh(row)
+    known_device(db, request, response, row)
 
 
 @router.put("/me/profile", summary="The own display name; empty shows the name")
