@@ -271,7 +271,7 @@ export function MembersDialog({ space, onClose }: { space: Space; onClose: () =>
             onSubmit={(event) => {
               event.preventDefault()
               void run(async () => {
-                setMade(await api<NewInvite>(`/api/spaces/${space.id}/invites`, { method: 'POST', body: { role: inviteRole, days: Number(days), email: email.trim(), send: send && !!email.trim() } }))
+                setMade(await api<NewInvite>(`/api/spaces/${space.id}/invites`, { method: 'POST', body: { role: inviteRole, days: Number(days), email: email.trim(), send: send && !!email.trim(), language: i18n.language } }))
                 await load()
               })
             }}

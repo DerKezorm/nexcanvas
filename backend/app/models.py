@@ -123,6 +123,9 @@ class Account(Base):
     #: ``oidc_subject`` so its subject can never pass for a person in nexsuite (``3`` there is somebody else); given
     #: back on disconnecting (#job-172).
     oidc_subject_local: Mapped[str] = mapped_column(String(255), default="")
+    #: The browser's language at the last sign-in (``de``, ``en``): what a mail to the account is written in while
+    #: ``language`` is empty (Prüfgang 05.10.2026, decision 8).
+    browser_language: Mapped[str] = mapped_column(String(16), default="")
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
     last_seen_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
     failed_logins: Mapped[int] = mapped_column(Integer, default=0)

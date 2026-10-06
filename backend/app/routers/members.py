@@ -330,6 +330,8 @@ class InviteIn(BaseModel):
     days: int = 7
     email: str = Field(default="", max_length=255)
     send: bool = False
+    #: The language the inviter's page shows: the mail's, when neither the receiver nor the inviter has one.
+    language: str = Field(default="", max_length=16)
 
 
 class AcceptIn(BaseModel):
@@ -377,9 +379,13 @@ def _create(db: DbSession, request: Request, by: AccountRow, space: Space | None
     sent = False
     if payload.send:
         try:
-            # Named as others see the inviter; the link says until when it works (g3-6, b3-20).
+            # Named as others see the inviter; the link says until when it works (g3-6, b3-20). In the language of
+            # whoever receives it: an account that has the address already, else the inviter's, else the language of
+            # the inviter's page (decision 8 of 05.10.2026).
+            known = db.scalar(select(AccountRow).where(func.lower(AccountRow.email) == email.lower()).limit(1))
+            language = mailer.language_for(db, known, *mailer.languages(by, payload.language))
             mailer.send_invite(db, email, link, by=by.display_name or by.name, space=space.name if space else None,
-                               until=invite.expires_at.date().isoformat())
+                               until=invite.expires_at.date(), language=language)
             sent = True
         except mailer.MailError as exc:
             # The link was to go by mail only: kept, the invitation would stand without anybody holding its link.

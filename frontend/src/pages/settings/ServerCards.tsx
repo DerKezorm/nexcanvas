@@ -160,7 +160,7 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
           onSubmit={(event) => {
             event.preventDefault()
             void run(async () => {
-              setMade(await api<{ link: string; sent: boolean; email: string }>('/api/invites', { method: 'POST', body: { days: Number(days), email: email.trim(), send: send && !!email.trim() } }))
+              setMade(await api<{ link: string; sent: boolean; email: string }>('/api/invites', { method: 'POST', body: { days: Number(days), email: email.trim(), send: send && !!email.trim(), language: i18n.language } }))
               load()
             })
           }}
@@ -558,7 +558,7 @@ export function FilesCard({ server }: { server: Server }) {
 }
 
 export function MailCard({ server, readOnly = false }: { server: Server; readOnly?: boolean }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const s = server.settings
   const [draft, setDraft] = useState<Change>({})
   const [to, setTo] = useState('')
@@ -626,7 +626,7 @@ export function MailCard({ server, readOnly = false }: { server: Server; readOnl
         className="flex flex-wrap items-end gap-2"
         onSubmit={(event) => {
           event.preventDefault()
-          void test.run(() => api('/api/settings/mail-test', { method: 'POST', body: { to } }), t('server.mailSent'))
+          void test.run(() => api('/api/settings/mail-test', { method: 'POST', body: { to, language: i18n.language } }), t('server.mailSent'))
         }}
       >
         <Input label={t('server.mailTest')} value={to} onChange={setTo} placeholder="you@example.com" className="min-w-60 flex-1" />

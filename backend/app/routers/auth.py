@@ -169,6 +169,7 @@ def known_device(db: DbSession, request: Request, response: Response, account: A
 
 
 def sign_in(db: DbSession, request: Request, response: Response, account: AccountRow) -> dict[str, Any]:
+    mailer.note_browser_language(account, request.headers.get("accept-language", ""))
     token = start_session(db, account, client_ip(request), request.headers.get("user-agent", ""))
     _set_cookie(response, request, token)
     # This browser is known from now on: a lock that strangers cause by guessing does not keep it out, and the brake

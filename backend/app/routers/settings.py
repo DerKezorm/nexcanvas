@@ -11,11 +11,13 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
+from sqlalchemy import func, select
 
 from ..config import get_settings
 from ..deps import DbSession, OperatorAccount, unknown_proxy_seen
 from ..errors import error
 from ..models import SIGN_IN_PASSWORD
+from ..models import Account as AccountRow
 from ..security import encrypt_secret
 from ..services import accounts, mailer, settings_service, suite
 
@@ -70,6 +72,8 @@ class SettingsIn(BaseModel):
 
 class TestMailIn(BaseModel):
     to: str = Field(max_length=255)
+    #: The language the operator's page shows, for the mail when neither the receiver nor the operator has one.
+    language: str = Field(default="", max_length=16)
 
 
 def _view(db: DbSession) -> SettingsOut:
@@ -149,12 +153,16 @@ def save(payload: SettingsIn, operator: OperatorAccount, db: DbSession) -> Setti
 
 
 @router.post("/mail-test", status_code=204, summary="Send a test mail through the configured server")
-def mail_test(payload: TestMailIn, _operator: OperatorAccount, db: DbSession) -> None:
+def mail_test(payload: TestMailIn, operator: OperatorAccount, db: DbSession) -> None:
     to = payload.to.strip()
     if not accounts.EMAIL_PATTERN.match(to):
         raise error("invalid_email", "This is not a mail address.", 422)
+    # In the language of whoever receives it, as the invitation: an account with this address, else the operator's
+    # own language, else the page's, else English (decision 8 of 05.10.2026).
+    known = db.scalar(select(AccountRow).where(func.lower(AccountRow.email) == to.lower()).limit(1))
+    language = mailer.language_for(db, known, *mailer.languages(operator, payload.language))
     try:
-        mailer.send_test(db, to)
+        mailer.send_test(db, to, language)
     except mailer.MailError as exc:
         # No mail server is a setting, not a failing server: no gateway error, no ERROR in the log (G12).
         raise error(exc.code, str(exc), 409 if exc.code == "mail_off" else 502) from exc

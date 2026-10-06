@@ -37,6 +37,7 @@ from ..models import SIGN_IN_OIDC, SIGN_IN_PASSWORD
 from ..models import Account as AccountRow
 from ..security import SESSION_COOKIE, brake, decrypt_secret, encrypt_secret, session_account, start_session
 from ..services import accounts, authentik, logs, oidc, settings_service, suite
+from ..services.mailer import note_browser_language
 from .auth import _set_cookie, secure_cookie
 
 router = APIRouter(prefix="/api/oidc", tags=["oidc"])
@@ -306,6 +307,7 @@ async def callback(
 
     response = RedirectResponse(landing or HOME, status_code=303)
     _delete_attempt_cookie(response)
+    note_browser_language(account, request.headers.get("accept-language", ""))
     token = start_session(db, account, client_ip(request), request.headers.get("user-agent", ""))
     _set_cookie(response, request, token)
     logs.set_actor(account.name)
