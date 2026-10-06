@@ -1006,6 +1006,25 @@ def test_job172_a_left_out_account_with_an_old_subject_never_takes_over_a_person
         assert db.query(Account).filter(Account.oidc_subject == "3").count() == 1
 
 
+def test_job172_a_connection_from_before_never_hands_a_new_person_to_a_left_out_account(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any) -> None:
+    """Connected under bf64550: the left-out zoe kept a subject "60" of another provider, blocked and unmarked. A person
+    60 made in nexsuite since has no account here; the sync makes one and never gives it zoe's, unblocked."""
+    zoe = make_account("zoe")
+    connect(client, world, operator)
+    _provider_is_nexsuite()
+    _legacy({"zoe": "60"}, zoe={"blocked_at": utcnow(), "email": "zoe@example.com", "display_name": "Zoe"})
+    fake.people["60"] = {"id": "60", "name": "neu", "display_name": "Neu", "email": "neu@example.com",
+                         "operator": False, "blocked": False}
+    assert client.post("/api/suite/sync").status_code == 200
+    after = _row("zoe")
+    assert after.id == zoe.id and after.blocked_at is not None, "left out stays blocked"
+    assert (after.oidc_subject, after.suite_person, after.oidc_subject_local) == ("", "", "60")
+    assert (after.email, after.display_name) == ("zoe@example.com", "Zoe")
+    assert _row("neu").oidc_subject == "60" and _row("neu").blocked_at is None
+    assert _signs_in_as(client, provider, "60") == "neu"
+
+
 # --- B16, B24: what nexsuite answers since 3ef5282 ---------------------------------------------------------------------
 
 
@@ -1299,6 +1318,11 @@ def test_a10_a_signature_beyond_ascii_is_refused_not_a_failure(client: TestClien
     answer = program.post("/api/suite/event", content=body,
                           headers={**head, "X-Nexsuite-Time": "18000000²".encode("latin-1")})  # type: ignore[dict-item]
     assert answer.status_code == 401
+    # The test client sends that header in UTF-8, so the server reads two characters; as it would arrive in Latin-1
+    # (one character, a digit to str.isdigit and none to int), the check itself says no instead of failing.
+    with SessionLocal() as db:
+        for stamp in ("18000000²", "¹" * 10):
+            assert suite.check_notice(db, stamp, head["X-Nexsuite-Signature"], body) is None, ascii(stamp)
 
 
 # --- What nexsuite sends passes the checks typed input passes ----------------------------------------------------------
