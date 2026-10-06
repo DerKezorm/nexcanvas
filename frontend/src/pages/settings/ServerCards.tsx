@@ -299,7 +299,7 @@ export function AllSpacesCard() {
 }
 
 type Oidc = { configured: boolean; issuer: string; client_id: string; provider_name: string; auto_create: boolean; redirect_uri: string }
-type Steps = { steps: { key: string; ok: boolean; detail: string }[] }
+type Steps = { steps: { key: string; ok: boolean; detail: string; reason?: string; status?: number }[] }
 
 export function SignInCard({ server }: { server: Server }) {
   const { t } = useTranslation()
@@ -309,6 +309,8 @@ export function SignInCard({ server }: { server: Server }) {
   const [address, setAddress] = useState<string | null>(null)
   const [authentik, setAuthentik] = useState({ url: '', token: '' })
   const [steps, setSteps] = useState<Steps | null>(null)
+  /** The set-up run is under way: up to 20 s against an address that does not answer (Prüfgang C4, as nexsuite). */
+  const [asking, setAsking] = useState(false)
   const { busy, problem, done, run } = useAction()
 
   const loadOidc = useCallback(async () => {
@@ -398,11 +400,16 @@ export function SignInCard({ server }: { server: Server }) {
         className="grid gap-2 sm:grid-cols-2"
         onSubmit={(event) => {
           event.preventDefault()
+          // What the last attempt said goes first: an old failure stood above the new answer (Prüfgang C4).
+          setSteps(null)
+          setAsking(true)
           void run(async () => {
-            setSteps(await api<Steps>('/api/oidc/authentik/setup', { method: 'POST', body: authentik }))
-            setAuthentik({ ...authentik, token: '' })
+            const answer = await api<Steps>('/api/oidc/authentik/setup', { method: 'POST', body: authentik })
+            setSteps(answer)
+            // The token goes only once everything worked; after a failure the operator corrects the address and tries again.
+            if (answer.steps.length > 0 && answer.steps.every((step) => step.ok)) setAuthentik({ ...authentik, token: '' })
             await loadOidc()
-          })
+          }).finally(() => setAsking(false))
         }}
       >
         <Input label={t('server.authentik.url')} value={authentik.url} onChange={(url) => setAuthentik({ ...authentik, url })} placeholder="https://auth.example.com" />
@@ -411,6 +418,11 @@ export function SignInCard({ server }: { server: Server }) {
           <Button type="submit" busy={busy} disabled={!authentik.url.trim() || !authentik.token.trim()}>
             {t('server.authentik.run')}
           </Button>
+          {asking && (
+            <span role="status" className="self-center text-xs text-mist-500">
+              {t('server.authentik.asking')}
+            </span>
+          )}
           <a href="/api/oidc/authentik/blueprint" className="inline-flex items-center gap-1.5 rounded-full border border-ink-700 px-3.5 py-1.5 text-sm text-mist-300 hover:bg-ink-850">
             <Download className="h-4 w-4" strokeWidth={1.8} />
             {t('server.authentik.blueprint')}
@@ -421,7 +433,8 @@ export function SignInCard({ server }: { server: Server }) {
         <ol className="space-y-1 text-xs" data-testid="authentik-steps">
           {steps.steps.map((step) => (
             <li key={step.key} className={step.ok ? 'text-ok-500' : 'text-bad-500'}>
-              {step.ok ? '✓' : '✗'} {t(`authentik.step.${step.key}`, { defaultValue: step.key })}: {step.detail}
+              {step.ok ? '✓' : '✗'} {t(`authentik.step.${step.key}`, { defaultValue: step.key })}:{' '}
+              {step.reason ? t(`server.authentik.why.${step.reason}`, { status: step.status, defaultValue: step.detail }) : step.detail}
             </li>
           ))}
         </ol>

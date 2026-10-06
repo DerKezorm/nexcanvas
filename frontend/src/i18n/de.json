@@ -739,7 +739,14 @@
       "url": "Adresse von authentik",
       "token": "API-Token",
       "run": "Einrichten",
-      "blueprint": "Stattdessen Blueprint herunterladen"
+      "blueprint": "Stattdessen Blueprint herunterladen",
+      "asking": "Einen Moment, authentik wird gefragt. Das kann bis zu 20 Sekunden dauern.",
+      "why": {
+        "unreachable": "authentik ist unter dieser Adresse nicht erreichbar. Prüf die Adresse und ob nexcanvas dieses Netz erreicht.",
+        "unusable": "Diese Adresse lässt sich nicht verwenden. Prüf, wie sie geschrieben ist.",
+        "token": "authentik hat das Token nicht angenommen (Antwort {{status}}). Prüf, ob es gilt und die nötigen Rechte hat.",
+        "answered": "Unter dieser Adresse antwortet etwas, aber nicht authentik wie erwartet (Antwort {{status}}). Prüf die Adresse; die ganze Antwort steht im Log."
+      }
     },
     "publicAllowedHint": "Verwalter eines Bereichs dürfen dann ein Board als Leseseite veröffentlichen. Abgeschaltet antwortet jeder Link, als hätte es ihn nie gegeben.",
     "files": "Dateien",
@@ -1509,12 +1516,12 @@
   },
   "authentik": {
     "step": {
-      "reached": "authentik erreicht",
+      "reached": "Verbindung zu authentik",
       "signingKey": "Schlüssel zum Signieren",
       "mapping": "Zuordnung für die Adresse",
       "provider": "Anbieter",
       "application": "Anwendung",
-      "fill": "Einstellungen hier"
+      "filled": "Einstellungen hier"
     }
   }
 }

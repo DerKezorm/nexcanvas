@@ -63,9 +63,13 @@ transport_for_tests: httpx.BaseTransport | None = None
 
 
 class StepFailed(Exception):
-    def __init__(self, detail: str) -> None:
+    """``detail`` is the technical line for the log; ``reason`` (with ``status``) names the failure for the page, which
+    says it as a sentence in the operator's language, as nexsuite does (Prüfgang C4: the raw line mixed English, a path
+    and a class name)."""
+
+    def __init__(self, detail: str, reason: str = "", status: int = 0) -> None:
         super().__init__(detail)
-        self.detail = detail
+        self.detail, self.reason, self.status = detail, reason, status
 
 
 @dataclass
@@ -73,6 +77,8 @@ class Step:
     key: str
     ok: bool
     detail: str = ""
+    reason: str = ""
+    status: int = 0
 
 
 @dataclass
@@ -83,7 +89,11 @@ class SetupResult:
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "steps": [{"key": step.key, "ok": step.ok, "detail": step.detail} for step in self.steps],
+            "steps": [
+                {"key": step.key, "ok": step.ok, "detail": step.detail}
+                | ({"reason": step.reason, "status": step.status} if step.reason else {})
+                for step in self.steps
+            ],
             "client_id": self.client_id,
             "issuer": self.issuer,
         }
@@ -109,11 +119,15 @@ class _Api:
             response = await self._client.request(method, url, params=params, json=body)
         except httpx.HTTPError as error:
             kind = error.__class__.__name__
-            raise StepFailed(f"{method} {path}: authentik at {self.base_url} not reachable ({kind})") from error
+            raise StepFailed(
+                f"{method} {path}: authentik at {self.base_url} not reachable ({kind})", "unreachable"
+            ) from error
         except Exception as error:
             # ``httpx.InvalidURL`` is not an HTTPError; the address comes from the operator.
             kind = error.__class__.__name__
-            raise StepFailed(f"{method} {path}: the address {self.base_url!r} cannot be used ({kind})") from error
+            raise StepFailed(
+                f"{method} {path}: the address {self.base_url!r} cannot be used ({kind})", "unusable"
+            ) from error
         if not response.is_success:
             # The status and the content type go back to the operator; the body only into the log. An address
             # typed by the operator could point at any HTTP service on the network, and its answer is not
@@ -121,13 +135,19 @@ class _Api:
             text = response.text.strip().replace("\n", " ")[:DETAIL_MAX]
             logger.debug("authentik %s %s answered %s: %r", method, path, response.status_code, text)
             kind = response.headers.get("content-type", "").split(";")[0].strip() or "no content type"
-            raise StepFailed(f"{method} {path} answered {response.status_code} ({kind}); the log has the answer")
+            raise StepFailed(
+                f"{method} {path} answered {response.status_code} ({kind}); the log has the answer",
+                "token" if response.status_code in (401, 403) else "answered",
+                response.status_code,
+            )
         if not response.content:
             return None
         try:
             return response.json()
         except ValueError as error:
-            raise StepFailed(f"{method} {path} answered {response.status_code} without JSON") from error
+            raise StepFailed(
+                f"{method} {path} answered {response.status_code} without JSON", "answered", response.status_code
+            ) from error
 
     async def find_one(self, path: str, params: dict[str, str], key: str, value: str) -> dict[str, Any] | None:
         """The one list entry whose ``key`` equals ``value``. The filter parameter narrows the list; the exact
@@ -308,7 +328,7 @@ async def setup(db: Session, base_url: str, token: str, redirect_uri: str) -> Se
                 else:
                     detail = await _fill(db, result.issuer, client_id, client_secret)
             except StepFailed as error:
-                result.steps.append(Step(key, False, error.detail))
+                result.steps.append(Step(key, False, error.detail, error.reason, error.status))
                 logger.warning("authentik setup stopped at step %s: %s", key, error.detail)
                 break
             result.steps.append(Step(key, True, detail))

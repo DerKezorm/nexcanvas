@@ -739,7 +739,14 @@
       "url": "Address of authentik",
       "token": "API token",
       "run": "Set up",
-      "blueprint": "Download blueprint instead"
+      "blueprint": "Download blueprint instead",
+      "asking": "One moment, authentik is being asked. This can take up to 20 seconds.",
+      "why": {
+        "unreachable": "authentik cannot be reached at this address. Check the address and whether nexcanvas reaches that network.",
+        "unusable": "This address cannot be used. Check how it is written.",
+        "token": "authentik did not accept the token (answer {{status}}). Check that it is valid and has the rights it needs.",
+        "answered": "Something answers at this address, but not authentik as expected (answer {{status}}). Check the address; the whole answer is in the log."
+      }
     },
     "publicAllowedHint": "Managers of a space may then publish a board as a reading page. Switched off, every link answers as if it never existed.",
     "files": "Files",
@@ -1509,12 +1516,12 @@
   },
   "authentik": {
     "step": {
-      "reached": "authentik reached",
+      "reached": "Connection to authentik",
       "signingKey": "Signing key",
       "mapping": "Mapping for the address",
       "provider": "Provider",
       "application": "Application",
-      "fill": "Settings here"
+      "filled": "Settings here"
     }
   }
 }
