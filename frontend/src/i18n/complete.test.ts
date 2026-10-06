@@ -2,6 +2,8 @@
 
 import de from './de.json'
 import en from './en.json'
+import whatsNewDe from './whatsnew/de.json'
+import whatsNewEn from './whatsnew/en.json'
 
 function flat(tree: Record<string, unknown>, prefix = ''): Map<string, string> {
   const out = new Map<string, string>()
@@ -38,10 +40,57 @@ describe('shipped languages', () => {
     expect([...english].filter(([, text]) => /\btrash\b/i.test(text)).length).toBeGreaterThan(5)
   })
 
+  it('count with figures throughout the backup line, never a figure next to a word', () => {
+    for (const key of ['server.countBoards_one', 'server.countFiles_one', 'server.countAccounts_one']) {
+      expect(german.get(key), key).toContain('{{count}}')
+      expect(english.get(key), key).toContain('{{count}}')
+    }
+  })
+
   it('call the program version Version in German; Fassung is left for what is on a board (decided 06.10.2026)', () => {
     const about = [...german].filter(([key]) => key.startsWith('about.'))
     expect(about.filter(([, text]) => /Fassung/.test(text)).map(([key, text]) => `${key}: ${text}`)).toEqual([])
     expect(german.get('about.version')).toBe('Version')
     expect(german.get('about.updates.current')).toBe('Das ist die neueste Version.')
+  })
+})
+
+/** Every text in a tree of entries, however deep, arrays included. */
+function strings(tree: unknown): string[] {
+  if (typeof tree === 'string') return [tree]
+  if (tree && typeof tree === 'object') return Object.values(tree).flatMap(strings)
+  return []
+}
+
+/**
+ * The program version in German, as a phrase: "Fassung 1.2", "Fassung von nexcanvas", "eine neue Fassung", "die erste
+ * Fassung", "je Fassung", "Alle Fassungen und was sich geändert hat". What belongs to content may keep the word: "eine
+ * neue Fassung einer Notiz", "Welche Fassung bleibt".
+ */
+const PROGRAM_FASSUNG =
+  /Fassung\s+(?:\d|von\s+nex)|\b(?:neue|neuen|neuere|neueren|neueste|neuesten|erste|ersten|diese|dieser|jede|jeder|je|nächste|nächsten)\s+Fassung(?!en)(?!\s+(?:einer|eines|der|des|deiner|deines)\b)|Fassungen\s+und\s+was/
+
+describe('what is new', () => {
+  const german = strings(whatsNewDe)
+  const english = strings(whatsNewEn)
+
+  it('call the program version Version in German, in released entries too (decided 06.10.2026)', () => {
+    expect(german.filter((text) => PROGRAM_FASSUNG.test(text))).toEqual([])
+    // Floor: the entries are read at all.
+    expect(german.length).toBeGreaterThan(20)
+  })
+
+  it('say trash in English (decided 06.10.2026)', () => {
+    expect(english.filter((text) => /\bbins?\b/i.test(text))).toEqual([])
+    expect(english.length).toBeGreaterThan(20)
+  })
+
+  it('know the program version when they see it, and leave the versions of content alone', () => {
+    for (const text of ['Fassung 1.4.0 ist da.', 'eine neuere Fassung von nexlore', 'Die erste Fassung von nexcanvas:', 'kommt einmal je Fassung', 'Vor dieser Fassung ging es', 'Alle Fassungen und was sich geändert hat']) {
+      expect(PROGRAM_FASSUNG.test(text), text).toBe(true)
+    }
+    for (const text of ['Jede gespeicherte Fassung einer Notiz', 'eine neue Fassung einer Notiz', 'Welche Fassung bleibt', 'bekommen eine WebP-Fassung']) {
+      expect(PROGRAM_FASSUNG.test(text), text).toBe(false)
+    }
   })
 })

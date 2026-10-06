@@ -36,7 +36,7 @@
       {
         "title": "The operator sees every space",
         "where": "Settings, Spaces",
-        "body": "The operator manages every space, also one without a right of their own. When they change rights there, the members are told. Under \"Spaces in the bin\" they also see every deleted space and can bring it back."
+        "body": "The operator manages every space, also one without a right of their own. When they change rights there, the members are told. Under \"Spaces in the trash\" they also see every deleted space and can bring it back."
       },
       {
         "title": "Blocking accounts",
@@ -48,7 +48,7 @@
     "small": [
       "An invitation can also be accepted through the sign-in provider, and with password sign-in off it is no longer a dead end.",
       "When the session ends or a right goes, an open board closes at once and says why.",
-      "A space in the bin takes its public pages along; only those who manage it can delete it for good.",
+      "A space in the trash takes its public pages along; only those who manage it can delete it for good.",
       "When a second factor is required, sign-in leads straight to the account page.",
       "Copy buttons work without HTTPS on a home network too.",
       "On the phone the spaces sit in a row, and readers no longer see undo.",
@@ -119,7 +119,7 @@
     "small": [
       "Light, dark or like the system, with the switch in the header.",
       "Ctrl+K jumps to any board.",
-      "Deleted boards go to the bin first, and every 30 minutes a version is kept that you can go back to.",
+      "Deleted boards go to the trash first, and every 30 minutes a version is kept that you can go back to.",
       "The About page in the account menu tells you when there is a new version; the operator can turn the check off there."
     ]
   }

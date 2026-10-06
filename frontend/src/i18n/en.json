@@ -771,11 +771,11 @@
     "givePassword": "Give a password",
     "unblock": "Unblock",
     "ownSecondFactorFirst": "Set up your own second factor first (My account, Security), or you would be the first one who cannot go on.",
-    "countBoards_one": "one board",
+    "countBoards_one": "{{count}} board",
     "countBoards_other": "{{count}} boards",
-    "countFiles_one": "one file",
+    "countFiles_one": "{{count}} file",
     "countFiles_other": "{{count}} files",
-    "countAccounts_one": "one account",
+    "countAccounts_one": "{{count}} account",
     "countAccounts_other": "{{count}} accounts",
     "inSpaces_zero": "in no space",
     "block": "Block"
@@ -996,7 +996,7 @@
     "edit": "Name and colour",
     "options": "Space options",
     "trash": "Move space to trash",
-    "trashTitle": "Move “{{name}}” to trash?",
+    "trashTitle": "Move “{{name}}” to the trash?",
     "trashText": "With all its boards. Managers can bring it back for 30 days."
   },
   "versions": {
