@@ -778,7 +778,8 @@
     "countAccounts_one": "{{count}} Konto",
     "countAccounts_other": "{{count}} Konten",
     "inSpaces_zero": "in keinem Bereich",
-    "block": "Sperren"
+    "block": "Sperren",
+    "smtpHostPort": "Server und Port"
   },
   "errors": {
     "avatar_not_a_picture": "Das ist kein Bild, das nexcanvas annimmt (JPEG, PNG, WebP, GIF, HEIC oder AVIF).",
@@ -927,7 +928,16 @@
     "connecting_already": "Eine Verbindung ist schon angefangen: fortsetzen oder abbrechen.",
     "suite_unreachable_disconnect": "nexsuite antwortet nicht. Trenne mit einem Notfallcode oder versuche es noch einmal, wenn nexsuite wieder da ist.",
     "invalid_account_name": "Ein Anmeldename hat 2 bis 64 Zeichen: Buchstaben ohne Umlaute, Ziffern, Punkt, Bindestrich oder Unterstrich, keine Leerzeichen.",
-    "backups_emergency_only": "Im Verbund mit nexsuite kümmert sich nur das Notkonto um Sicherungen."
+    "backups_emergency_only": "Im Verbund lädt und löscht nur das Notkonto Sicherungen.",
+    "not_suite": "Unter dieser Adresse antwortet kein nexsuite. Nimm die Adresse, unter der nexsuite im Browser öffnet, ohne Pfad dahinter.",
+    "app_still_connected": "Unter dieser Adresse ist schon eine App mit nexsuite verbunden. Trenne sie zuerst, in der App oder in nexsuite unter Apps.",
+    "app_not_reachable": "nexsuite kennt eine Verbindung mit dieser Adresse und erreicht die App nicht, um nachzufragen. Trenne sie in nexsuite unter Apps und verbinde dann neu.",
+    "person_unknown": "Eine gewählte Person gibt es in nexsuite nicht (mehr). Die Liste ist neu geladen, sieh die Auswahl noch einmal an.",
+    "space_unknown": "Einen gewählten Bereich gibt es in nexsuite nicht (mehr). Die Liste ist neu geladen, sieh die Auswahl noch einmal an.",
+    "team_unknown": "Ein gewähltes Team gibt es in nexsuite nicht (mehr). Die Liste ist neu geladen, sieh die Auswahl noch einmal an.",
+    "suite_no_account": "nexcanvas kennt dich noch nicht. Versuch es in ein paar Sekunden noch einmal; klappt es dann nicht, frag den Betreiber von nexsuite.",
+    "invite_suite": "Diese Einladung gilt nicht mehr: nexcanvas ist jetzt mit nexsuite verbunden, und du meldest dich über nexsuite an.",
+    "too_many": "Das sind zu viele."
   },
   "auth": {
     "name": "Name",
@@ -947,7 +957,8 @@
       "submit": "Anmelden",
       "passwordOff": "Anmelden mit Passwort ist für Mitglieder abgeschaltet.",
       "oidc": "Mit {{name}} anmelden",
-      "ended": "Deine Sitzung wurde beendet, zum Beispiel weil dein Konto gesperrt oder überall abgemeldet wurde. Melde dich neu an."
+      "ended": "Deine Sitzung wurde beendet, zum Beispiel weil dein Konto gesperrt oder überall abgemeldet wurde. Melde dich neu an.",
+      "endedSuite": "Deine Sitzung wurde beendet, zum Beispiel weil dein Konto gesperrt oder überall abgemeldet oder dein Passwort in nexsuite geändert wurde. Melde dich neu an."
     },
     "code": {
       "title": "Zweiter Faktor",
@@ -1380,7 +1391,7 @@
     "managed": "Das wird jetzt in nexsuite verwaltet.",
     "managedAccounts": "Konten kommen aus nexsuite. Neue Personen, Sperren und Rollen dort.",
     "managedSignIn": "Angemeldet wird über nexsuite. Ob nexsuite selbst prüft oder authentik fragt, stellst du dort ein. Dein eigenes Passwort bleibt als Notzugang.",
-    "managedMail": "Der Mailserver kommt aus nexsuite. Ist dort keiner eingerichtet, verschickt nexcanvas keine Mails. Deine eigene Einstellung ist aufbewahrt, falls du trennst.",
+    "managedMail": "Der Mailserver kommt aus nexsuite und wird dort geändert. Deine eigene Einstellung ist aufbewahrt, falls du trennst.",
     "managedTeams": "Teams kommen aus nexsuite und gelten in jeder verbundenen App.",
     "managedProfile": "Profilbild, Name und Adresse kommen aus nexsuite und gelten in jeder verbundenen App. Ändern lassen sie sich dort.",
     "mailTitle": "E-Mail",
@@ -1399,7 +1410,7 @@
     "emergencyCodes": "Notfallcodes",
     "codesKnown_one": "{{count}} bekannt",
     "codesKnown_other": "{{count}} bekannt",
-    "codesNone": "noch keine, in nexsuite unter Apps erzeugen",
+    "codesNone": "noch keine. Erzeuge sie jetzt in nexsuite unter Apps und bewahre sie auf: Ist nexsuite nicht erreichbar, lassen sie sich nicht mehr erzeugen.",
     "syncNow": "Jetzt abgleichen",
     "open": "In nexsuite öffnen",
     "disconnect": "Trennen",
@@ -1420,7 +1431,7 @@
     "step3": "Bereiche und Teams zuordnen",
     "step4": "Fertig",
     "step1Text": "Den Code bekommst du in nexsuite unter Apps, Verbinden. Er gilt 15 Minuten.",
-    "step2Text": "Jedes Konto hier gehört künftig zu einer Person in nexsuite. Vorgeschlagen nach Mailadresse und Name. Boards, Rechte und Verlauf bleiben dran.",
+    "step2Text": "Jedes Konto hier gehört künftig zu einer Person in nexsuite. Vorgeschlagen nach früherer Zuordnung, Mailadresse und Name. Boards, Rechte und Verlauf bleiben dran; Anzeigename, Adresse und Profilbild kommen danach aus nexsuite.",
     "step3Text": "Bereiche von hier kommen nach nexsuite. Gibt es dort schon einen passenden, verbindest du beide: Die Rechte von hier kommen dazu, und hat jemand dort schon ein Recht, gilt das höhere.",
     "newPerson": "Neu in nexsuite anlegen",
     "newSpace": "Neu in nexsuite anlegen",
@@ -1450,7 +1461,29 @@
     "freshMailed": "Neu in nexsuite und per Mail um ein Passwort gebeten: {{names}}.",
     "freshInSuite": "Neu in nexsuite, aber ohne Mail (keine Adresse oder kein Mailserver): {{names}}. Den Link zum Passwort setzen holst du in nexsuite unter Personen, Bearbeiten.",
     "keepSpace": "Nur hier behalten",
-    "keepSpaceHint": "„Nur hier behalten“: der Bereich bleibt in nexcanvas, seine Rechte vergibst du weiter hier. Ein persönlicher Bereich ist so vorgeschlagen."
+    "keepSpaceHint": "„Nur hier behalten“: der Bereich bleibt in nexcanvas, seine Rechte vergibst du weiter hier. Ein persönlicher Bereich ist so vorgeschlagen.",
+    "backupsKeeper": "Sicherungen herunterladen oder löschen darf im Verbund nur das Notkonto: Ein Archiv enthält dessen Passwort und zweiten Faktor.",
+    "backupsRestore": "Zurückspielen geht erst nach dem Trennen von nexsuite.",
+    "rowBlocked": "gesperrt",
+    "rowBlockedTaken": "Gesperrt. Übernommen kann sich das Konto wieder anmelden.",
+    "rowGone": "Die Person dazu wurde in nexsuite gelöscht.",
+    "rowFromSuite": "kam aus nexsuite",
+    "changesName": "Anzeigename wird „{{name}}“",
+    "changesMail": "Adresse wird {{email}}",
+    "pairing": "Einen Moment, nexsuite wird gefragt.",
+    "finishing": "nexcanvas verbindet sich mit nexsuite und gleicht alles ab. Das dauert einen Moment.",
+    "managedPassword": "Passwort und zweiter Faktor änderst du in nexsuite; sie gelten für alle verbundenen Apps.",
+    "openSuite": "nexsuite öffnen",
+    "mailNone": "In nexsuite ist kein Mailserver eingerichtet, deshalb verschickt nexcanvas keine Mails. Deine eigene Einstellung ist aufbewahrt, falls du trennst.",
+    "notSet": "nicht gesetzt",
+    "stillSignedIn": "Wenn du bei nexsuite noch angemeldet bist, kommst du mit dem Knopf ohne Eingabe als dieselbe Person herein.",
+    "someoneElse": "Als jemand anderes anmelden",
+    "someoneElseHint": "nexsuite öffnet sich in einem neuen Tab. Melde dich dort ab und nimm dann hier „Anmelden mit nexsuite“.",
+    "leaveOperators": "Nur durch nexsuite Betreiber, danach wieder Mitglied: {{names}}.",
+    "operatorsBack": "Wieder Mitglied, Betreiber waren sie nur durch nexsuite: {{names}}.",
+    "leaveOperatorsUnknown": "Für diese Verbindung ist nicht bekannt, wer vorher Betreiber war; diese Betreiber bleiben es: {{names}}.",
+    "dropped": "nicht mehr in nexsuite",
+    "droppedHint": "nexsuite gibt nexcanvas diesen Bereich nicht mehr. Die Boards bleiben, sehen kann ihn nur der Betreiber. Du kannst ihn in den Papierkorb legen."
   },
   "colorNames": {
     "pink": "Rosa",

@@ -134,7 +134,12 @@ export function AccountPage() {
               />
             </div>
             {/* How others see this account; the name below stays what one signs in with. */}
-            {me?.suite === 'connected' && <Managed text={t('suite.managedProfile')} />}
+            {me?.suite === 'connected' && (
+              <div className="space-y-2">
+                <Managed text={t('suite.managedProfile')} />
+                <SuiteLink url={me.suite_url} />
+              </div>
+            )}
             <form
               hidden={me?.suite === 'connected'}
               className="flex flex-wrap items-end gap-3"
@@ -208,6 +213,16 @@ export function AccountPage() {
               </Section>
             )}
 
+            {/* Connected, password and second factor of whoever signs in through nexsuite live there, with the way to it (G3). */}
+            {me.suite === 'connected' && me.sign_in !== 'password' && (
+              <Section icon={KeyRound} title={t('me.password.title')}>
+                <div className="space-y-2">
+                  <Managed text={t('suite.managedPassword')} />
+                  <SuiteLink url={me.suite_url} />
+                </div>
+              </Section>
+            )}
+
             <Section icon={ShieldCheck} title={t('twofactor.title')}>
               {/* Connected: who signs in through nexsuite sets the second factor there; only the emergency account keeps its own here. */}
               {me.suite === 'connected' && me.sign_in !== 'password' ? <Managed text={t('suite.managedTwoFactor')} /> : <SecondFactor me={me} />}
@@ -268,6 +283,17 @@ export function AccountPage() {
 
 /** Below this many recovery codes the account is told to make new ones. */
 const LOW_CODES = 3
+
+/** The way to nexsuite, where what is kept there is changed (G3). */
+function SuiteLink({ url }: { url?: string }) {
+  const { t } = useTranslation()
+  if (!url) return null
+  return (
+    <a href={url} target="_blank" rel="noreferrer" className={PLAIN + ' inline-flex items-center gap-1.5'} data-testid="suite-link">
+      <Plug className="h-3.5 w-3.5" aria-hidden /> {t('suite.openSuite')}
+    </a>
+  )
+}
 
 type Enrolment = { secret: string; uri: string; qr_svg: string }
 

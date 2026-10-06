@@ -151,6 +151,8 @@ export type Me = {
   /** Connected to nexsuite: accounts, teams, rights, sign-in (and mail) are kept there. */
   suite?: '' | 'connecting' | 'connected'
   suite_mail?: boolean
+  /** Connected: where nexsuite opens (password, second factor and profile are changed there). */
+  suite_url?: string
   /** Connected: this account is the app's emergency account. */
   suite_emergency?: boolean
 }
@@ -180,6 +182,8 @@ export type SpaceInfo = {
   teams: TeamGrantInfo[]
   /** Its rights come from nexsuite. */
   managed?: boolean
+  /** nexsuite no longer gives nexcanvas the space: only the operator sees it, and may put it into the trash (B18). */
+  dropped?: boolean
   /** Everybody who gets in, through an own right or a team, each once. */
   people?: number
 }
@@ -223,7 +227,8 @@ export type MediaInfo = {
 }
 
 export type SetupState = { needs_setup: boolean; code_required: boolean; signed_in: boolean; version: string; min_password: number }
-export type Methods = { password: boolean; oidc: boolean; oidc_name: string; suite?: boolean }
+/** `suite_url`: connected, where nexsuite opens, for "Sign in as someone else" (B11). */
+export type Methods = { password: boolean; oidc: boolean; oidc_name: string; suite?: boolean; suite_url?: string }
 
 // ---- Calls ----------------------------------------------------------------------------------------------------------
 

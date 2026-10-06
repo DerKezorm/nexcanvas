@@ -96,6 +96,8 @@ export function Sidebar() {
                   <Link to={`/?space=${space.id}`} className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-[13px] font-semibold text-mist-100">
                     <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: space.color }} />
                     <span className="truncate">{space.name}</span>
+                    {/* nexsuite let it go: only the operator sees it now (B18). */}
+                    {space.dropped && <span className="shrink-0 rounded-full border border-warn-500/40 px-1.5 text-[10px] font-medium text-warn-500" title={t('suite.droppedHint')} data-testid="space-dropped">{t('suite.dropped')}</span>}
                     <span className="ml-auto text-[11px] font-normal text-mist-600 tabular-nums opacity-0 group-hover:opacity-100">{inside.length}</span>
                   </Link>
                   {(space.role === 'write' || space.role === 'manage') && (

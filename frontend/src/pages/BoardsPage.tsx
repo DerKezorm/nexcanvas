@@ -76,15 +76,25 @@ export function BoardsPage() {
                 {t('members.button', { count: space.people ?? space.members.length })}
               </button>
             )}
+            {/* nexsuite let it go: only the operator sees it now, and may put it into the trash (B18). */}
+            {space?.dropped && (
+              <span className="rounded-full border border-warn-500/40 px-2 py-0.5 text-[11px] font-medium text-warn-500" title={t('suite.droppedHint')} data-testid="space-dropped">
+                {t('suite.dropped')}
+              </span>
+            )}
             {space?.role === 'manage' && (
               <Popover label={t('space.options')} className="rounded-full p-1.5 text-mist-500 hover:bg-ink-850 hover:text-mist-100" button={<MoreHorizontal className="h-4 w-4" />} align="left">
                 {(close) => (
                   <>
-                    <button type="button" role="menuitem" className="nc-menu-item" onClick={() => { close(); setEditing(true) }}>
-                      <Palette className="h-4 w-4 text-mist-500" />
-                      {t('space.edit')}
-                    </button>
-                    <div className="my-1 h-px bg-ink-700" />
+                    {!space.dropped && (
+                      <>
+                        <button type="button" role="menuitem" className="nc-menu-item" onClick={() => { close(); setEditing(true) }}>
+                          <Palette className="h-4 w-4 text-mist-500" />
+                          {t('space.edit')}
+                        </button>
+                        <div className="my-1 h-px bg-ink-700" />
+                      </>
+                    )}
                     <button
                       type="button"
                       role="menuitem"

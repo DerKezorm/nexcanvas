@@ -778,7 +778,8 @@
     "countAccounts_one": "{{count}} account",
     "countAccounts_other": "{{count}} accounts",
     "inSpaces_zero": "in no space",
-    "block": "Block"
+    "block": "Block",
+    "smtpHostPort": "Server and port"
   },
   "errors": {
     "avatar_not_a_picture": "That is not a picture nexcanvas takes (JPEG, PNG, WebP, GIF, HEIC or AVIF).",
@@ -927,7 +928,16 @@
     "connecting_already": "A connection is under way already: resume it or give it up.",
     "suite_unreachable_disconnect": "nexsuite does not answer. Disconnect with an emergency code, or try again when nexsuite is back.",
     "invalid_account_name": "A sign-in name has 2 to 64 characters: letters, digits, dots, dashes or underscores, no spaces.",
-    "backups_emergency_only": "While connected to nexsuite, only the emergency account handles backups."
+    "backups_emergency_only": "While connected, only the emergency account downloads and deletes backups.",
+    "not_suite": "No nexsuite answers at this address. Use the address nexsuite opens at in the browser, without a path after it.",
+    "app_still_connected": "An app at this address is still connected to nexsuite. Disconnect it first, in the app or in nexsuite under Apps.",
+    "app_not_reachable": "nexsuite knows a connection with this address and cannot reach the app to ask. Disconnect it in nexsuite under Apps, then connect again.",
+    "person_unknown": "A person you chose is not in nexsuite (any more). The list is loaded anew; look at the choices again.",
+    "space_unknown": "A space you chose is not in nexsuite (any more). The list is loaded anew; look at the choices again.",
+    "team_unknown": "A team you chose is not in nexsuite (any more). The list is loaded anew; look at the choices again.",
+    "suite_no_account": "nexcanvas does not know you yet. Try again in a few seconds; if it still does not work, ask the operator of nexsuite.",
+    "invite_suite": "This invitation is not valid any more: nexcanvas is connected to nexsuite now, and you sign in through nexsuite.",
+    "too_many": "That is too many."
   },
   "auth": {
     "name": "Name",
@@ -947,7 +957,8 @@
       "submit": "Sign in",
       "passwordOff": "Sign-in with a password is turned off for members.",
       "oidc": "Sign in with {{name}}",
-      "ended": "Your session was ended, for example because your account was blocked or signed out everywhere. Sign in again."
+      "ended": "Your session was ended, for example because your account was blocked or signed out everywhere. Sign in again.",
+      "endedSuite": "Your session was ended, for example because your account was blocked or signed out everywhere, or your password was changed in nexsuite. Sign in again."
     },
     "code": {
       "title": "Second factor",
@@ -1380,7 +1391,7 @@
     "managed": "This is kept in nexsuite now.",
     "managedAccounts": "Accounts come from nexsuite. New people, blocking and roles there.",
     "managedSignIn": "People sign in through nexsuite. Whether nexsuite checks itself or asks authentik is set there. Your own password stays as the emergency way in.",
-    "managedMail": "The mail server comes from nexsuite. With none set up there, nexcanvas sends no mail. Your own setting is kept in case you disconnect.",
+    "managedMail": "The mail server comes from nexsuite and is changed there. Your own setting is kept in case you disconnect.",
     "managedTeams": "Teams come from nexsuite and apply in every connected app.",
     "managedProfile": "Profile picture, name and address come from nexsuite and hold in every connected app. They are changed there.",
     "mailTitle": "Mail",
@@ -1399,7 +1410,7 @@
     "emergencyCodes": "Emergency codes",
     "codesKnown_one": "{{count}} known",
     "codesKnown_other": "{{count}} known",
-    "codesNone": "none yet, make them in nexsuite under Apps",
+    "codesNone": "none yet. Create them now in nexsuite under Apps and keep them: with nexsuite out of reach, they can no longer be created.",
     "syncNow": "Fetch now",
     "open": "Open nexsuite",
     "disconnect": "Disconnect",
@@ -1420,7 +1431,7 @@
     "step3": "Match spaces and teams",
     "step4": "Done",
     "step1Text": "You get the code in nexsuite under Apps, Connect. It is valid for 15 minutes.",
-    "step2Text": "Every account here belongs to a person in nexsuite from now on. Suggested by mail address and name. Boards, rights and history stay with it.",
+    "step2Text": "Every account here belongs to a person in nexsuite from now on. Suggested by an earlier match, mail address and name. Boards, rights and history stay with it; display name, address and profile picture come from nexsuite afterwards.",
     "step3Text": "Spaces from here go to nexsuite. If there is a matching one already, you join the two: the rights from here come along, and where somebody has a right there already, the higher one holds.",
     "newPerson": "Create in nexsuite",
     "newSpace": "Create in nexsuite",
@@ -1450,7 +1461,29 @@
     "freshMailed": "New in nexsuite and asked by mail to set a password: {{names}}.",
     "freshInSuite": "New in nexsuite but without a mail (no address or no mail server): {{names}}. Get the link to set the password in nexsuite under People, Edit.",
     "keepSpace": "Keep it here only",
-    "keepSpaceHint": "“Keep it here only”: the space stays in nexcanvas and you keep giving its rights here. A personal space is suggested that way."
+    "keepSpaceHint": "“Keep it here only”: the space stays in nexcanvas and you keep giving its rights here. A personal space is suggested that way.",
+    "backupsKeeper": "While connected, only the emergency account downloads or deletes backups: an archive contains its password and second factor.",
+    "backupsRestore": "Restoring works once nexcanvas is disconnected from nexsuite.",
+    "rowBlocked": "blocked",
+    "rowBlockedTaken": "Blocked. Taken over, the account can sign in again.",
+    "rowGone": "Its person was deleted in nexsuite.",
+    "rowFromSuite": "came from nexsuite",
+    "changesName": "Display name becomes “{{name}}”",
+    "changesMail": "Address becomes {{email}}",
+    "pairing": "One moment, nexsuite is being asked.",
+    "finishing": "nexcanvas connects to nexsuite and brings everything in step. This takes a moment.",
+    "managedPassword": "You change your password and second factor in nexsuite; they count for every connected app.",
+    "openSuite": "Open nexsuite",
+    "mailNone": "No mail server is set up in nexsuite, so nexcanvas sends no mail. Your own setting is kept in case you disconnect.",
+    "notSet": "not set",
+    "stillSignedIn": "If you are still signed in to nexsuite, the button takes you in as the same person without asking.",
+    "someoneElse": "Sign in as someone else",
+    "someoneElseHint": "nexsuite opens in a new tab. Sign out there, then use “Sign in with nexsuite” here.",
+    "leaveOperators": "Operators through nexsuite only, members again afterwards: {{names}}.",
+    "operatorsBack": "Members again, they were operators through nexsuite only: {{names}}.",
+    "leaveOperatorsUnknown": "For this connection it is not known who was an operator before; these operators stay operators: {{names}}.",
+    "dropped": "no longer in nexsuite",
+    "droppedHint": "nexsuite no longer gives nexcanvas this space. Its boards stay, only the operator sees it. You can move it to the trash."
   },
   "colorNames": {
     "pink": "Pink",

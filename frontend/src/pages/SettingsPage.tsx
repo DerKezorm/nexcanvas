@@ -293,7 +293,11 @@ function Spaces() {
                   {t('packages.title')}
                 </Button>
               )}
-              {s.managed ? (
+              {s.dropped ? (
+                <span className="rounded-full border border-warn-500/40 px-2 py-0.5 text-[11px] font-medium text-warn-500" title={t('suite.droppedHint')} data-testid="space-dropped">
+                  {t('suite.dropped')}
+                </span>
+              ) : s.managed ? (
                 <span className="rounded-full border border-accent-500/40 px-2 py-0.5 text-[11px] font-medium text-accent-400">{t('suite.fromSuite')}</span>
               ) : (
                 <>

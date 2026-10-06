@@ -13,7 +13,7 @@ import { MembersDialog } from '../../components/MembersDialog'
 import { byName, forgetAddedLanguages, templateFile } from '../../i18n'
 import { useAuth } from '../../state/auth'
 import { Button, Card, Confirm, CopyLink, Feedback, Input, saveAsFile, Select, SubHead, Toggle, useAction } from './ui'
-import { useSuiteConnected } from '../../components/Suite'
+import { Managed, useSuiteConnected } from '../../components/Suite'
 
 export type ServerSettings = {
   public_url: string
@@ -533,24 +533,28 @@ export function MailCard({ server, readOnly = false }: { server: Server; readOnl
   const test = useAction()
   if (!s) return null
   if (readOnly) {
-    // The mail server nexsuite hands over, as it holds now (G2): what was a sentence only before.
+    // The mail server nexsuite hands over, as it holds now (G2), in words: server and port in one row, the encryption
+    // as the form's choice names it, an empty value said, never "none" or a dash (G8).
+    const security = (value: string) => (value === 'none' ? t('server.none') : value.toUpperCase())
     const rows: [string, string][] = [
-      [t('server.smtpHost'), s.smtp_host || '–'],
-      [t('server.smtpPort'), String(s.smtp_port)],
-      [t('server.smtpSecurity'), s.smtp_security],
-      [t('server.smtpUser'), s.smtp_user || '–'],
-      [t('server.smtpFrom'), s.smtp_from || '–'],
+      [t('server.smtpHostPort'), s.smtp_host ? `${s.smtp_host}:${s.smtp_port}` : ''],
+      [t('server.smtpSecurity'), security(s.smtp_security)],
+      [t('server.smtpUser'), s.smtp_user],
+      [t('server.smtpFrom'), s.smtp_from],
     ]
     return (
-      <Card id="mail" icon={Mail} title={t('suite.mailTitle')} text={t('suite.managedMail')}>
-        <dl className="grid gap-x-6 gap-y-1.5 rounded-xl border border-ink-700 bg-ink-850 px-4 py-3 text-sm sm:grid-cols-[max-content_1fr]">
-          {rows.map(([label, value]) => (
-            <div key={label} className="contents">
-              <dt className="text-mist-500">{label}</dt>
-              <dd className="truncate text-mist-100">{value}</dd>
-            </div>
-          ))}
-        </dl>
+      // Without a server there the card says it once, as its text (as nexbrand and nextasks).
+      <Card id="mail" icon={Mail} title={t('suite.mailTitle')} text={s.smtp_host ? t('suite.managedMail') : t('suite.mailNone')}>
+        {s.smtp_host && (
+          <dl className="grid gap-x-6 gap-y-1.5 rounded-xl border border-ink-700 bg-ink-850 px-4 py-3 text-sm sm:grid-cols-[max-content_1fr]" data-testid="mail-from-suite">
+            {rows.map(([label, value]) => (
+              <div key={label} className="contents">
+                <dt className="text-mist-500">{label}</dt>
+                <dd className={'truncate ' + (value ? 'text-mist-100' : 'text-mist-500')}>{value || t('suite.notSet')}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
       </Card>
     )
   }
@@ -687,6 +691,9 @@ export function BackupsCard({ server }: { server: Server }) {
         </span>
       </div>
       <Feedback problem={server.problem} done={server.done} />
+      {/* Connected, why there is no way to restore, and for an operator through nexsuite why it cannot download or
+          delete either (B15, as nexbrand). */}
+      {connected && <Managed text={me?.suite_emergency ? t('suite.backupsRestore') : `${t('suite.backupsKeeper')} ${t('suite.backupsRestore')}`} />}
       <ul className="divide-y divide-ink-700 rounded-xl border border-ink-700 text-sm">
         {list.length === 0 && <li className="px-4 py-3 text-mist-500">{t('server.noBackups')}</li>}
         {list.map((entry) => (
