@@ -105,7 +105,7 @@ def _view(db: DbSession, account: AccountRow, board: Board, *, picture: bool = T
     return view
 
 
-@router.get("/boards", summary="The boards of every readable space, or of one, or those in the bin")
+@router.get("/boards", summary="The boards of every readable space, or of one, or those in the trash")
 def listing(
     account: Account,
     db: DbSession,
@@ -179,17 +179,17 @@ def copy(board_id: BoardId, payload: CopyIn, account: Account, db: DbSession) ->
     return _view(db, account, copied)
 
 
-@router.delete("/boards/{board_id}", status_code=204, summary="Move a board into the bin")
+@router.delete("/boards/{board_id}", status_code=204, summary="Move a board to the trash")
 async def trash(board_id: BoardId, account: Account) -> None:
     with SessionLocal() as db:
         board = _board(db, account, board_id, WRITE)
         board.deleted_at = utcnow()
         db.commit()
     await live.close_board(board_id)
-    logger.info("Board in the bin id=%s by=%s", board_id, account.name)
+    logger.info("Board in the trash id=%s by=%s", board_id, account.name)
 
 
-@router.post("/boards/{board_id}/restore", summary="Bring a board back from the bin")
+@router.post("/boards/{board_id}/restore", summary="Bring a board back from the trash")
 def restore(board_id: BoardId, account: Account, db: DbSession) -> dict[str, Any]:
     board = _board(db, account, board_id, WRITE, deleted=True)
     board.deleted_at = None
@@ -197,7 +197,7 @@ def restore(board_id: BoardId, account: Account, db: DbSession) -> dict[str, Any
     return _view(db, account, board)
 
 
-@router.delete("/boards/{board_id}/purge", status_code=204, summary="Delete a board from the bin for good")
+@router.delete("/boards/{board_id}/purge", status_code=204, summary="Delete a board from the trash for good")
 def purge(board_id: BoardId, account: Account, db: DbSession) -> None:
     # For good is for those who manage the space; who may write puts into the bin (D9, decided 04.10.2026).
     board = _board(db, account, board_id, MANAGE, deleted=True)

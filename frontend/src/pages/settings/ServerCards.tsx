@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { api, apiTokensApi, passwordHeader, type AnyApiToken, type Me, type SpaceInfo } from '../../api/client'
 import { Avatar } from '../../components/Avatar'
 import { MembersDialog } from '../../components/MembersDialog'
-import { forgetAddedLanguages, templateFile } from '../../i18n'
+import { byName, forgetAddedLanguages, templateFile } from '../../i18n'
 import { useAuth } from '../../state/auth'
 import { Button, Card, Confirm, CopyLink, Feedback, Input, saveAsFile, Select, SubHead, Toggle, useAction } from './ui'
 import { useSuiteConnected } from '../../components/Suite'
@@ -771,7 +771,7 @@ export function LanguagesCard() {
   const file = useRef<HTMLInputElement>(null)
   const action = useAction()
   const load = useCallback(() => {
-    api<Locale[]>('/api/locales').then(setList, () => undefined)
+    api<Locale[]>('/api/locales').then((rows) => setList(rows.sort(byName)), () => undefined)
   }, [])
   useEffect(load, [load])
   const chip = 'flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs'

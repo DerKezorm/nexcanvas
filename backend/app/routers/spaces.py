@@ -113,7 +113,7 @@ def change(space_id: SpaceId, payload: SpaceChange, account: Account, db: DbSess
     return _view(db, account, space)
 
 
-@router.delete("/{space_id}", status_code=204, summary="Move a space with its boards into the bin (managers)")
+@router.delete("/{space_id}", status_code=204, summary="Move a space with its boards to the trash (managers)")
 def trash(space_id: SpaceId, account: Account, db: DbSession) -> None:
     suite.refuse_if_space_managed(db, space_id, account)
     try:
@@ -121,10 +121,10 @@ def trash(space_id: SpaceId, account: Account, db: DbSession) -> None:
     except rights.RightsError as exc:
         raise _fail(exc) from exc
     spaces.trash(db, space)
-    logger.info("Space in the bin id=%s by=%s", space.id, account.name)
+    logger.info("Space in the trash id=%s by=%s", space.id, account.name)
 
 
-@router.get("/bin", summary="Spaces in the bin the own account managed")
+@router.get("/bin", summary="Spaces in the trash the own account managed")
 def bin_listing(account: Account, db: DbSession) -> list[dict[str, Any]]:
     query = select(Space).where(Space.deleted_at.is_not(None))
     if account.role != OPERATOR:
@@ -139,7 +139,7 @@ def bin_listing(account: Account, db: DbSession) -> list[dict[str, Any]]:
     ]
 
 
-@router.post("/{space_id}/restore", summary="Bring a space back from the bin (its managers)")
+@router.post("/{space_id}/restore", summary="Bring a space back from the trash (its managers)")
 def restore(space_id: SpaceId, account: Account, db: DbSession) -> dict[str, Any]:
     space = db.get(Space, space_id)
     membership = db.get(Membership, (space_id, account.id)) if space is not None else None

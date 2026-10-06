@@ -51,13 +51,13 @@ def run_once() -> None:
     with SessionLocal() as db:
         for board in db.scalars(select(Board).where(Board.deleted_at < now - timedelta(days=BIN_DAYS))):
             db.delete(board)
-            logger.info("Board deleted after 30 days in the bin id=%s", board.id)
+            logger.info("Board deleted after 30 days in the trash id=%s", board.id)
         # A space from nexsuite goes when nexsuite says so ("gone"): by the clock here it went up to a day early,
         # and a restore there then brought back an empty space (E3).
         for space in db.scalars(select(Space).where(Space.deleted_at < now - timedelta(days=BIN_DAYS),
                                                     Space.external_id == "")):
             db.delete(space)
-            logger.info("Space deleted after 30 days in the bin id=%s", space.id)
+            logger.info("Space deleted after 30 days in the trash id=%s", space.id)
         db.commit()
         spaces = set(db.scalars(select(Media.space_id).distinct()))
     for space_id in spaces:

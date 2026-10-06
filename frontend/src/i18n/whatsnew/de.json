@@ -57,7 +57,7 @@
     ]
   },
   "0.1.0": {
-    "lead": "Die erste Fassung von nexcanvas: ein Whiteboard auf deinem eigenen Server, an dem mehrere Leute gleichzeitig zeichnen, schreiben und ordnen.",
+    "lead": "Die erste Version von nexcanvas: ein Whiteboard auf deinem eigenen Server, an dem mehrere Leute gleichzeitig zeichnen, schreiben und ordnen.",
     "sections": [
       {
         "title": "Gemeinsam am selben Board",
@@ -120,7 +120,7 @@
       "Hell, dunkel oder wie das System, über den Schalter in der Kopfleiste.",
       "Strg+K springt zu jedem Board.",
       "Gelöschte Boards liegen erst im Papierkorb, und alle 30 Minuten entsteht eine Version, zu der du zurückkannst.",
-      "Die Über-Seite im Kontomenü sagt, wenn es eine neue Fassung gibt; der Betreiber kann das Nachsehen dort abschalten."
+      "Die Über-Seite im Kontomenü sagt, wenn es eine neue Version gibt; der Betreiber kann das Nachsehen dort abschalten."
     ]
   }
 }

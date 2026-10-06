@@ -27,7 +27,7 @@ export function AccountMenu() {
     { code: 'de', name: 'Deutsch', added: false },
     { code: 'en', name: 'English', added: false },
   ])
-  // The operator's languages join the two shipped ones once the menu opens.
+  // The operator's languages take their place among the shipped ones once the menu opens.
   useEffect(() => {
     if (open) void languageOptions().then(setLanguages)
   }, [open])

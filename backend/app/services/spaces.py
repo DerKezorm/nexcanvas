@@ -68,4 +68,4 @@ def trash(db: Session, space: Space) -> None:
     """Into the bin with all its boards; the members stay, so a restore brings everything back as it was."""
     space.deleted_at = utcnow()
     db.commit()
-    logger.info("Space moved to the bin id=%s", space.id)
+    logger.info("Space moved to the trash id=%s", space.id)

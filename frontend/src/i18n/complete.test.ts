@@ -31,4 +31,17 @@ describe('shipped languages', () => {
     const dashed = [...german, ...english].filter(([, text]) => /[–—]/.test(text))
     expect(dashed.map(([key]) => key)).toEqual([])
   })
+
+  it('say trash in English, never bin (decided 06.10.2026)', () => {
+    expect([...english].filter(([, text]) => /\bbins?\b/i.test(text)).map(([key, text]) => `${key}: ${text}`)).toEqual([])
+    // Floor: the trash is still spoken of, so the check above has something to look at.
+    expect([...english].filter(([, text]) => /\btrash\b/i.test(text)).length).toBeGreaterThan(5)
+  })
+
+  it('call the program version Version in German; Fassung is left for what is on a board (decided 06.10.2026)', () => {
+    const about = [...german].filter(([key]) => key.startsWith('about.'))
+    expect(about.filter(([, text]) => /Fassung/.test(text)).map(([key, text]) => `${key}: ${text}`)).toEqual([])
+    expect(german.get('about.version')).toBe('Version')
+    expect(german.get('about.updates.current')).toBe('Das ist die neueste Version.')
+  })
 })

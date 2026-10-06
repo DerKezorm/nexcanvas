@@ -72,8 +72,8 @@ your own: save a board as a template, with its content or only the skeleton.*
 - **Spaces and rights.** Boards live in spaces; each member of a space reads, writes or manages there. A space
   somebody may not read answers like one that does not exist. A board can get a public page, read only, with an end
   date and a password if you like.
-- **Versions and the bin.** A state of each board is kept every half hour while people work on it; bring one back
-  with a click. Boards and spaces go to a bin for 30 days.
+- **Versions and the trash.** A state of each board is kept every half hour while people work on it; bring one back
+  with a click. Boards and spaces go to the trash for 30 days.
 - **On the phone.** All tools with the finger: the tools sit at the bottom, one finger moves the board, two zoom,
   a long press opens the menu, a double tap starts a text.
 - **Around it, as in nexlore.** Accounts by invitation, second factor with recovery codes, sign-in through an OIDC
