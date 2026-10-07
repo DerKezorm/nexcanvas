@@ -9,6 +9,7 @@ from dataclasses import asdict
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ..deps import Account, DbSession, OperatorAccount, confirm_operator
@@ -110,12 +111,17 @@ def finish(payload: FinishIn, operator: OperatorAccount, db: DbSession) -> dict[
     return {**suite.view(db), "new_people": new_people}
 
 
-@router.post("/abort", status_code=204, summary="Give up a connection that did not finish (operator)")
-def abort(_operator: OperatorAccount, db: DbSession) -> None:
+@router.post("/abort", status_code=204, response_model=None,
+             summary="Give up a connection that did not finish (operator)")
+def abort(_operator: OperatorAccount, db: DbSession) -> Response:
     try:
-        suite.abort(db)
+        kept = suite.abort(db)
     except suite.SuiteError as exc:
         raise _fail(exc) from exc
+    if kept:
+        # /finish had gone out and nexsuite could not be told: the page says the app may stand there still.
+        return JSONResponse({"kept_in_suite": True})
+    return Response(status_code=204)
 
 
 @router.post("/sync", summary="Fetch the directory now (operator)")

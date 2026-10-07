@@ -34,6 +34,8 @@ type Proposal = {
   chosen?: Chosen | null
   /** People, teams and spaces an earlier try made in nexsuite already. */
   made?: number
+  /** A /finish went out whose answer did not come: its choices hold, the fields are locked. */
+  sent?: boolean
 }
 
 /** Codes of a choice nexsuite does not know (any more): the lists are loaded anew (B9). */
@@ -94,6 +96,8 @@ export function SuiteCard() {
   const [without, setWithout] = useState<string[] | null>(null)
   const [stillBlocked, setStillBlocked] = useState<string[]>([])
   const [operatorsBack, setOperatorsBack] = useState<string[]>([])
+  /** Given up after /finish went out, and nexsuite could not be told: it may list the app still. */
+  const [keptInSuite, setKeptInSuite] = useState(false)
   const action = useAction()
   const load = useCallback(async () => {
     setStatus(await api<Status>('/api/suite'))
@@ -155,6 +159,7 @@ export function SuiteCard() {
         )}
         {without && without.length > 0 && <p className="text-sm text-warn-500">{t('suite.withoutPassword', { names: without.join(', ') })}</p>}
         {stillBlocked.length > 0 && <p className="text-sm text-warn-500">{t('suite.stillBlocked', { names: stillBlocked.join(', ') })}</p>}
+        {keptInSuite && <p className="text-sm text-warn-500" data-testid="suite-kept">{t('suite.abortKept')}</p>}
         {operatorsBack.length > 0 && <p className="text-sm text-warn-500" data-testid="operators-back">{t('suite.operatorsBack', { names: operatorsBack.join(', ') })}</p>}
       </Card>
       {connected && (
@@ -165,8 +170,9 @@ export function SuiteCard() {
       {wizard && (
         <ConnectWizard
           resume={status.state === 'connecting'}
-          onClose={() => {
+          onClose={(kept) => {
             setWizard(false)
+            setKeptInSuite(!!kept)
             void load()
           }}
         />
@@ -252,7 +258,7 @@ function LeaveDialog({ mode, status, onClose, onDone }: { mode: 'password' | 'co
   )
 }
 
-function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => void }) {
+function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: (keptInSuite?: boolean) => void }) {
   const { t } = useTranslation()
   const { me } = useAuth()
   const [step, setStep] = useState(resume ? 2 : 1)
@@ -320,19 +326,19 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
         } else {
           // Part of it may be made in nexsuite already: giving up then says what stays there.
           const again = await api<Proposal>('/api/suite/proposal').catch(() => null)
-          if (again) setProposal((before) => (before ? { ...before, made: again.made } : before))
+          if (again) setProposal((before) => (before ? { ...before, made: again.made, sent: again.sent } : before))
         }
         throw error
       }
     })
   const abort = () =>
     void action.run(async () => {
-      await api('/api/suite/abort', { method: 'POST' })
-      onClose()
+      const left = await api<{ kept_in_suite?: boolean } | undefined>('/api/suite/abort', { method: 'POST' })
+      onClose(left?.kept_in_suite)
     })
   const own = me ? accounts[me.id] : undefined
   return (
-    <Dialog title={t('suite.wizardTitle', { step, title: titles[step] })} onClose={onClose} wide>
+    <Dialog title={t('suite.wizardTitle', { step, title: titles[step] })} onClose={() => onClose()} wide>
       {step === 1 && (
         <form
           className="space-y-3"
@@ -353,7 +359,7 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
           <Feedback problem={action.problem} />
           {action.busy && <Busy text={t('suite.pairing')} />}
           <div className="flex justify-end gap-2">
-            <button type="button" className="nc-btn nc-btn-ghost" onClick={onClose}>
+            <button type="button" className="nc-btn nc-btn-ghost" onClick={() => onClose()}>
               {t('common.cancel')}
             </button>
             <button type="submit" className="nc-btn nc-btn-accent" disabled={!url.trim() || code.trim().length < 4 || action.busy}>
@@ -386,6 +392,7 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
                 <select
                   value={accounts[a.id] ?? 'new'}
                   onChange={(e) => setAccounts((m) => ({ ...m, [a.id]: e.target.value }))}
+                  disabled={proposal.sent}
                   className="w-full rounded-lg border border-ink-700 bg-ink-850 px-2 py-1 text-sm text-mist-100 sm:w-auto sm:max-w-56"
                   aria-label={t('suite.matchFor', { name: a.name })}
                 >
@@ -413,6 +420,7 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
           </ul>
           <p className="text-xs text-mist-500">{t('suite.newPersonHint')}</p>
           {own === 'skip' && <p className="text-sm text-bad-500">{t('errors.operator_unmatched')}</p>}
+          {proposal.sent && <p className="text-sm text-warn-500" data-testid="suite-sent">{t('suite.sentChoices')}</p>}
           <Feedback problem={action.problem} />
           {/* An earlier try made people, teams or spaces in nexsuite: they stay there when giving up. */}
           {(proposal.made ?? 0) > 0 && <p className="text-xs text-warn-500" data-testid="suite-made">{t('suite.abortMade')}</p>}
@@ -441,6 +449,7 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
                 <select
                   value={spaces[s.id] ?? 'new'}
                   onChange={(e) => setSpaces((m) => ({ ...m, [s.id]: e.target.value }))}
+                  disabled={proposal.sent}
                   className="w-full rounded-lg border border-ink-700 bg-ink-850 px-2 py-1 text-sm text-mist-100 sm:w-auto sm:max-w-56"
                   aria-label={t('suite.matchFor', { name: s.name })}
                 >
@@ -471,6 +480,7 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
                     <select
                       value={teams[team.id] ?? 'new'}
                       onChange={(e) => setTeams((m) => ({ ...m, [team.id]: e.target.value }))}
+                      disabled={proposal.sent}
                       className="w-full rounded-lg border border-ink-700 bg-ink-850 px-2 py-1 text-sm text-mist-100 sm:w-auto sm:max-w-56"
                       aria-label={t('suite.matchFor', { name: team.name })}
                     >
@@ -487,6 +497,7 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
               </ul>
             </>
           )}
+          {proposal.sent && <p className="text-sm text-warn-500" data-testid="suite-sent">{t('suite.sentChoices')}</p>}
           <Feedback problem={action.problem} />
           {action.busy && <Busy text={t('suite.finishing')} />}
           <div className="flex justify-between gap-2">
@@ -513,7 +524,7 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
             <p className="text-sm text-warn-500">{t('suite.freshInSuite', { names: fresh.filter((p) => p.password !== 'mailed').map((p) => p.name).join(', ') })}</p>
           )}
           <div className="flex justify-end">
-            <button type="button" className="nc-btn nc-btn-accent" onClick={onClose}>
+            <button type="button" className="nc-btn nc-btn-accent" onClick={() => onClose()}>
               {t('common.done')}
             </button>
           </div>

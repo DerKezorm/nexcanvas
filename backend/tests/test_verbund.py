@@ -1641,3 +1641,62 @@ def test_the_proposal_says_when_something_was_made_in_nexsuite_already(client: T
     fake.fail_on = "/spaces"
     assert client.post("/api/suite/finish", json=chosen).status_code in (409, 502)
     assert client.get("/api/suite/proposal").json()["made"] == 2, "ben as a person and the team Design"
+
+
+# --- Review of e709c94: once /finish went out, the choices of then hold ----------------------------------------------
+
+
+def _lose_finish_once(fake: FakeSuite, monkeypatch: pytest.MonkeyPatch) -> None:
+    real = fake.handle
+    lost = {"once": True}
+
+    def losing(method: str, url: str, **kwargs: Any) -> Any:
+        answer = real(method, url, **kwargs)
+        if url.endswith("/api/connect/v1/finish") and lost.pop("once", False):
+            raise suite.SuiteError("suite_unreachable", "nexsuite cannot be reached.")
+        return answer
+
+    monkeypatch.setattr(suite, "request", losing)
+
+
+def test_after_finish_went_out_other_choices_are_refused_not_ignored(client: TestClient, operator: Account,
+                                                                     world: dict, fake: FakeSuite,
+                                                                     monkeypatch: pytest.MonkeyPatch) -> None:
+    """The answer to /finish got lost; the operator then sets anna to "leave out". Neither keeping that nor finishing
+    with it passes silently with the plan of then: both are refused, anna stays untouched; the choices of then
+    finish."""
+    chosen = _choices(client, world)
+    _lose_finish_once(fake, monkeypatch)
+    assert client.post("/api/suite/finish", json=chosen).status_code in (409, 502)
+    assert client.get("/api/suite/proposal").json()["sent"] is True
+    other = {**chosen, "accounts": {**chosen["accounts"], world["anna"].id: "skip"}}
+    kept = client.put("/api/suite/choices", json={**other, "teams": {}, "step": 2})
+    assert kept.status_code == 409 and _code(kept) == "connection_sent"
+    refused = client.post("/api/suite/finish", json=other)
+    assert refused.status_code == 409 and _code(refused) == "connection_sent"
+    assert _setting("suite_state") == "connecting" and _row("anna").oidc_subject == ""
+    done = client.post("/api/suite/finish", json=chosen)
+    assert done.status_code == 200, done.text
+    assert _row("anna").oidc_subject == "2"
+
+
+def test_giving_up_after_finish_went_out_says_when_nexsuite_may_still_list_the_app(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    chosen = _choices(client, world)
+    _lose_finish_once(fake, monkeypatch)
+    assert client.post("/api/suite/finish", json=chosen).status_code in (409, 502)
+    fake.down = True
+    answer = client.post("/api/suite/abort")
+    assert answer.status_code == 200 and answer.json() == {"kept_in_suite": True}
+    assert _setting("suite_state") == ""
+
+
+def test_giving_up_before_finish_went_out_says_nothing_more(client: TestClient, operator: Account, world: dict,
+                                                            fake: FakeSuite) -> None:
+    _choices(client, world)
+    fake.down = True
+    assert client.post("/api/suite/abort").status_code == 204
+    fake.down = False
+    _choices(client, world)
+    assert client.post("/api/suite/abort").status_code == 204

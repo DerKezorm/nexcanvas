@@ -275,6 +275,49 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     )
   })
 
+  it('locks the choices once the connection went out to nexsuite, and says so', async () => {
+    connecting()
+    const page = await mount(<SuiteCard />)
+    await click(button(page, 'Continue connecting'))
+    await settle()
+    expect(page.querySelector('[data-testid="suite-sent"]')).toBeNull()
+    expect(row(page, 'jona').querySelector('select')!.disabled).toBe(false)
+    await click(button(page, 'Next'))
+    await settle()
+    // The answer to the last step got lost: nexsuite may have the connection.
+    server.refuse['POST /api/suite/finish'] = { status: 502, code: 'suite_unreachable' }
+    server.answers['GET /api/suite/proposal'] = { ...proposal(), made: 1, sent: true }
+    await click(button(page, 'Connect'))
+    await settle()
+    const sentence = 'The connection has been sent to nexsuite already. The choices made then apply; for other choices, cancel and connect again.'
+    expect(page.querySelector('[data-testid="suite-sent"]')!.textContent).toBe(sentence)
+    expect([...page.querySelectorAll('li select')].every((select) => (select as HTMLSelectElement).disabled)).toBe(true)
+    await click(button(page, 'Back'))
+    expect(page.querySelector('[data-testid="suite-sent"]')!.textContent).toBe(sentence)
+    expect(row(page, 'jona').querySelector('select')!.disabled).toBe(true)
+  })
+
+  it('says after giving up when nexsuite may still list nexcanvas, and only then', async () => {
+    connecting()
+    server.answers['POST /api/suite/abort'] = { kept_in_suite: true }
+    const page = await mount(<SuiteCard />)
+    await click(button(page, 'Continue connecting'))
+    await settle()
+    await click(button(page, 'Cancel and forget'))
+    await settle()
+    expect(page.querySelector('[data-testid="suite-kept"]')!.textContent).toBe(
+      'nexsuite could not be reached. nexcanvas may still be listed there under Apps; disconnect it there before you connect again.',
+    )
+    await unmount()
+    server.answers['POST /api/suite/abort'] = undefined
+    const again = await mount(<SuiteCard />)
+    await click(button(again, 'Continue connecting'))
+    await settle()
+    await click(button(again, 'Cancel and forget'))
+    await settle()
+    expect(again.querySelector('[data-testid="suite-kept"]')).toBeNull()
+  })
+
   it('says what takes a moment and connects once for two clicks (B25)', async () => {
     connecting()
     const page = await mount(<SuiteCard />)

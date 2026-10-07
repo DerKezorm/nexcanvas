@@ -287,6 +287,8 @@ class Proposal:
     chosen: dict[str, Any] | None = None
     #: How many people, teams and spaces an earlier try made in nexsuite already: they stay there on giving up.
     made: int = 0
+    #: A /finish went out whose answer did not come: its choices hold, others are refused (``connection_sent``).
+    sent: bool = False
 
 
 def _fold(text: str) -> str:
@@ -389,7 +391,18 @@ def proposal(db: Session) -> Proposal:
     pending = settings_service.get(db, "suite_pending") or {}
     return Proposal(people=people, accounts=accounts_out, spaces=spaces_out, candidates=candidates, teams=teams_out,
                     team_candidates=team_candidates, chosen=pending.get("chosen") or None,
-                    made=len(pending.get("made") or {}))
+                    made=len(pending.get("made") or {}), sent=bool(pending.get("sent")))
+
+
+def _as_sent(accounts_map: dict[int, str], spaces_map: dict[int, str], teams_map: dict[int, str]) -> dict[str, Any]:
+    """The operator's choices as kept with a /finish that went out, to tell a later try with others."""
+    return {"accounts": {str(k): v for k, v in accounts_map.items()},
+            "spaces": {str(k): v for k, v in spaces_map.items()}, "teams": {str(k): v for k, v in teams_map.items()}}
+
+
+def _sent_already() -> SuiteError:
+    return SuiteError("connection_sent", "The connection was sent to nexsuite already; its choices hold. Cancel and "
+                                         "connect again for other choices.", 409)
 
 
 def keep_choices(db: Session, chosen: dict[str, Any]) -> None:
@@ -401,6 +414,9 @@ def keep_choices(db: Session, chosen: dict[str, Any]) -> None:
         if state(db) != "connecting":
             raise SuiteError("not_connecting", "Start with the address and the code.", 409)
         pending = dict(settings_service.get(db, "suite_pending") or {})
+        if pending.get("sent"):
+            # The choices of the /finish that went out hold; another one would only seem kept (review of e709c94).
+            raise _sent_already()
         pending["chosen"] = chosen
         settings_service.save(db, {"suite_pending": pending})
         db.commit()
@@ -463,12 +479,15 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
             teams_map: dict[int, str] | None) -> list[dict[str, str]]:
     if state(db) != "connecting":
         raise SuiteError("not_connecting", "Start with the address and the code.", 409)
+    teams_map = teams_map or {}
     sent = (settings_service.get(db, "suite_pending") or {}).get("sent")
     if sent:
         # /finish went out before and its answer did not come, or writing it here failed: nexsuite may have the
-        # connection already and refuse everything else. Only /finish again, with what was matched then.
+        # connection already and refuse everything else. Only /finish again, with what was matched then; other
+        # choices now are refused, never applied as the old ones in silence (review of e709c94).
+        if "chosen" in sent and _as_sent(accounts_map, spaces_map, teams_map) != sent["chosen"]:
+            raise _sent_already()
         return _confirm(db, _token(db), sent)
-    teams_map = teams_map or {}
     _no_twice(accounts_map, "person")
     _no_twice(spaces_map, "space")
     _no_twice(teams_map, "team")
@@ -569,7 +588,8 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
     # here fails afterwards). The next try sends only /finish again and applies this (review of 4f54522).
     plan = {"operator": operator.id, "people": {str(k): v for k, v in person_of.items()},
             "teams": {str(k): v for k, v in team_of.items()}, "spaces": {str(k): v for k, v in space_of.items()},
-            "skip": [k for k, v in accounts_map.items() if v == "skip"], "new_people": new_people}
+            "skip": [k for k, v in accounts_map.items() if v == "skip"], "new_people": new_people,
+            "chosen": _as_sent(accounts_map, spaces_map, teams_map)}
     pending = dict(settings_service.get(db, "suite_pending") or {})
     pending["sent"] = plan
     settings_service.save(db, {"suite_pending": pending})
@@ -634,20 +654,26 @@ def _confirm(db: Session, token: str, plan: dict[str, Any]) -> list[dict[str, st
     return list(plan.get("new_people") or [])
 
 
-def abort(db: Session) -> None:
+def abort(db: Session) -> bool:
     """Gives up a connection that did not finish; nexsuite is asked to forget the app. A finished connection is not
     given up this way: nexsuite would keep the app while it ran on its own, without anybody's password (B2). Under the
-    lock a finish holds: a give-up from another tab waits for it and then finds the connection done."""
+    lock a finish holds: a give-up from another tab waits for it and then finds the connection done. True when
+    /finish had gone out and nexsuite could not be told: it may list the app as connected still."""
     with _connect_lock:
         db.expire_all()
         if state(db) == "connected":
             raise SuiteError("already_connected", "nexcanvas is already connected.", 409)
+        kept = False
         if state(db) == "connecting":
+            sent = bool((settings_service.get(db, "suite_pending") or {}).get("sent"))
             try:
                 request("POST", _api(db, "/leave"), token=_token(db))
             except SuiteError:
-                pass
+                kept = sent
+                if kept:
+                    logger.warning("nexsuite not told of giving up a connection it may have; it may list the app")
         _forget(db)
+        return kept
 
 
 # --- Keeping in step --------------------------------------------------------------------------------------------------

@@ -62,7 +62,7 @@ describe('a space nexsuite let go (B18)', () => {
     expect(marks).toHaveLength(1)
     expect(marks[0].textContent).toBe('no longer in nexsuite')
     expect(marks[0].getAttribute('title')).toBe(
-      'nexsuite no longer gives nexcanvas this space. Its boards stay, only the operator sees it. You can move it to the trash.',
+      'nexcanvas no longer gets this space from nexsuite. Its boards stay, only the operator sees it. You can move it to the trash.',
     )
     expect(marks[0].closest('a')!.textContent).toContain('Ideen')
   })
