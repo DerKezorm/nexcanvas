@@ -320,6 +320,32 @@ describe('letters in circles and team squares in both themes (G7)', () => {
       }
   })
 
+  it('small counters in the sidebar and the shortcut letters of the tools read 4.5 to 1 or more', async () => {
+    const { dark, light } = await themeTokens()
+    const fs = (await import(/* @vite-ignore */ 'node:' + 'fs')) as { readFileSync: (path: string, encoding: string) => string }
+    // The colour each one is drawn in, read from its source: a counter on a chosen row, a letter on a chosen tool.
+    const colourOf = (file: string, mark: string) => {
+      const found = [...fs.readFileSync(file, 'utf8').matchAll(new RegExp(`data-contrast="${mark}"[^>]*?text-(mist-[0-9]+)`, 'g'))].map((m) => m[1])
+      expect(found.length, mark).toBeGreaterThan(0)
+      return found
+    }
+    const counters = colourOf('src/components/Sidebar.tsx', 'counter')
+    const keys = colourOf('src/board/canvas/Toolbar.tsx', 'key')
+    const over = (top: string, share: number, under: number[]) => hex(top).map((v, i) => v * share + under[i] * (1 - share))
+    for (const [theme, values] of [['dark', dark], ['light', light]] as const) {
+      const page = hex(values['--color-ink-950'])
+      const grounds = { side: page, chosen: over(values['--color-accent-500'], 0.12, page), hover: hex(values['--color-ink-850']) }
+      for (const token of counters)
+        for (const [name, ground] of Object.entries(grounds))
+          expect(contrast(hex(values[`--color-${token}`]), ground), `${theme} counter on ${name}`).toBeGreaterThanOrEqual(4.5)
+      const float = over(values['--color-ink-850'], 0.9, page)
+      const tools = { float, chosen: over(values['--color-accent-500'], 0.16, float), hover: hex(values['--color-ink-800']) }
+      for (const token of keys)
+        for (const [name, ground] of Object.entries(tools))
+          expect(contrast(hex(values[`--color-${token}`]), ground), `${theme} key on ${name}`).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
   it('status words read 4.5 to 1 or more on the card and on their own tint', async () => {
     const { dark, light } = await themeTokens()
     expect(light['--color-ok-500']).toBe('#166534')

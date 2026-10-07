@@ -82,7 +82,7 @@ export function Sidebar() {
           <Link to="/" className={row + (chosen === null ? ' bg-accent-500/12 text-mist-100' : '')}>
             <LayoutDashboard className="h-3.5 w-3.5 shrink-0 opacity-70" />
             <span className="font-semibold">{t('boards.all')}</span>
-            <span className="ml-auto text-[11px] text-mist-600 tabular-nums">{live.length}</span>
+            <span data-contrast="counter" className="ml-auto text-[11px] text-mist-500 tabular-nums">{live.length}</span>
           </Link>
           {boards.spaces.map((space) => {
             const inside = live.filter((b) => b.space === space.id)
@@ -98,7 +98,7 @@ export function Sidebar() {
                     <span className="truncate">{space.name}</span>
                     {/* nexsuite let it go: only the operator sees it now (B18). */}
                     {space.dropped && <span className="shrink-0 rounded-full border border-warn-500/40 px-1.5 text-[10px] font-medium text-warn-500" title={t('suite.droppedHint')} data-testid="space-dropped">{t('suite.dropped')}</span>}
-                    <span className="ml-auto text-[11px] font-normal text-mist-600 tabular-nums opacity-0 group-hover:opacity-100">{inside.length}</span>
+                    <span data-contrast="counter" className="ml-auto text-[11px] font-normal text-mist-500 tabular-nums opacity-0 group-hover:opacity-100">{inside.length}</span>
                   </Link>
                   {(space.role === 'write' || space.role === 'manage') && (
                     <button type="button" onClick={() => shell.newBoard(space.id)} className="shrink-0 rounded p-0.5 text-mist-500 opacity-0 group-hover:opacity-100 hover:bg-ink-800 hover:text-mist-100 focus-visible:opacity-100" title={t('board.newIn', { space: space.name })} aria-label={t('board.newIn', { space: space.name })}>

@@ -72,8 +72,9 @@ function Flyout({ open, onClose, children }: { open: boolean; onClose: () => voi
   )
 }
 
+/** The shortcut's letter in the corner: 4.5 to 1 also on a chosen tool's wash, in both themes (Prüfgang G7). */
 function Key({ k }: { k: string }) {
-  return <span className="pointer-events-none absolute right-0.5 bottom-0 text-[9px] font-semibold text-mist-600">{k}</span>
+  return <span data-contrast="key" className="pointer-events-none absolute right-0.5 bottom-0 text-[9px] font-semibold text-mist-500">{k}</span>
 }
 
 /** The tools, floating over the top of the board as in Freeform: pick, then click or drag on the board. */
