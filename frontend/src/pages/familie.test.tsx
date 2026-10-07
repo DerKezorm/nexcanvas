@@ -534,6 +534,49 @@ describe('the sign-in and invitation pages before the ways in are known (as next
   })
 })
 
+describe('the ways in fail or do not come: the pages fall back to the password', () => {
+  async function page(which: 'login' | 'invite') {
+    const { InvitePage, LoginPage } = await import('./AuthPages')
+    scene.me = null
+    scene.status = 'signedOut'
+    if (which === 'login') return render(<LoginPage />, '/login')
+    return render(
+      <Routes>
+        <Route path="/invite/:token" element={<InvitePage />} />
+      </Routes>,
+      '/invite/abc',
+    )
+  }
+  const invitation = { status: 200, body: { space: null, role: null, by: 'Robin', min_password: 12, signed_in_as: null } }
+
+  for (const which of ['login', 'invite'] as const) {
+    it(`${which}: an answer of 500 shows the password form`, async () => {
+      handler = (_m, path) => (path === '/api/auth/methods' ? { status: 500, body: { detail: { code: 'internal_error' } } } : path.startsWith('/api/invite/') ? invitation : undefined)
+      await page(which)
+      expect(box.querySelector('input[type="password"]')).not.toBeNull()
+    })
+
+    it(`${which}: an answer that hangs shows the password form after the wait, not an empty page for good`, async () => {
+      const { WAYS_IN_WAIT_MS } = await import('./AuthPages')
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        handler = (_m, path) => (path.startsWith('/api/invite/') ? invitation : undefined)
+        held = new Promise<void>(() => undefined)
+        await page(which)
+        expect(box.querySelector('input[type="password"]')).toBeNull()
+        await act(async () => vi.advanceTimersByTime(WAYS_IN_WAIT_MS - 100))
+        await settle()
+        expect(box.querySelector('input[type="password"]')).toBeNull()
+        await act(async () => vi.advanceTimersByTime(200))
+        await settle()
+        expect(box.querySelector('input[type="password"]')).not.toBeNull()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+  }
+})
+
 describe('a refusal in the settings says the numbers it names (useAction)', () => {
   it('passes the server\'s values to the sentence, not "{{max_mb}}"', async () => {
     const { FilesCard, useServerSettings } = await import('./settings/ServerCards')

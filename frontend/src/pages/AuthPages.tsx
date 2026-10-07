@@ -87,6 +87,22 @@ function Problem({ code }: { code: string | null }) {
 
 const codeOf = (error: unknown) => (error instanceof ApiError ? error.code : 'internal_error')
 
+/** How long the pages wait for the ways in before they fall back to the password, as on a failed answer. */
+export const WAYS_IN_WAIT_MS = 5000
+const PASSWORD_ONLY: Methods = { password: true, oidc: false, oidc_name: '' }
+
+/** The ways in, or the password way when the answer fails or does not come in time: the page waits for them before it
+ * shows a form, and must not stay empty for good behind an answer that hangs. */
+function waysIn(): Promise<Methods> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => resolve(PASSWORD_ONLY), WAYS_IN_WAIT_MS)
+    authApi.methods().then(
+      (methods) => resolve(methods),
+      () => resolve(PASSWORD_ONLY),
+    ).finally(() => window.clearTimeout(timer))
+  })
+}
+
 export function SetupPage() {
   const { t } = useTranslation()
   const { status, setMe } = useAuth()
@@ -142,7 +158,7 @@ export function LoginPage({ emergency = false }: { emergency?: boolean }) {
   const ended = params.get('ended') === '1'
 
   useEffect(() => {
-    void authApi.methods().then(setMethods, () => setMethods({ password: true, oidc: false, oidc_name: '' }))
+    void waysIn().then(setMethods)
   }, [])
 
   if (status === 'loading') return null
@@ -305,7 +321,7 @@ export function InvitePage() {
       const code = codeOf(error)
       setInvalid(code === 'invite_suite' ? 'suite' : code === 'invite_expired' ? 'expired' : 'invalid')
     })
-    authApi.methods().then(setMethods, () => setMethods({ password: true, oidc: false, oidc_name: '' }))
+    void waysIn().then(setMethods)
   }, [token])
 
   if (invalid) {

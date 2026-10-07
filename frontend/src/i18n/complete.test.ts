@@ -86,27 +86,27 @@ describe('what is new', () => {
   })
 
   it('never name nexsuite, which is not released (as in the release notes), not even in a roundabout way', () => {
-    expect([...german, ...english].filter((text) => /nexsuite|verbund|\bsuite\b|connected to/i.test(text))).toEqual([])
+    expect([...german, ...english].filter((text) => NAMES_THE_SUITE.test(text))).toEqual([])
+    // "Verbund" as a word of its own; "verbunden" (connected, as a link) is a word like any other.
+    expect(NAMES_THE_SUITE.test('Im Verbund kommen die Rechte von dort.')).toBe(true)
+    expect(NAMES_THE_SUITE.test('Linien bleiben mit ihren Formen verbunden.')).toBe(false)
   })
 
-  it('give ways that exist: a tab of the settings, and under Server one of its parts', () => {
+  it('give ways that exist: a tab of the settings or of My account, and under Server one of its parts', () => {
     // "Einstellungen, Server, Mail" named a part that is not there; the mail card is under Server, Konten.
-    for (const [entries, texts, start] of [[whatsNewDe, de, 'Einstellungen'], [whatsNewEn, en, 'Settings']] as const) {
-      const tabs = Object.values(texts.settings.tabs) as string[]
-      const parts = Object.values(texts.settings.parts) as string[]
-      let checked = 0
+    let checked = 0
+    for (const [entries, texts] of [[whatsNewDe, de], [whatsNewEn, en]] as const)
       for (const [version, entry] of Object.entries(entries as Record<string, { sections: { where: string }[] }>))
-        for (const { where } of entry.sections)
-          for (const clause of where.split(/;|\(/)) {
-            const at = clause.indexOf(`${start}, `)
-            if (at < 0) continue
-            const [tab, part] = clause.slice(at + start.length + 2).split(',').map((piece) => piece.trim())
-            expect(tabs, `${version}: ${where}`).toContain(tab)
-            if (tab === texts.settings.tabs.server && part) expect(parts, `${version}: ${where}`).toContain(part)
-            checked++
-          }
-      expect(checked).toBeGreaterThan(8)
-    }
+        for (const { where } of entry.sections) {
+          expect(wrongWays(where, texts), `${version}: ${where}`).toEqual([])
+          checked += waysIn(where, texts).length
+        }
+    expect(checked).toBeGreaterThan(10)
+    // The check itself: a part or a tab that is not there is found, under both starts.
+    expect(wrongWays('Einstellungen, Server, Mail', de)).toEqual(['Einstellungen, Server, Mail'])
+    expect(wrongWays('Mein Konto, Gibt es nicht', de)).toEqual(['Mein Konto, Gibt es nicht'])
+    expect(wrongWays('Leiste links; welche Pakete sie zeigt, unter Mein Konto, Formen', de)).toEqual([])
+    expect(wrongWays('My account, Shapes', en)).toEqual([])
   })
 
   it('tell the operator where to switch team leads back on in 0.3.0 (the switch is off after the update)', () => {
@@ -124,3 +124,33 @@ describe('what is new', () => {
     }
   })
 })
+
+/** nexsuite named, also in other words ("Verbund" as a word of its own, "suite"). */
+const NAMES_THE_SUITE = /nexsuite|\bverbund\b|\bsuite\b|connected to/i
+
+type Texts = { settings: { title: string; tabs: Record<string, string>; parts: Record<string, string> }; me: { title: string; tabs: Record<string, string> } }
+
+/** Every way in a "where" that starts at the settings or at My account: [start, tab, part]. */
+function waysIn(where: string, texts: Texts): [string, string, string | undefined][] {
+  const starts = [texts.settings.title, texts.me.title]
+  const found: [string, string, string | undefined][] = []
+  for (const clause of where.split(/;|\(/))
+    for (const start of starts) {
+      const at = clause.indexOf(`${start}, `)
+      if (at < 0) continue
+      const [tab, part] = clause.slice(at + start.length + 2).split(',').map((piece) => piece.trim())
+      found.push([start, tab, part])
+    }
+  return found
+}
+
+/** The ways that name a tab (or under Server a part) that is not there. */
+function wrongWays(where: string, texts: Texts): string[] {
+  return waysIn(where, texts)
+    .filter(([start, tab, part]) => {
+      if (start === texts.me.title) return !Object.values(texts.me.tabs).includes(tab)
+      if (!Object.values(texts.settings.tabs).includes(tab)) return true
+      return tab === texts.settings.tabs.server && !!part && !Object.values(texts.settings.parts).includes(part)
+    })
+    .map(([start, tab, part]) => [start, tab, part].filter(Boolean).join(', '))
+}
