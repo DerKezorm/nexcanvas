@@ -117,3 +117,14 @@ def test_a_file_that_is_not_there_answers_like_every_not_found(client: TestClien
         answer = client.get(path)
         assert answer.status_code == 404, path
         assert answer.json() == {"detail": {"code": "not_found", "message": "Not found."}}, path
+
+
+def test_a_body_too_large_says_the_limit_its_sentence_names(client: TestClient, operator: Account) -> None:
+    # "Die Datei ist größer als erlaubt ({{max_mb}} MB)": the guard in front of every route sends the number too,
+    # as the upload routes do, so the page never shows the bare placeholder.
+    from app.middleware import MAX_BODY
+
+    refused = client.put("/api/settings", content=b"x" * (MAX_BODY + 1), headers={"Content-Type": "application/json"})
+    assert refused.status_code == 413
+    assert refused.json()["detail"] == {"code": "too_large", "message": "The request is too large.",
+                                        "max_mb": MAX_BODY // (1024 * 1024)}

@@ -501,3 +501,31 @@ describe('the sign-in and invitation pages before the ways in are known (as next
     expect(box.textContent).toContain('Accept with authentik')
   })
 })
+
+describe('a refusal in the settings says the numbers it names (useAction)', () => {
+  it('passes the server\'s values to the sentence, not "{{max_mb}}"', async () => {
+    const { FilesCard, useServerSettings } = await import('./settings/ServerCards')
+    function Files() {
+      return <FilesCard server={useServerSettings()} />
+    }
+    handler = (method, path) => {
+      if (path === '/api/settings' && method === 'GET') return { status: 200, body: { upload_max_mb: 50, upload_ceiling_mb: 100, strip_location: true } }
+      if (path === '/api/settings' && method === 'PUT') return { status: 413, body: { detail: { code: 'too_large', message: 'The request is too large.', max_mb: 16 } } }
+      return undefined
+    }
+    await render(<Files />)
+    const save = [...box.querySelectorAll('button')].find((b) => b.textContent === 'Save')!
+    await act(async () => save.click())
+    await settle()
+    const alert = box.querySelector('[role="alert"]')
+    expect(alert?.textContent).toBe(i18n.t('errors.too_large', { max_mb: 16 }))
+    expect(alert?.textContent).toContain('16 MB')
+    expect(alert?.textContent).not.toContain('{{')
+  })
+
+  it('a code of the page itself still reads as before', async () => {
+    const { Feedback } = await import('./settings/ui')
+    await render(<Feedback problem="network" />)
+    expect(box.querySelector('[role="alert"]')?.textContent).toBe(i18n.t('errors.network'))
+  })
+})

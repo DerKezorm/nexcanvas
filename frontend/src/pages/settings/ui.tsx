@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next'
 
 import { ApiError } from '../../api/client'
 import { Dialog } from '../../components/Dialog'
-import { errorText } from '../../lib/errors'
+import { errorText, problemText } from '../../lib/errors'
 import { copyText } from '../../lib/copy'
 
 /** A card with its symbol in a small box, a title and a line of explanation. */
@@ -178,13 +178,16 @@ export function Button({
   )
 }
 
+/** What went wrong: a code, or the server's refusal with the values its sentence needs ("({{max_mb}} MB)"). */
+export type Trouble = string | ApiError | null
+
 /** One line under a card: what went wrong, or that it worked. */
-export function Feedback({ problem, done = null }: { problem: string | null; done?: string | null }) {
+export function Feedback({ problem, done = null }: { problem: Trouble; done?: string | null }) {
   return (
     <div aria-live="polite">
       {problem && (
         <p role="alert" className="text-sm text-bad-500">
-          {errorText(problem)}
+          {typeof problem === 'string' ? errorText(problem) : problemText(problem)}
         </p>
       )}
       {done && (
@@ -218,7 +221,7 @@ export function CopyLink({ value, label }: { value: string; label: string }) {
 // eslint-disable-next-line react-refresh/only-export-components
 export function useAction() {
   const [busy, setBusy] = useState(false)
-  const [problem, setProblem] = useState<string | null>(null)
+  const [problem, setProblem] = useState<Trouble>(null)
   const [done, setDone] = useState<string | null>(null)
   const run = useCallback(async (work: () => Promise<unknown>, success?: string): Promise<boolean> => {
     setBusy(true)
@@ -229,7 +232,8 @@ export function useAction() {
       if (success) setDone(success)
       return true
     } catch (error) {
-      setProblem(error instanceof ApiError ? error.code : 'internal_error')
+      // The refusal itself, so its sentence gets the server's values, as on the account page.
+      setProblem(error instanceof ApiError ? error : 'internal_error')
       return false
     } finally {
       setBusy(false)

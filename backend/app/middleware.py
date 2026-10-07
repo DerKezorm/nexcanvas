@@ -121,8 +121,8 @@ class BodyTooLarge(Exception):
     pass
 
 
-def _refuse(status: int, code: str, text: str) -> tuple[dict, dict]:
-    body = json.dumps({"detail": {"code": code, "message": text}}).encode()
+def _refuse(status: int, code: str, text: str, **values: Any) -> tuple[dict, dict]:
+    body = json.dumps({"detail": {"code": code, "message": text, **values}}).encode()
     start = {
         "type": "http.response.start",
         "status": status,
@@ -156,9 +156,11 @@ class GuardMiddleware:
                 await send(message)
             return
         limit = LARGE_BODIES.get(scope["path"], MAX_BODY)
+        # The page says the limit in its sentence ("larger than allowed ({{max_mb}} MB)"), as the upload routes do.
+        size = {"max_mb": max(1, limit // (1024 * 1024))}
         declared = headers.get(b"content-length")
         if declared is not None and (not declared.isdigit() or int(declared) > limit):
-            for message in _refuse(413, "too_large", "The request is too large."):
+            for message in _refuse(413, "too_large", "The request is too large.", **size):
                 await send(message)
             return
         received = 0
@@ -182,7 +184,7 @@ class GuardMiddleware:
             if overflow:
                 if message["type"] == "http.response.start" and not started:
                     started = True
-                    for refusal in _refuse(413, "too_large", "The request is too large."):
+                    for refusal in _refuse(413, "too_large", "The request is too large.", **size):
                         await send(refusal)
                 return
             if message["type"] == "http.response.start":
@@ -193,7 +195,7 @@ class GuardMiddleware:
             await self.app(scope, counting_receive, tracking_send)
         except BodyTooLarge:
             if not started:
-                for message in _refuse(413, "too_large", "The request is too large."):
+                for message in _refuse(413, "too_large", "The request is too large.", **size):
                     await send(message)
 
 
