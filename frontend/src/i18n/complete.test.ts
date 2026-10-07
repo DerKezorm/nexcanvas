@@ -85,8 +85,28 @@ describe('what is new', () => {
     expect(english.length).toBeGreaterThan(20)
   })
 
-  it('never name nexsuite, which is not released (as in the release notes)', () => {
-    expect([...german, ...english].filter((text) => /nexsuite/i.test(text))).toEqual([])
+  it('never name nexsuite, which is not released (as in the release notes), not even in a roundabout way', () => {
+    expect([...german, ...english].filter((text) => /nexsuite|verbund|\bsuite\b|connected to/i.test(text))).toEqual([])
+  })
+
+  it('give ways that exist: a tab of the settings, and under Server one of its parts', () => {
+    // "Einstellungen, Server, Mail" named a part that is not there; the mail card is under Server, Konten.
+    for (const [entries, texts, start] of [[whatsNewDe, de, 'Einstellungen'], [whatsNewEn, en, 'Settings']] as const) {
+      const tabs = Object.values(texts.settings.tabs) as string[]
+      const parts = Object.values(texts.settings.parts) as string[]
+      let checked = 0
+      for (const [version, entry] of Object.entries(entries as Record<string, { sections: { where: string }[] }>))
+        for (const { where } of entry.sections)
+          for (const clause of where.split(/;|\(/)) {
+            const at = clause.indexOf(`${start}, `)
+            if (at < 0) continue
+            const [tab, part] = clause.slice(at + start.length + 2).split(',').map((piece) => piece.trim())
+            expect(tabs, `${version}: ${where}`).toContain(tab)
+            if (tab === texts.settings.tabs.server && part) expect(parts, `${version}: ${where}`).toContain(part)
+            checked++
+          }
+      expect(checked).toBeGreaterThan(8)
+    }
   })
 
   it('tell the operator where to switch team leads back on in 0.3.0 (the switch is off after the update)', () => {

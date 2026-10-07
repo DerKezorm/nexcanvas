@@ -9,7 +9,7 @@
       },
       {
         "title": "Mails in your own language",
-        "where": "Invitation by mail; Settings, Server, Mail, “Test mail to”",
+        "where": "Invitation by mail; Settings, Server, Accounts, Mail, “Test mail to”",
         "body": "Invitations and test mails go out in the language of whoever receives them: the one of their account, else the one of their browser at the last sign-in. Without an account yet, the language of the person who invites applies. The date in an invitation follows the language."
       },
       {
@@ -20,7 +20,7 @@
       {
         "title": "Signing in stands up better to strangers",
         "where": "Sign-in page; Settings, Server, Accounts",
-        "body": "Whoever guesses passwords waits themselves: a browser you signed in with before gets in despite someone else's failed tries. When wrong passwords lock an account for a while, its API tokens keep working. A blocked account learns after its right password that it is blocked, and whom it can ask."
+        "body": "Whoever guesses passwords waits themselves: a browser you signed in with before gets in despite someone else's failed tries. When an account has to wait after too many wrong passwords, its API tokens keep working. An account the operator blocked learns after its right password that it is blocked, and whom it can ask."
       },
       {
         "title": "authentik says what went wrong",
@@ -45,7 +45,7 @@
     "sections": [
       {
         "title": "Upload a backup",
-        "where": "Settings, Server, Backup, \"Upload a backup\"",
+        "where": "Settings, Server, Backups, \"Upload a backup\"",
         "body": "A downloaded backup comes back in, say on a new server: upload it, check it, restore it. It is listed as \"uploaded\", and the automatic clean-up leaves it alone. Uploading asks for your password, like downloading."
       },
       {

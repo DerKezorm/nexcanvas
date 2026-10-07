@@ -9,7 +9,7 @@
       },
       {
         "title": "Mails in der eigenen Sprache",
-        "where": "Einladung per Mail; Einstellungen, Server, Mail, „Testmail an“",
+        "where": "Einladung per Mail; Einstellungen, Server, Konten, Mail, „Testmail an“",
         "body": "Einladung und Testmail gehen in der Sprache der Person hinaus, die sie bekommt: in der ihres Kontos, sonst in der ihres Browsers bei der letzten Anmeldung. Hat sie noch kein Konto, gilt die Sprache der Person, die einlädt. Das Datum in der Einladung folgt der Sprache."
       },
       {
@@ -20,7 +20,7 @@
       {
         "title": "Die Anmeldung hält Fremden besser stand",
         "where": "Anmeldeseite; Einstellungen, Server, Konten",
-        "body": "Rät jemand Passwörter, wartet er selbst: Ein Browser, mit dem du dich schon angemeldet hast, kommt trotz fremder Fehlversuche herein. Sperren falsche Passwörter ein Konto für eine Weile, arbeiten seine API-Tokens weiter. Ein gesperrtes Konto erfährt nach dem richtigen Passwort, dass es gesperrt ist und wen es fragen kann."
+        "body": "Rät jemand Passwörter, wartet er selbst: Ein Browser, mit dem du dich schon angemeldet hast, kommt trotz fremder Fehlversuche herein. Wartet ein Konto nach zu vielen falschen Passwörtern, arbeiten seine API-Tokens weiter. Ein vom Betreiber gesperrtes Konto erfährt nach dem richtigen Passwort, dass es gesperrt ist und wen es fragen kann."
       },
       {
         "title": "authentik sagt, was schiefging",
