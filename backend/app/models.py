@@ -147,6 +147,8 @@ class Account(Base):
     #: password, a block or unblock, "sign out everywhere" and a reset second factor, so no browser from before counts
     #: as known any more. Empty (accounts from before it existed): no device is known until the next sign-in.
     device_key: Mapped[str] = mapped_column(String(64), default="")
+    #: The last "signed out everywhere" nexsuite reported for the person: a new moment forgets the known browsers.
+    suite_signed_out: Mapped[str] = mapped_column(String(64), default="")
     #: Not stored. Set on the account an API token acts as when the token may see only some spaces.
     key_spaces: ClassVar[frozenset[int] | None] = None
     #: Not stored. True on the account a token acts as: a program never has the operator's powers over other

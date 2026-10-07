@@ -53,6 +53,7 @@ from ..models import (
     Team,
     TeamGrant,
     TeamMember,
+    new_device_key,
     utcnow,
 )
 from ..security import decrypt_secret, encrypt_secret, end_all_sessions
@@ -947,6 +948,12 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
                                                          AuthSession.created_at < _moment(person["signed_out"])))
             if ended.rowcount:
                 logger.info("Sessions ended as in nexsuite name=%s count=%s", row.name, ended.rowcount)
+            moment = str(person["signed_out"])[:64]
+            if moment != row.suite_signed_out:
+                # And the browsers known before: their device cookies no longer count, as after "sign out
+                # everywhere" here. Once per new moment: a sync that brings the same one changes nothing (A5).
+                row.suite_signed_out = moment
+                row.device_key = new_device_key()
         if row.id != keeper:
             row.role = OPERATOR if person.get("operator") else MEMBER
         blocked = bool(person.get("blocked"))

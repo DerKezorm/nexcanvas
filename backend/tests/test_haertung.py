@@ -296,6 +296,26 @@ def test_a5_any_way_a_password_or_block_changes_forgets_the_browsers(client: Tes
         assert _passes(browser, "anna") == 429, change
 
 
+def test_a5_signed_out_everywhere_in_nexsuite_forgets_the_browsers_once_per_moment(
+    client: TestClient, operator: Account, world: dict, fake: FakeSuite
+) -> None:
+    """The emergency account (the operator here) keeps its password while connected: a browser known before nexsuite
+    signed the person out everywhere would otherwise still pass the lock and the brake per sender."""
+    connect(client, world, operator)
+    browser = _known("tester")
+    before = _row("tester").device_key
+    fake.people["1"]["signed_out"] = (utcnow() - timedelta(hours=1)).isoformat()
+    assert client.post("/api/suite/sync").status_code == 200
+    after = _row("tester").device_key
+    assert after != before
+    assert _passes(browser, "tester") == 429
+    # The same moment again changes nothing: a browser known since stays known.
+    again = _known("tester")
+    assert client.post("/api/suite/sync").status_code == 200
+    assert _row("tester").device_key == after
+    assert _passes(again, "tester") == 200
+
+
 def test_a5_an_account_from_before_the_device_key_gets_one_at_its_next_sign_in(client: TestClient,
                                                                                operator: Account) -> None:
     """Accounts from before 0.3 have an empty key: no browser is known until the next sign-in, which draws one."""
