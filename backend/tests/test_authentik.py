@@ -751,16 +751,18 @@ def test_its_own_provider_without_an_application_takes_a_left_one_under_the_stor
     client: TestClient, operator: Account, fake: FakeAuthentik
 ) -> None:
     """The application the issuer names is still there, but without a provider: it is free, and the own one is hung
-    onto it again."""
+    onto it again. Also when the provider was renamed and its name gives another slug: the issuer stays."""
     own_without_application(fake)
+    fake.others[0]["name"] = "Boards"
     fake.apps = [{"slug": OWN_SLUG, "name": f"nexcanvas ({OLD_HOST})", "provider": None}]
     configured_as(OWN_ISSUER, "own-client")
     result = run_setup(client)
     methods = [(call.method, call.path) for call in fake.calls]
     assert ("PATCH", "/api/v3/providers/oauth2/8/") in methods
     assert ("POST", "/api/v3/providers/oauth2/") not in methods
+    assert ("POST", "/api/v3/core/applications/") not in methods
     patched = next(call for call in fake.calls if (call.method, call.path) == ("PATCH", f"/api/v3/core/applications/{OWN_SLUG}/"))
-    assert patched.body["provider"] == 8
+    assert patched.body == {"name": "Boards", "slug": OWN_SLUG, "provider": 8}
     assert result["issuer"] == OWN_ISSUER
 
 
