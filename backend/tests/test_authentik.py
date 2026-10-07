@@ -67,6 +67,8 @@ class FakeAuthentik:
     others: list[dict] = field(default_factory=list)
     #: Applications on their own: ``{"slug", "name", "provider"}``, the provider a pk or None (its provider is gone).
     apps: list[dict] = field(default_factory=list)
+    #: How many applications one page of the list holds; None: all on one page.
+    page_size: int | None = None
     calls: list[Recorded] = field(default_factory=list)
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
@@ -140,6 +142,11 @@ class FakeAuthentik:
                  "redirect_uris": [{"matching_mode": "strict", "url": other["redirect"]}]}
                 for other in self.others
             ]
+            # As authentik's provider serializer: the application a provider is assigned to, by slug and name.
+            for row in rows:
+                assigned = next((app for app in self._applications() if str(app["provider"]) == str(row["pk"])), None)
+                row["assigned_application_slug"] = assigned["slug"] if assigned else ""
+                row["assigned_application_name"] = assigned["name"] if assigned else ""
             for key in ("name", "client_id"):
                 if key in query:
                     rows = [row for row in rows if row[key] == query[key]]
@@ -158,17 +165,24 @@ class FakeAuthentik:
             if (method, path) == ("PATCH", f"/core/applications/{lone['slug']}/"):
                 return httpx.Response(200, json={**body, "pk": f"app-{lone['slug']}"})
         if (method, path) == ("GET", "/core/applications/"):
-            rows = [{"pk": "app-uuid", "slug": "nexcanvas", "name": "nexcanvas", "provider": 7}] if "application" in self.existing else []
-            rows += [{"pk": f"app-{other['pk']}", "slug": other["slug"], "name": other["name"], "provider": other["pk"]}
-                     for other in self.others if other["slug"]]
-            rows += [{"pk": f"app-{lone['slug']}", **lone} for lone in self.apps]
-            for key in ("slug", "provider"):
-                if key in query:
-                    rows = [row for row in rows if str(row[key]) == query[key]]
-            return httpx.Response(200, json={"results": rows})
+            # authentik lists only what the token's user may open, unless asked for the full list; it filters by slug
+            # (and name, launch URL and a few more), never by provider: an unknown filter is ignored.
+            if query.get("superuser_full_list") != "true":
+                return httpx.Response(200, json={"results": []})
+            rows = self._applications()
+            if "slug" in query:
+                rows = [row for row in rows if row["slug"] == query["slug"]]
+            return httpx.Response(200, json={"results": rows[: self.page_size]})
         if (method, path) in (("POST", "/core/applications/"), ("PATCH", "/core/applications/nexcanvas/")):
             return httpx.Response(201 if method == "POST" else 200, json={**body, "pk": "app-uuid"})
         return httpx.Response(404, json={"detail": f"no fake answer for {method} {path}"})
+
+    def _applications(self) -> list[dict]:
+        rows = [{"pk": "app-uuid", "slug": "nexcanvas", "name": "nexcanvas", "provider": 7}] if "application" in self.existing else []
+        rows += [{"pk": f"app-{other['pk']}", "slug": other["slug"], "name": other["name"], "provider": other["pk"]}
+                 for other in self.others if other["slug"]]
+        rows += [{"pk": f"app-{lone['slug']}", **lone} for lone in self.apps]
+        return rows
 
 
 @pytest.fixture
@@ -611,6 +625,7 @@ def test_its_own_application_is_found_by_its_provider_when_the_issuer_names_no_s
     fake.provider_client = "the-first-instance"
     fake.others = [{"pk": 8, "name": name, "client_id": "own-client",
                     "redirect": f"https://{OLD_HOST}/api/oidc/callback", "slug": OWN_SLUG}]
+    fake.page_size = 1
     configured_as(f"{URL}/issuer-typed-by-hand", "own-client")
     result = run_setup(client)
     methods = [(call.method, call.path) for call in fake.calls]
@@ -799,3 +814,47 @@ def test_a_new_application_for_its_own_provider_never_takes_a_slug_in_use(
     made = next(call for call in fake.calls if (call.method, call.path) == ("POST", "/api/v3/core/applications/"))
     assert made.body == {"name": "Boards", "slug": "boards-8", "provider": 8}
     assert result["issuer"] == f"{URL}/application/o/boards-8/"
+
+
+def test_applications_are_looked_up_in_the_full_list(client: TestClient, operator: Account, fake: FakeAuthentik) -> None:
+    """authentik lists only the applications the token's user may open, unless asked for the full list: without it, an
+    application of this instance would look missing and a second one would be made."""
+    own_without_application(fake)
+    fake.apps = [{"slug": OWN_SLUG, "name": f"nexcanvas ({OLD_HOST})", "provider": None}]
+    configured_as(OWN_ISSUER, "own-client")
+    run_setup(client)
+    lookups = [call for call in fake.calls if (call.method, call.path) == ("GET", "/api/v3/core/applications/")]
+    assert lookups
+    assert all(call.query.get("superuser_full_list") == "true" for call in lookups), [call.query for call in lookups]
+
+
+def test_a_new_application_counts_on_past_slugs_in_use(client: TestClient, operator: Account, fake: FakeAuthentik) -> None:
+    """The slug of the own name and the one with the provider's number added are both held by other providers'
+    applications: the button counts on and never hangs one of them onto its own provider."""
+    own_without_application(fake)
+    fake.others[0]["name"] = "Boards"
+    fake.apps = [{"slug": "boards", "name": "Boards", "provider": 7}, {"slug": "boards-8", "name": "Boards", "provider": 9}]
+    configured_as(ISSUER, "own-client")
+    result = run_setup(client)
+    methods = [(call.method, call.path) for call in fake.calls]
+    assert ("PATCH", "/api/v3/core/applications/boards/") not in methods
+    assert ("PATCH", "/api/v3/core/applications/boards-8/") not in methods
+    made = next(call for call in fake.calls if (call.method, call.path) == ("POST", "/api/v3/core/applications/"))
+    assert made.body == {"name": "Boards", "slug": "boards-8-2", "provider": 8}
+    assert result["issuer"] == f"{URL}/application/o/boards-8-2/"
+
+
+def test_when_every_slug_is_in_use_the_step_says_so(client: TestClient, operator: Account, fake: FakeAuthentik) -> None:
+    """Every slug the button would try belongs to another provider's application: it stops at the provider step with a
+    reason of its own, before anything is made or changed."""
+    own_without_application(fake)
+    fake.others[0]["name"] = "Boards"
+    slugs = ["boards", "boards-8"] + [f"boards-8-{number}" for number in range(2, 10)]
+    fake.apps = [{"slug": slug, "name": "Boards", "provider": 9} for slug in slugs]
+    configured_as(ISSUER, "own-client")
+    result = run_setup(client)
+    assert steps(result)[-1] == ("provider", False)
+    assert result["steps"][-1]["reason"] == "slug"
+    changes = [call for call in fake.calls if call.method in ("POST", "PATCH") and "/core/applications/" in call.path]
+    assert not changes
+    assert not any(call.method in ("POST", "PATCH") and "/providers/oauth2/" in call.path for call in fake.calls)

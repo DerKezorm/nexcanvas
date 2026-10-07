@@ -745,7 +745,8 @@
         "unreachable": "authentik cannot be reached at this address. Check the address and whether nexcanvas reaches that network.",
         "unusable": "This address cannot be used. Check how it is written.",
         "token": "authentik did not accept the token (answer {{status}}). Check that it is valid and has the rights it needs.",
-        "answered": "Something answers at this address, but not authentik as expected (answer {{status}}). Check the address; the whole answer is in the log."
+        "answered": "Something answers at this address, but not authentik as expected (answer {{status}}). Check the address; the whole answer is in the log.",
+        "slug": "Every slug nexcanvas would give its application already belongs to another application in authentik. Give the nexcanvas provider another name there and try again."
       }
     },
     "publicAllowedHint": "Managers of a space may then publish a board as a reading page. Switched off, every link answers as if it never existed.",
