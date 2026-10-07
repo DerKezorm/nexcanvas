@@ -1745,3 +1745,54 @@ def test_giving_up_before_finish_went_out_says_nothing_more(client: TestClient, 
     fake.down = False
     _choices(client, world)
     assert client.post("/api/suite/abort").status_code == 204
+
+
+# --- Review of 7afa9c1: what the plan has no place for ----------------------------------------------------------------
+
+
+@pytest.mark.parametrize("way", ["at once", "after a lost answer"])
+@pytest.mark.parametrize("role", [OPERATOR, "member"])
+def test_an_account_without_a_place_in_the_plan_is_blocked_like_one_left_out(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite, monkeypatch: pytest.MonkeyPatch,
+        role: str, way: str) -> None:
+    """Made between pairing and finishing, or after /finish went out: no person in nexsuite, so no way in while
+    connected; never a password sign-in of its own beside nexsuite."""
+    chosen = _choices(client, world)
+    if way == "after a lost answer":
+        _lose_finish_once(fake, monkeypatch)
+        assert client.post("/api/suite/finish", json=chosen).status_code in (409, 502)
+    make_account("neuchef", role)
+    done = client.post("/api/suite/finish", json=chosen)
+    assert done.status_code == 200, done.text
+    late = _row("neuchef")
+    assert late.blocked_at is not None and late.oidc_subject == "" and late.suite_person == ""
+    with new_client() as browser:
+        refused = browser.post("/api/auth/login", json={"name": "neuchef", "password": PASSWORD})
+        assert refused.status_code != 200
+    assert _row("tester").blocked_at is None, "never the emergency account"
+
+
+def test_a_left_out_account_deleted_between_the_tries_stops_nothing(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    chosen = _sent_and_lost(client, world, fake, monkeypatch)
+    with SessionLocal() as db:
+        cleo = db.get(Account, world["cleo"].id)
+        assert cleo is not None
+        db.delete(cleo)
+        db.commit()
+    done = client.post("/api/suite/finish", json=chosen)
+    assert done.status_code == 200, done.text
+    assert _setting("suite_state") == "connected"
+
+
+def test_after_sending_a_chosen_person_deleted_in_nexsuite_still_shows_by_its_name(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    _sent_and_lost(client, world, fake, monkeypatch)
+    del fake.people["2"]
+    del fake.people["3"]
+    found = client.get("/api/suite/proposal").json()
+    people = {person["id"]: person["name"] for person in found["people"]}
+    assert people.get("2") == "anna" and people.get("3") == "erik", "the targets of then, by name"
+    assert found["chosen"]["step"] == 3, "the assistant opens at the last step"
