@@ -46,6 +46,7 @@
     "startWith": "Start with",
     "create": "Create board",
     "missing": "This board does not exist, is in the trash, or you may not see it.",
+    "back": "Back to the boards",
     "place": "Place of the board",
     "rename": "Rename",
     "duplicate": "Duplicate",

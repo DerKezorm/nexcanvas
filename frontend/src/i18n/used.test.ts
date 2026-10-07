@@ -55,6 +55,21 @@ describe('the shipped texts', () => {
     expect(unused).toEqual([])
   })
 
+  it('have every key a page asks for, in both languages', () => {
+    // A key named whole in the code: t('board.back'), i18nKey="…", or a constant handed to t() later (label:
+    // 'nav.boards'). Built keys (`notices.${kind}`) are left to the check above. A deleted key showed its bare name
+    // as the label of the back arrow (Prüfer block 4).
+    const spaces = new Set(Object.keys(de))
+    const keys = new Set(flat(de))
+    const english = new Set(flat(en))
+    const has = (set: Set<string>, key: string) => set.has(key) || set.has(`${key}_one`) || set.has(`${key}_other`)
+    const asked = [...source.matchAll(/['"`]([a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9_]+)+)['"`]/g)]
+      .map((m) => m[1])
+      .filter((key) => spaces.has(key.split('.')[0]) && !/\.(tsx?|json|svg|png|css|js)$/.test(key))
+    expect(asked.length).toBeGreaterThan(500)
+    expect([...new Set(asked.filter((key) => !has(keys, key) || !has(english, key)))]).toEqual([])
+  })
+
   it('speak English, not German word for word', () => {
     // "Angeben" is enter, "anlegen" is create, "enthalten" is contain, "abgelaufen" is expired (WORTLAUTE.md).
     const stiff = flat(en).filter((key) =>
