@@ -1,4 +1,45 @@
 {
+  "0.3.0": {
+    "lead": "Mails come in the language of whoever receives them, invitations say who invites, and signing in stands up better to strangers.",
+    "sections": [
+      {
+        "title": "Team leads need your permission",
+        "where": "Settings, Teams, switch “Team leads change their teams”",
+        "body": "Until now the lead of a team took people in and out, and so gave them the team's rights in every space. That now works only when the operator allows it. The switch is off by default, also after this update. To keep things as they were, switch it on there."
+      },
+      {
+        "title": "Mails in your own language",
+        "where": "Invitation by mail; Settings, Server, Mail, “Test mail to”",
+        "body": "Invitations and test mails go out in the language of whoever receives them: the one of their account, else the one of their browser at the last sign-in. Without an account yet, the language of the person who invites applies. The date in an invitation follows the language."
+      },
+      {
+        "title": "Invitations with a name and a space",
+        "where": "Settings, Server, Accounts, “Invite into nexcanvas”",
+        "body": "The invitation page says who invites and gives the rule for the sign-in name before anyone mistypes it. An expired link says that it expired. The operator can invite new people straight into a space and chooses the right that comes with it; without a space it stays an invitation into nexcanvas."
+      },
+      {
+        "title": "Signing in stands up better to strangers",
+        "where": "Sign-in page; Settings, Server, Accounts",
+        "body": "Whoever guesses passwords waits themselves: a browser you signed in with before gets in despite someone else's failed tries. When wrong passwords lock an account for a while, its API tokens keep working. A blocked account learns after its right password that it is blocked, and whom it can ask."
+      },
+      {
+        "title": "authentik says what went wrong",
+        "where": "Settings, Server, Sign-in, “authentik in one step”",
+        "body": "When a step does not work, it says why beside it: authentik out of reach, the token not accepted, or an answer nobody expected, and what you can check. After a move to a new address the button finds its provider in authentik again, also when it was renamed there; the accounts keep their sign-in."
+      }
+    ],
+    "smallTitle": "Also",
+    "small": [
+      "Public boards and every other page of nexcanvas stay out of search engines.",
+      "The tab names the board or the page you are on.",
+      "A link to a space, a board or a page that does not exist says so and leads to all boards.",
+      "Whoever is in no space yet reads on the start page whom to ask.",
+      "The account list shows every line whole, backups have worded buttons, and moments are written the same way everywhere.",
+      "In light mode, letters in circles, status colours and chosen tabs are easier to read.",
+      "A board title or display name that is too long cannot be typed any more, and a refusal names the limit.",
+      "Invisible control characters in names and titles are refused, and so is a new password that is the old one."
+    ]
+  },
   "0.2.1": {
     "lead": "Moving to a new server now works in the interface, and videos on the board can be played.",
     "sections": [

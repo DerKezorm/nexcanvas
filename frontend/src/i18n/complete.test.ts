@@ -85,6 +85,16 @@ describe('what is new', () => {
     expect(english.length).toBeGreaterThan(20)
   })
 
+  it('never name nexsuite, which is not released (as in the release notes)', () => {
+    expect([...german, ...english].filter((text) => /nexsuite/i.test(text))).toEqual([])
+  })
+
+  it('tell the operator where to switch team leads back on in 0.3.0 (the switch is off after the update)', () => {
+    const entry = (whatsNewDe as Record<string, { sections: { where: string }[] }>)['0.3.0']
+    expect(entry.sections.map((section) => section.where)).toContain('Einstellungen, Teams, Schalter „Teamleitungen ändern ihre Teams“')
+    expect(de.teams.leadsSwitch).toBe('Teamleitungen ändern ihre Teams')
+  })
+
   it('know the program version when they see it, and leave the versions of content alone', () => {
     for (const text of ['Fassung 1.4.0 ist da.', 'eine neuere Fassung von nexlore', 'Die erste Fassung von nexcanvas:', 'kommt einmal je Fassung', 'Vor dieser Fassung ging es', 'Alle Fassungen und was sich geändert hat']) {
       expect(PROGRAM_FASSUNG.test(text), text).toBe(true)

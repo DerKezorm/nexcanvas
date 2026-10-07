@@ -1,4 +1,45 @@
 {
+  "0.3.0": {
+    "lead": "Mails kommen in der Sprache der Person, die sie bekommt, Einladungen sagen, wer einlädt, und die Anmeldung hält Fremden besser stand.",
+    "sections": [
+      {
+        "title": "Teamleitungen brauchen deine Erlaubnis",
+        "where": "Einstellungen, Teams, Schalter „Teamleitungen ändern ihre Teams“",
+        "body": "Bisher nahm die Leitung eines Teams Personen auf und heraus und gab ihnen damit die Rechte des Teams in allen Bereichen. Das geht jetzt nur noch, wenn der Betreiber es erlaubt. Der Schalter ist ab Werk aus, auch nach diesem Update. Soll es weitergehen wie bisher, schalte ihn dort an."
+      },
+      {
+        "title": "Mails in der eigenen Sprache",
+        "where": "Einladung per Mail; Einstellungen, Server, Mail, „Testmail an“",
+        "body": "Einladung und Testmail gehen in der Sprache der Person hinaus, die sie bekommt: in der ihres Kontos, sonst in der ihres Browsers bei der letzten Anmeldung. Hat sie noch kein Konto, gilt die Sprache der Person, die einlädt. Das Datum in der Einladung folgt der Sprache."
+      },
+      {
+        "title": "Einladen mit Namen und Bereich",
+        "where": "Einstellungen, Server, Konten, „Zu nexcanvas einladen“",
+        "body": "Die Einladungsseite sagt, wer einlädt, und nennt die Regel für den Anmeldenamen, bevor man sich vertippt. Ein abgelaufener Link sagt, dass er abgelaufen ist. Der Betreiber kann neue Personen gleich in einen Bereich einladen und wählt das Recht dazu; ohne Bereich bleibt es eine Einladung zu nexcanvas."
+      },
+      {
+        "title": "Die Anmeldung hält Fremden besser stand",
+        "where": "Anmeldeseite; Einstellungen, Server, Konten",
+        "body": "Rät jemand Passwörter, wartet er selbst: Ein Browser, mit dem du dich schon angemeldet hast, kommt trotz fremder Fehlversuche herein. Sperren falsche Passwörter ein Konto für eine Weile, arbeiten seine API-Tokens weiter. Ein gesperrtes Konto erfährt nach dem richtigen Passwort, dass es gesperrt ist und wen es fragen kann."
+      },
+      {
+        "title": "authentik sagt, was schiefging",
+        "where": "Einstellungen, Server, Anmeldung, „authentik in einem Schritt“",
+        "body": "Klappt ein Schritt nicht, steht daneben, warum: authentik nicht erreichbar, Token nicht angenommen oder eine unerwartete Antwort, und was du prüfen kannst. Nach einem Umzug auf eine neue Adresse findet der Knopf seinen Anbieter in authentik wieder, auch wenn er dort umbenannt wurde; die Anmeldungen der Konten bleiben."
+      }
+    ],
+    "smallTitle": "Außerdem",
+    "small": [
+      "Öffentliche Boards und alle anderen Seiten von nexcanvas erscheinen nicht in Suchmaschinen.",
+      "Der Tab nennt das Board oder die Seite, auf der du bist.",
+      "Ein Link auf einen Bereich, ein Board oder eine Seite, die es nicht gibt, sagt das und führt zu allen Boards.",
+      "Wer noch in keinem Bereich ist, liest auf der Startseite, wen er fragen kann.",
+      "Die Kontenliste zeigt jede Zeile ganz, die Sicherungen haben beschriftete Knöpfe, und Zeitpunkte stehen überall gleich da.",
+      "Im hellen Modus sind Buchstaben in Kreisen, Statusfarben und gewählte Reiter besser lesbar.",
+      "Ein zu langer Board-Titel oder Anzeigename lässt sich nicht mehr eintippen, und eine Ablehnung nennt die Grenze.",
+      "Unsichtbare Steuerzeichen in Namen und Titeln werden abgelehnt, und ein neues Passwort, das dem alten gleicht, auch."
+    ]
+  },
   "0.2.1": {
     "lead": "Umziehen auf einen neuen Server geht jetzt in der Oberfläche, und Videos auf dem Board lassen sich abspielen.",
     "sections": [
