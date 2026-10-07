@@ -746,7 +746,7 @@
         "unusable": "Diese Adresse lässt sich nicht verwenden. Prüf, wie sie geschrieben ist.",
         "token": "authentik hat das Token nicht angenommen (Antwort {{status}}). Prüf, ob es gilt und die nötigen Rechte hat.",
         "answered": "Unter dieser Adresse antwortet etwas, aber nicht authentik wie erwartet (Antwort {{status}}). Prüf die Adresse; die ganze Antwort steht im Log.",
-        "slug": "In authentik gehören alle Slugs, die nexcanvas seiner Anwendung geben würde, schon anderen Anwendungen. Gib dem Anbieter von nexcanvas dort einen anderen Namen und versuch es noch einmal."
+        "slug": "In authentik gehören alle Slugs, die nexcanvas seiner Anwendung geben würde, schon anderen Anwendungen. Benenne den Anbieter von nexcanvas dort um und versuch es noch einmal."
       }
     },
     "publicAllowedHint": "Verwalter eines Bereichs dürfen dann ein Board als Leseseite veröffentlichen. Abgeschaltet antwortet jeder Link, als hätte es ihn nie gegeben.",
