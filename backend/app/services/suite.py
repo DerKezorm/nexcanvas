@@ -532,7 +532,10 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
             made = request("POST", _api(db, f"/teams/{int(choice)}/join"), token=token,
                            body={"members": members, "lead": lead})
         team_of[team.id] = str(made["id"])
-    spaces_done = 0
+    # Nothing here changes before nexsuite has confirmed the connection (``/finish``): only what was made there is
+    # kept on the way (``remember``). A failure at any step, the last one too, leaves the accounts, teams and spaces as
+    # they were, and giving up leaves nothing half connected (review of ba44488).
+    space_of: dict[int, str] = {}
     for space_id, choice in spaces_map.items():
         space = db.get(Space, space_id)
         if space is None or space.deleted_at is not None or choice == "keep":
@@ -548,13 +551,18 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
                 made = {"id": str(request("POST", _api(db, "/spaces"), token=token, body={
                     "name": space.name, "color": space.color, "people": people, "teams": teams})["id"])}
                 remember(f"space:{space.id}", made)
-            space.external_id = made["id"]
+            space_of[space.id] = made["id"]
         else:
             # Matched: the rights it has here come along, nexsuite keeps the higher where it has one (B1).
             request("POST", _api(db, f"/spaces/{int(choice)}/tick"), token=token,
                     body={"people": people, "teams": teams})
-            space.external_id = str(int(choice))
-        spaces_done += 1
+            space_of[space.id] = str(int(choice))
+    request("POST", _api(db, "/finish"), token=token, body={"people": len(person_of), "spaces": len(space_of)})
+    # Confirmed: everything here in one transaction with the settings below (``settings_service.save`` commits).
+    for space_id, external in space_of.items():
+        space = db.get(Space, space_id)
+        if space is not None:
+            space.external_id = external
     for account_id, row in accounts_here.items():
         # Which accounts nexsuite knows from now on, by its person (B8, B21): the matched and the made ones. While
         # connected ``oidc_subject`` holds that person and nothing else: a link the account had to another provider
@@ -572,8 +580,6 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
         team = db.get(Team, team_id)
         if team is not None:
             team.source, team.external_id = TEAM_ADMIN, external
-    db.commit()
-    request("POST", _api(db, "/finish"), token=token, body={"people": len(person_of), "spaces": spaces_done})
     pending = settings_service.get(db, "suite_pending") or {}
     values = settings_service.get_all(db)
     settings_service.save(db, {
@@ -591,22 +597,25 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
         "suite_state": "connected",
         "suite_emergency_account": operator.id,
     })
-    logger.info("Connected to nexsuite: %s accounts, %s spaces", len(person_of), spaces_done)
+    logger.info("Connected to nexsuite: %s accounts, %s spaces", len(person_of), len(space_of))
     sync(db)
     return new_people
 
 
 def abort(db: Session) -> None:
     """Gives up a connection that did not finish; nexsuite is asked to forget the app. A finished connection is not
-    given up this way: nexsuite would keep the app while it ran on its own, without anybody's password (B2)."""
-    if state(db) == "connected":
-        raise SuiteError("already_connected", "nexcanvas is already connected.", 409)
-    if state(db) == "connecting":
-        try:
-            request("POST", _api(db, "/leave"), token=_token(db))
-        except SuiteError:
-            pass
-    _forget(db)
+    given up this way: nexsuite would keep the app while it ran on its own, without anybody's password (B2). Under the
+    lock a finish holds: a give-up from another tab waits for it and then finds the connection done."""
+    with _connect_lock:
+        db.expire_all()
+        if state(db) == "connected":
+            raise SuiteError("already_connected", "nexcanvas is already connected.", 409)
+        if state(db) == "connecting":
+            try:
+                request("POST", _api(db, "/leave"), token=_token(db))
+            except SuiteError:
+                pass
+        _forget(db)
 
 
 # --- Keeping in step --------------------------------------------------------------------------------------------------
@@ -752,13 +761,22 @@ def suite_email(person: dict[str, Any] | None) -> str:
     return email if email and plain and accounts.EMAIL_PATTERN.match(email) else ""
 
 
+def _switched(row: Account) -> bool:
+    """An account with a password of its own that signs in through the provider: only a sync switches one so (the
+    operator's "set a password" switches back, a provider makes accounts without one). Its subject is a person of
+    nexsuite's, never a link of its own, also once nexsuite has deleted the person (review of ba44488)."""
+    return row.sign_in == SIGN_IN_OIDC and bool(row.password_hash)
+
+
 def _settle_subjects(db: Session, people: dict[str, dict[str, Any]], keeper: int, signed_out: list[int]) -> None:
     """Each subject is claimed by one account at most (connections made before ``oidc_subject_local`` existed, or a
     link made while connected).
 
     * An account whose ``suite_person`` names another person never claims one: the subject came while connected (a
       link), it is dropped, and the account goes back to its own person.
-    * Among the rest, unmarked ones only when not blocked or carrying the person's sign-in name; the first by: marked
+    * Among the rest, unmarked ones only when not blocked, carrying the person's sign-in name, or (person deleted
+      there) switched to the provider by a sync, so a deleted person's id never turns into a link of its own on
+      disconnecting; the first by: marked
       for this person (``suite_person``, what the operator chose when connecting), the sign-in name is the person's,
       not blocked, smallest id. The choice comes before the name: an account left out that kept a provider's subject
       of the same spelling never takes the person from the account it was given to. Address and display name do not
@@ -775,7 +793,8 @@ def _settle_subjects(db: Session, people: dict[str, dict[str, Any]], keeper: int
     for subject, group in holders.items():
         person = people.get(subject)
         able = [row for row in group if row.suite_person == subject
-                or (not row.suite_person and (row.blocked_at is None or _same_name(row, person)))]
+                or (not row.suite_person and (row.blocked_at is None or _same_name(row, person)
+                                              or (person is None and _switched(row))))]
         if able:
             owner[subject] = min(able, key=lambda row: (row.suite_person != subject, not _same_name(row, person),
                                                         row.blocked_at is not None, row.id))

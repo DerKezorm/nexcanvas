@@ -42,7 +42,8 @@ const UNKNOWN = ['person_unknown', 'space_unknown', 'team_unknown']
 export function changesOf(account: LocalAccount, person: SuitePerson | undefined): { name?: string; email?: string } {
   if (!person) return {}
   const now = account.display_name || account.name
-  const then = person.display_name || account.name
+  // A person without a display name takes the one from here when connecting (B16, people/{id}/name).
+  const then = person.display_name || account.display_name || account.name
   return {
     name: then !== now ? then : undefined,
     // Without an address there, the one from here goes along (B7): only a different one is a change.

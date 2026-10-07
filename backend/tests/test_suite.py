@@ -163,6 +163,9 @@ class FakeSuite:
             team["lead"] = team["lead"] or body["lead"]
             return {"id": tid, "name": team["name"]}
         if path == "/finish":
+            if self.fail_on == "/finish":
+                self.fail_on = ""
+                raise suite.SuiteError("suite_unreachable", "nexsuite cannot be reached.")
             self.connected = True
             return None
         if path == "/report":

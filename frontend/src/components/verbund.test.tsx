@@ -159,7 +159,7 @@ function connecting() {
   server.answers['GET /api/suite/proposal'] = {
     people: [
       { id: '1', name: 'robin', display_name: '', email: 'robin@example.com' },
-      { id: '6', name: 'jona', display_name: 'Jona', email: 'jona.new@example.com' },
+      { id: '6', name: 'jona', display_name: 'Jona Berg', email: 'jona.new@example.com' },
     ],
     accounts: [
       { id: 1, name: 'robin', display_name: 'Robin Keller', email: 'robin@example.com', role: 'operator', suggest: '1', blocked: false, from_suite: false, gone: false },
@@ -214,10 +214,11 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     expect(row(page, 'jona').textContent).not.toContain('Taken over')
     expect(badges('mila')).toEqual(['blocked', 'came from nexsuite'])
     expect(row(page, 'mila').textContent).toContain('Its person was deleted in nexsuite.')
-    // Robin's person has no display name there: the name others see becomes the sign-in name (B16).
-    expect(row(page, 'robin').textContent).toContain('Display name becomes “robin”')
+    // Robin's person has no display name there: connecting gives it the one from here (B16), so nothing changes.
+    expect(row(page, 'robin').textContent).not.toContain('Display name becomes')
     await choose(row(page, 'jona').querySelector('select'), '6')
     expect(row(page, 'jona').textContent).toContain('Blocked. Taken over, the account can sign in again.')
+    expect(row(page, 'jona').textContent).toContain('Display name becomes “Jona Berg”')
     expect(row(page, 'jona').textContent).toContain('Address becomes jona.new@example.com')
   })
 
@@ -241,6 +242,18 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     expect(again.querySelector<HTMLSelectElement>('li select')!.value).toBe('keep')
     await click(button(again, 'Back'))
     expect(row(again, 'mila').querySelector('select')!.value).toBe('new')
+  })
+
+  it('never brings back a kept "leave out" for the own account (B23)', async () => {
+    connecting()
+    server.answers['GET /api/suite/proposal'] = { ...proposal(), chosen: { accounts: { '1': 'skip', '4': '6', '7': 'new' }, spaces: {}, teams: {}, step: 2 } }
+    const page = await mount(<SuiteCard />)
+    await click(button(page, 'Continue connecting'))
+    await settle()
+    // The own account always needs a person: its suggestion stands, the others come back as kept.
+    expect(row(page, 'robin').querySelector('select')!.value).toBe('1')
+    expect(row(page, 'jona').querySelector('select')!.value).toBe('6')
+    expect(row(page, 'mila').querySelector('select')!.value).toBe('new')
   })
 
   it('says what takes a moment and connects once for two clicks (B25)', async () => {

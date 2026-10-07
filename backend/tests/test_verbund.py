@@ -1371,3 +1371,158 @@ def test_cleaning_an_address_from_nexsuite_that_fails_the_check_is_not_kept(
     fake.people["2"]["email"] = "anna.berg@example.com"
     assert client.post("/api/suite/sync").status_code == 200
     assert _row("anna").email == "anna.berg@example.com"
+
+
+# --- Review of ba44488: a connection that fails at its last step, a person deleted before the update ---------------
+
+
+def _snapshot() -> tuple[dict[str, tuple[Any, ...]], dict[int, tuple[str, str]], dict[int, str]]:
+    """What connecting changes here: each account's subjects, mark, block and way in; teams; spaces."""
+    with SessionLocal() as db:
+        return ({row.name: (row.oidc_subject, row.oidc_subject_local, row.suite_person, row.blocked_at is None,
+                            row.sign_in) for row in db.query(Account)},
+                {team.id: (team.source, team.external_id) for team in db.query(Team)},
+                {space.id: space.external_id for space in db.query(Space)})
+
+
+def _choices(client: TestClient, world: dict) -> dict[str, Any]:
+    found = client.post("/api/suite/start", json={"url": SUITE, "code": "GOOD-CODE-1234"}).json()
+    accounts = {a["id"]: a["suggest"] for a in found["accounts"]}
+    accounts[world["cleo"].id] = "skip"
+    return {"accounts": accounts, "spaces": {s["id"]: s["suggest"] for s in found["spaces"]}}
+
+
+def test_finish_failing_at_its_last_step_changes_nothing_here_and_abort_leaves_it_so(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite) -> None:
+    with SessionLocal() as db:  # cleo signed in through authentik before
+        db.get(Account, world["cleo"].id).oidc_subject = "authentik-hash-of-cleo"  # type: ignore[union-attr]
+        db.commit()
+    before = _snapshot()
+    chosen = _choices(client, world)
+    fake.fail_on = "/finish"
+    answer = client.post("/api/suite/finish", json=chosen)
+    assert answer.status_code in (409, 502) and _code(answer) == "suite_unreachable", answer.text
+    assert _setting("suite_state") == "connecting"
+    assert _snapshot() == before, "nothing here changes before nexsuite has the connection"
+    assert client.post("/api/suite/abort").status_code == 204
+    assert _setting("suite_state") == ""
+    assert _snapshot() == before, "given up, everything is as before connecting"
+    assert _row("cleo").oidc_subject == "authentik-hash-of-cleo" and _row("cleo").blocked_at is None
+
+
+def test_finish_again_after_a_failed_last_step_connects_once(client: TestClient, operator: Account, world: dict,
+                                                           fake: FakeSuite) -> None:
+    chosen = _choices(client, world)
+    fake.fail_on = "/finish"
+    assert client.post("/api/suite/finish", json=chosen).status_code in (409, 502)
+    people, teams = len(fake.people), len(fake.teams)
+    done = client.post("/api/suite/finish", json=chosen)
+    assert done.status_code == 200, done.text
+    assert _setting("suite_state") == "connected"
+    assert len(fake.people) == people and len(fake.teams) == teams, "what was made before is used, not made again"
+    assert len([s for s in fake.spaces.values() if s["name"] == "Studio"]) == 1
+    assert _row("anna").oidc_subject == "2" and _row("cleo").blocked_at is not None
+    with SessionLocal() as db:
+        team = db.get(Team, world["team"])
+        space = db.get(Space, world["studio"])
+        assert team is not None and team.source == "admin" and team.external_id in fake.teams
+        assert space is not None and space.external_id in fake.ticked
+
+
+def test_abort_in_another_tab_waits_for_a_finish_under_way(client: TestClient, operator: Account, world: dict,
+                                                           fake: FakeSuite, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tab 1 connects and nexsuite is slow to confirm; tab 2 gives up meanwhile. The give-up waits for the finish and
+    then finds the connection done (409), instead of forgetting it half way."""
+    chosen = _choices(client, world)
+    reached, go = threading.Event(), threading.Event()
+    real = fake.handle
+
+    def slow(method: str, url: str, **kwargs: Any) -> Any:
+        if url.endswith("/api/connect/v1/finish"):
+            reached.set()
+            assert go.wait(10)
+        return real(method, url, **kwargs)
+
+    monkeypatch.setattr(suite, "request", slow)
+    results: dict[str, int] = {}
+
+    def finishing() -> None:
+        results["finish"] = client.post("/api/suite/finish", json=chosen).status_code
+
+    def aborting() -> None:
+        results["abort"] = client.post("/api/suite/abort").status_code
+
+    first = threading.Thread(target=finishing)
+    first.start()
+    assert reached.wait(10), "the finish reaches nexsuite"
+    second = threading.Thread(target=aborting)
+    second.start()
+    second.join(0.5)
+    go.set()
+    first.join(20)
+    second.join(20)
+    assert results == {"finish": 200, "abort": 409}
+    assert _setting("suite_state") == "connected" and _setting("suite_url") == SUITE and _setting("suite_token_enc")
+    assert ("POST", "/leave") not in fake.calls
+
+
+def test_b8_a_blocked_account_is_not_matched_to_a_free_person_by_address_or_name(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite) -> None:
+    connect(client, world, operator)
+    _disconnect(client, fake)
+    with SessionLocal() as db:
+        db.get(Account, world["cleo"].id).email = "cleo@example.com"  # type: ignore[union-attr]
+        db.commit()
+    fake.people["70"] = {"id": "70", "name": "cleo", "display_name": "Cleo", "email": "cleo@example.com",
+                         "operator": False, "blocked": False}
+    rows = _again(client)
+    assert rows["cleo"]["suggest"] == "skip" and rows["cleo"]["blocked"] is True
+
+
+def test_b8_an_account_nexsuite_brought_and_left_out_now_is_nobody_s_any_more(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite) -> None:
+    connect(client, world, operator)
+    _disconnect(client, fake)
+    assert _row("anna").suite_person == "2"
+    found = client.post("/api/suite/start", json={"url": SUITE, "code": "GOOD-CODE-1234"}).json()
+    choices = {a["id"]: a["suggest"] for a in found["accounts"]}
+    choices[world["anna"].id] = "skip"
+    assert client.post("/api/suite/finish", json={"accounts": choices, "spaces": {}}).status_code == 200
+    anna = _row("anna")
+    assert (anna.oidc_subject, anna.suite_person) == ("", ""), "left out now, its former person is not its own"
+    assert anna.blocked_at is not None
+
+
+def test_settled_the_emergency_account_is_never_blocked(client: TestClient, operator: Account, world: dict,
+                                                         fake: FakeSuite) -> None:
+    """Connected under bf64550, zoe was given person 1 and the emergency account kept the same subject unmarked:
+    settled, zoe keeps the person and the emergency account is put apart, but never locked out."""
+    zoe = make_account("zoe")
+    connect(client, world, operator)
+    _legacy({"tester": "1", "zoe": "1"})
+    with SessionLocal() as db:
+        db.get(Account, zoe.id).suite_person = "1"  # type: ignore[union-attr]
+        db.commit()
+    assert client.post("/api/suite/sync").status_code == 200
+    assert _row("zoe").oidc_subject == "1"
+    keeper = _row("tester")
+    assert keeper.oidc_subject == "" and keeper.blocked_at is None
+
+
+def test_settled_a_person_deleted_before_the_update_leaves_no_link_behind(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite) -> None:
+    """Connected under bf64550, anna's person was deleted in nexsuite and her account blocked. Her subject was
+    nexsuite's, not a link of her own: after a disconnect she has no link and signs in with her password again, and
+    connecting again says that her person is gone."""
+    connect(client, world, operator)
+    del fake.people["2"]
+    assert client.post("/api/suite/sync").status_code == 200
+    _legacy({"anna": "2"}, anna={"blocked_at": utcnow()})
+    assert client.post("/api/suite/sync").status_code == 200
+    anna = _row("anna")
+    assert anna.oidc_subject_local == "" and anna.blocked_at is not None
+    _disconnect(client, fake)
+    anna = _row("anna")
+    assert (anna.oidc_subject, anna.oidc_subject_local, anna.sign_in) == ("", "", "password")
+    rows = _again(client)
+    assert rows["anna"]["gone"] is True and rows["anna"]["suggest"] == "skip"
