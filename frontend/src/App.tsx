@@ -13,6 +13,7 @@ import { AccountPage } from './pages/AccountPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { TemplatesPage } from './pages/TemplatesPage'
 import { useAuth } from './state/auth'
+import { NotFoundPage } from './components/NotFound'
 
 /** Everything behind the sign-in: without an account the page goes to the sign-in, and comes back after. An account
  * that still has to set up its second factor (the operator requires one) reaches its own account page only; before,
@@ -72,7 +73,8 @@ export default function App() {
         <Route path="settings" element={<SettingsPage />} />
         <Route path="account" element={<AccountPage />} />
         <Route path="about" element={<AboutPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* An address no page answers to says so, instead of silently showing the overview (E31). */}
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
   )

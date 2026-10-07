@@ -7,8 +7,10 @@ import { Box, Download, Files, Globe, History, Info, KeyRound, Mail, RotateCcw, 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, apiTokensApi, passwordHeader, type AnyApiToken, type Me, type SpaceInfo } from '../../api/client'
+import { api, apiTokensApi, passwordHeader, type AnyApiToken, type Me, type Role, type SpaceInfo } from '../../api/client'
+import { useBoards } from '../../board/store'
 import { Avatar } from '../../components/Avatar'
+import { clock, moment } from '../../lib/time'
 import { MembersDialog } from '../../components/MembersDialog'
 import { byName, forgetAddedLanguages, templateFile } from '../../i18n'
 import { useAuth } from '../../state/auth'
@@ -75,7 +77,7 @@ export function ProxyHint() {
 }
 
 type AccountRow = Me & { spaces: number; locked: boolean; blocked?: boolean; has_password?: boolean; created_at: string; last_seen_at: string | null }
-type OpenInvite = { id: number; email: string; expires_at: string }
+type OpenInvite = { id: number; email: string; expires_at: string; space?: string | null; role?: string }
 const DAYS = ['1', '7', '30'] as const
 
 /** The accounts; connected to nexsuite only shown (``readOnly``): people are kept there (Prüfgang G2). */
@@ -87,6 +89,10 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
   const [days, setDays] = useState<(typeof DAYS)[number]>('7')
   const [email, setEmail] = useState('')
   const [send, setSend] = useState(true)
+  // Straight into a space as well, if one is chosen (E18, as nextasks); empty brings into nexcanvas only.
+  const [into, setInto] = useState('')
+  const [role, setRole] = useState<Role>('write')
+  const spaces = useBoards().spaces.filter((s) => !s.managed && !s.dropped)
   const [made, setMade] = useState<{ link: string; sent: boolean; email: string } | null>(null)
   const [invites, setInvites] = useState<OpenInvite[]>([])
   const [asking, setAsking] = useState<{ kind: 'role' | 'delete' | 'password' | 'reset' | 'signout' | 'block' | 'unblock'; account: AccountRow } | null>(null)
@@ -97,20 +103,26 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
     if (!readOnly) api<OpenInvite[]>('/api/invites').then(setInvites, () => undefined)
   }, [readOnly])
   useEffect(load, [load])
+  // Each button names its account for a screen reader, not five times "Delete" in a row (Prüfgang G6).
+  const shown = (row: AccountRow) => row.display_name || row.name
+  const forRow = (row: AccountRow, action: string) => t('server.forAccount', { name: shown(row), action })
   return (
     <Card id="accounts" icon={Users} title={t('server.accounts')} text={readOnly ? t('suite.managedAccounts') : t('server.accountsHint')}>
       <ul className="divide-y divide-ink-700 rounded-xl border border-ink-700">
         {list.map((row) => (
-          <li key={row.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+          <li key={row.id} data-testid={`account-row-${row.name}`} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
             <Avatar person={row} className="h-8 w-8 text-sm" />
-            <div className="min-w-0 flex-1">
+            {/* Wide enough to read: when the buttons crowd it, they move below instead of cutting it (Prüfgang G6). */}
+            <div className="min-w-[15rem] flex-1 basis-[15rem]">
               <div className="truncate text-sm font-medium text-mist-100">
                 {row.display_name || row.name}
                 {row.display_name && <span className="ml-1 text-xs font-normal text-mist-500">@{row.name}</span>}
                 {row.id === me?.id && <span className="ml-1.5 text-xs font-normal text-mist-500">{t('members.you')}</span>}
               </div>
-              <div className="truncate text-xs text-mist-500">
-                {row.role === 'operator' ? t('account.operator') : t('server.member')} · {t(`server.signInBy.${row.sign_in}`)} · {t('server.inSpaces', { count: row.spaces })}
+              <div data-testid="account-status" className="text-xs break-words text-mist-500">
+                {/* Connected, an account that signs in through the provider does so through nexsuite (H4). */}
+                {row.role === 'operator' ? t('account.operator') : t('server.member')} · {t(readOnly && row.sign_in === 'oidc' ? 'server.signInBy.suite' : `server.signInBy.${row.sign_in}`)} ·{' '}
+                {row.role === 'operator' ? t('server.everySpace') : t('server.inSpaces', { count: row.spaces })}
                 {row.two_factor ? ' · ' + t('server.withTwoFactor') : ''}
                 {row.locked ? ' · ' + t('server.locked') : ''}
                 {row.blocked ? ' · ' + t('server.blocked') : ''}
@@ -119,31 +131,31 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
             </div>
             {row.id !== me?.id && !readOnly && (
               <div className="flex flex-wrap gap-1.5">
-                <Button small onClick={() => setAsking({ kind: 'role', account: row })}>
+                <Button small label={forRow(row, row.role === 'operator' ? t('server.makeMember') : t('server.makeOperator'))} onClick={() => setAsking({ kind: 'role', account: row })}>
                   {row.role === 'operator' ? t('server.makeMember') : t('server.makeOperator')}
                 </Button>
                 {/* Also for accounts without one (after leaving nexsuite): a password is how they get in again (B4). */}
-                <Button small onClick={() => setAsking({ kind: 'password', account: row })}>
+                <Button small label={forRow(row, row.has_password === false ? t('server.givePassword') : t('server.newPassword'))} onClick={() => setAsking({ kind: 'password', account: row })}>
                   {row.has_password === false ? t('server.givePassword') : t('server.newPassword')}
                 </Button>
                 {row.blocked ? (
-                  <Button small onClick={() => setAsking({ kind: 'unblock', account: row })}>
+                  <Button small label={forRow(row, t('server.unblock'))} onClick={() => setAsking({ kind: 'unblock', account: row })}>
                     {t('server.unblock')}
                   </Button>
                 ) : (
-                  <Button small onClick={() => setAsking({ kind: 'block', account: row })}>
+                  <Button small danger label={forRow(row, t('server.block'))} onClick={() => setAsking({ kind: 'block', account: row })}>
                     {t('server.block')}
                   </Button>
                 )}
                 {row.two_factor && (
-                  <Button small onClick={() => setAsking({ kind: 'reset', account: row })}>
+                  <Button small label={forRow(row, t('server.resetTwoFactor'))} onClick={() => setAsking({ kind: 'reset', account: row })}>
                     {t('server.resetTwoFactor')}
                   </Button>
                 )}
-                <Button small onClick={() => setAsking({ kind: 'signout', account: row })}>
+                <Button small label={forRow(row, t('server.signOutEverywhere'))} onClick={() => setAsking({ kind: 'signout', account: row })}>
                   {t('server.signOutEverywhere')}
                 </Button>
-                <Button small danger onClick={() => setAsking({ kind: 'delete', account: row })}>
+                <Button small danger label={forRow(row, t('server.deleteAccount'))} onClick={() => setAsking({ kind: 'delete', account: row })}>
                   {t('server.deleteAccount')}
                 </Button>
               </div>
@@ -160,13 +172,16 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
           onSubmit={(event) => {
             event.preventDefault()
             void run(async () => {
-              setMade(await api<{ link: string; sent: boolean; email: string }>('/api/invites', { method: 'POST', body: { days: Number(days), email: email.trim(), send: send && !!email.trim(), language: i18n.language } }))
+              const place = into ? { space: Number(into), role } : {}
+              setMade(await api<{ link: string; sent: boolean; email: string }>('/api/invites', { method: 'POST', body: { days: Number(days), email: email.trim(), send: send && !!email.trim(), language: i18n.language, ...place } }))
               load()
             })
           }}
         >
           <Select label={t('invite.valid')} value={days} options={DAYS.map((value) => ({ value, label: t('invite.days', { count: Number(value) }) }))} onChange={setDays} />
           <Input label={t('invite.email')} value={email} onChange={setEmail} type="email" className="sm:col-span-2" hint={me?.mail ? undefined : t('invite.noMail')} />
+          <Select label={t('invite.into')} value={into} options={[{ value: '', label: t('invite.intoNone') }, ...spaces.map((s) => ({ value: String(s.id), label: s.name }))]} onChange={setInto} className={into ? '' : 'sm:col-span-3'} />
+          {into && <Select<Role> label={t('invite.intoRole')} value={role} options={(['read', 'write', 'manage'] as Role[]).map((value) => ({ value, label: t(`roles.${value}`) }))} onChange={setRole} className="sm:col-span-2" />}
           {me?.mail && email.trim() && (
             <label className="flex items-center gap-2 text-xs text-mist-400 sm:col-span-3">
               <input type="checkbox" checked={send} onChange={(event) => setSend(event.target.checked)} className="accent-accent-500" />
@@ -190,7 +205,8 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
             {invites.map((invite) => (
               <li key={invite.id} className="flex items-center gap-3 px-4 py-2 text-mist-300">
                 <span className="flex-1">
-                  {invite.email || t('invite.noEmail')} · {t('invite.until', { when: new Date(invite.expires_at).toLocaleDateString(i18n.language) })}
+                  {invite.email || t('invite.noEmail')}
+                  {invite.space ? ` · ${t('invite.intoSpace', { space: invite.space, role: t(`roles.${invite.role}`) })}` : ''} · {t('invite.until', { when: new Date(invite.expires_at).toLocaleDateString(i18n.language) })}
                 </span>
                 <Button
                   small
@@ -214,8 +230,8 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
       <Feedback problem={problem} done={done} />
       {asking && (
         <Confirm
-          title={t(`server.confirm.${asking.kind}.title`, { name: asking.account.name })}
-          text={t(asking.kind === 'role' ? (asking.account.role === 'operator' ? 'server.confirm.demote.text' : 'server.confirm.promote.text') : `server.confirm.${asking.kind}.text`, { name: asking.account.name })}
+          title={t(`server.confirm.${asking.kind}.title`, { name: shown(asking.account) })}
+          text={t(asking.kind === 'role' ? (asking.account.role === 'operator' ? 'server.confirm.demote.text' : 'server.confirm.promote.text') : `server.confirm.${asking.kind}.text`, { name: shown(asking.account) })}
           confirm={t(`server.confirm.${asking.kind}.button`)}
           danger={asking.kind === 'delete' || asking.kind === 'block'}
           password={me?.sign_in === 'password' && asking.kind !== 'signout'}
@@ -493,7 +509,7 @@ export function ApiTokensCard({ server }: { server: Server }) {
                   </td>
                   <td className="py-1.5 pr-3">{token.spaces === null ? t('server.apiTokens.allSpaces') : t('server.apiTokens.someSpaces', { count: token.spaces })}</td>
                   <td className="py-1.5 pr-3 text-mist-400">
-                    {token.last_used_at ? new Date(token.last_used_at).toLocaleString(i18n.language, { dateStyle: 'short', timeStyle: 'short' }) : t('apiTokens.unused')}
+                    {token.last_used_at ? moment(token.last_used_at, i18n.language) : t('apiTokens.unused')}
                   </td>
                   <td className="py-1.5 text-right">
                     {token.blocked ? (
@@ -661,7 +677,9 @@ export function BackupsCard({ server }: { server: Server }) {
   const s = server.settings
   if (!s) return null
   const size = (bytes: number) => (bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`)
-  const icon = 'rounded-lg p-1.5 text-mist-500 hover:bg-ink-800 hover:text-mist-100'
+  // Each button names its backup for a screen reader (Prüfgang G10).
+  const forBackup = (entry: Backup, action: string) => t('server.forAccount', { name: moment(entry.created, i18n.language), action })
+  const keeper = !connected || !!me?.suite_emergency
   return (
     <Card id="backups" icon={History} title={t('server.backups')} text={t('server.backupsHint')}>
       <div className="flex flex-wrap items-end gap-2">
@@ -731,30 +749,37 @@ export function BackupsCard({ server }: { server: Server }) {
         {list.map((entry) => (
           <li key={entry.name} className="flex flex-wrap items-center gap-2 px-4 py-2.5">
             <div className="min-w-0 flex-1">
-              <div className="text-mist-100">{new Date(entry.created).toLocaleString(i18n.language)}</div>
+              <div className="text-mist-100">{moment(entry.created, i18n.language)}</div>
               <div className="text-xs text-mist-500">
                 {entry.uploaded ? t('server.uploaded') : t(`server.kinds.${entry.kind}`)} · {t('server.backupContent', { boards: t('server.countBoards', { count: entry.boards }), files: t('server.countFiles', { count: entry.files }) })} · {size(entry.size)} · {entry.version}
               </div>
             </div>
-            <button type="button" className={icon} title={t('server.check')} aria-label={t('server.check')} onClick={() => void action.run(async () => setBrief({ ...(await api<Brief>(`/api/backups/${entry.name}/check`, { method: 'POST' })), name: entry.name }))}>
-              <ShieldCheck className="h-4 w-4" strokeWidth={1.8} />
-            </button>
-            {/* Connected, only the emergency account carries a copy away or deletes one, and nobody restores. */}
-            {(!connected || me?.suite_emergency) && (
-              <button type="button" className={icon} title={t('server.download')} aria-label={t('server.download')} onClick={() => setAsking({ kind: 'download', name: entry.name })}>
-                <Download className="h-4 w-4" strokeWidth={1.8} />
-              </button>
-            )}
-            {!connected && (
-              <button type="button" className={icon} title={t('server.restore')} aria-label={t('server.restore')} onClick={() => setAsking({ kind: 'restore', name: entry.name })}>
-                <RotateCcw className="h-4 w-4" strokeWidth={1.8} />
-              </button>
-            )}
-            {(!connected || me?.suite_emergency) && (
-              <button type="button" className="rounded-lg p-1.5 text-mist-500 hover:bg-ink-800 hover:text-bad-500" title={t('server.deleteBackup')} aria-label={t('server.deleteBackup')} onClick={() => setAsking({ kind: 'delete', name: entry.name })}>
-                <Trash2 className="h-4 w-4" strokeWidth={1.8} />
-              </button>
-            )}
+            {/* Words, not four bare symbols (Prüfgang G10). Connected, only the emergency account carries a copy away or
+                deletes one, and nobody restores. */}
+            <div className="flex flex-wrap gap-1.5">
+              <Button small label={forBackup(entry, t('server.check'))} onClick={() => void action.run(async () => setBrief({ ...(await api<Brief>(`/api/backups/${entry.name}/check`, { method: 'POST' })), name: entry.name }))}>
+                <ShieldCheck className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden />
+                {t('server.check')}
+              </Button>
+              {keeper && (
+                <Button small label={forBackup(entry, t('server.download'))} onClick={() => setAsking({ kind: 'download', name: entry.name })}>
+                  <Download className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden />
+                  {t('server.download')}
+                </Button>
+              )}
+              {!connected && (
+                <Button small label={forBackup(entry, t('server.restore'))} onClick={() => setAsking({ kind: 'restore', name: entry.name })}>
+                  <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden />
+                  {t('server.restore')}
+                </Button>
+              )}
+              {keeper && (
+                <Button small danger label={forBackup(entry, t('server.deleteBackup'))} onClick={() => setAsking({ kind: 'delete', name: entry.name })}>
+                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden />
+                  {t('server.deleteBackup')}
+                </Button>
+              )}
+            </div>
           </li>
         ))}
       </ul>
@@ -871,11 +896,12 @@ export function LanguagesCard() {
   )
 }
 
-type LogLine = { time: string; level: string; logger: string; message: string }
+/** `at`: the moment with its offset, shown in the reader's own time (G11); `time` is the server's clock. */
+type LogLine = { time: string; level: string; logger: string; message: string; at?: string | null }
 type LogMode = { mode: string; until: string | null; fixed_by_env: boolean; modes: string[] }
 
 export function LogCard() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [lines, setLines] = useState<LogLine[] | null>(null)
   const [level, setLevel] = useState('')
   const [words, setWords] = useState('')
@@ -915,7 +941,7 @@ export function LogCard() {
         {lines?.length === 0 && <p className="text-mist-500">{t('server.logEmpty')}</p>}
         {lines?.map((line, index) => (
           <div key={index} className={'break-words whitespace-pre-wrap ' + tone(line)}>
-            <span className="text-mist-600">{line.time}</span> {line.level} <span className="text-mist-500">{line.logger}</span> {line.message}
+            <span className="text-mist-600">{line.at ? moment(line.at, i18n.language, true) : line.time}</span> {line.level} <span className="text-mist-500">{line.logger}</span> {line.message}
           </div>
         ))}
       </div>
@@ -945,7 +971,7 @@ export function LogCard() {
           {t('server.logClear')}
         </Button>
       </div>
-      {mode?.until && <p className="text-xs text-mist-500">{t('server.logUntil', { time: new Date(mode.until).toLocaleTimeString() })}</p>}
+      {mode?.until && <p className="text-xs text-mist-500">{t('server.logUntil', { time: clock(mode.until, i18n.language) })}</p>}
       <Feedback problem={action.problem} done={action.done} />
       {clearing && (
         <Confirm

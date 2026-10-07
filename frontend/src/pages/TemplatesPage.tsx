@@ -13,6 +13,7 @@ import { TEMPLATE_ICONS, useOwnTemplates } from '../components/Templates'
 import { errorText } from '../lib/errors'
 import { useAuth } from '../state/auth'
 import { Confirm } from './settings/ui'
+import { useTitle } from '../lib/title'
 
 function asBoard(id: string, doc: Doc): Board {
   return { id, title: id, items: doc.items, lines: doc.lines, background: doc.background, defs: doc.defs, created: 0, updated: 0, updatedBy: '', opened: 0, favorite: false, space: 0, publicLink: false, role: null }
@@ -24,6 +25,7 @@ function asBoard(id: string, doc: Doc): Board {
  */
 export function TemplatesPage() {
   const { t, i18n } = useTranslation()
+  useTitle(t('nav.templates'))
   const shell = useShell()
   const boards = useBoards()
   const { me } = useAuth()

@@ -9,6 +9,7 @@ export function Field({
   autoComplete,
   autoFocus = false,
   hint,
+  maxLength,
 }: {
   label: string
   value: string
@@ -17,6 +18,8 @@ export function Field({
   autoComplete?: string
   autoFocus?: boolean
   hint?: string
+  /** The server's limit, so a longer text cannot be typed at all (Prüfgang E21). */
+  maxLength?: number
 }) {
   // The hint describes the field; it is not part of its name.
   const hintId = useId()
@@ -29,6 +32,7 @@ export function Field({
           value={value}
           autoComplete={autoComplete}
           autoFocus={autoFocus}
+          maxLength={maxLength}
           aria-describedby={hint ? hintId : undefined}
           onChange={(event) => onChange(event.target.value)}
           className="mt-1 h-10 w-full rounded-lg border border-ink-700 bg-ink-850 px-3 text-sm text-mist-100 outline-none focus:border-accent-500"

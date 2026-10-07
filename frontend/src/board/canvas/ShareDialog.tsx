@@ -41,7 +41,7 @@ function CopyField({ value }: { value: string }) {
  * read-only page can be switched on, with expiry and password, if the operator allows public pages.
  */
 export function ShareDialog({ board, onClose }: { board: Board; onClose: () => void }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { me } = useAuth()
   const boards = useBoards()
   const space = boards.space(board.space)
@@ -155,7 +155,7 @@ export function ShareDialog({ board, onClose }: { board: Board; onClose: () => v
               <>
                 <CopyField value={share.link} />
                 <div className="flex items-center justify-between text-xs text-mist-600">
-                  <span>{share.expires_at ? t('share.until', { date: new Date(share.expires_at).toLocaleDateString() }) : t('share.forever')}</span>
+                  <span>{share.expires_at ? t('share.until', { date: new Date(share.expires_at).toLocaleDateString(i18n.language) }) : t('share.forever')}</span>
                   <button type="button" disabled={busy} onClick={publish} className="font-semibold text-accent-400 hover:underline">
                     {t('share.update')}
                   </button>

@@ -13,9 +13,11 @@ import { useTranslation } from 'react-i18next'
 import { api, ApiError } from '../api/client'
 import { Logo } from '../components/Logo'
 import { WhatsNewWindow } from '../components/WhatsNew'
+import { moment } from '../lib/time'
 import { useWhatsNew } from '../lib/whatsNew'
 import { useAuth } from '../state/auth'
 import { Button, Card, Feedback, Toggle } from './settings/ui'
+import { useTitle } from '../lib/title'
 
 type About = { version: string; license: string; repo_url: string; releases_url: string; project_url: string }
 type Updates = { update_check: boolean; checked: boolean; latest: string | null; newer: boolean; checked_at: string | null; release_url: string | null }
@@ -63,6 +65,7 @@ function code(error: unknown): string {
 
 export function AboutPage() {
   const { t, i18n } = useTranslation()
+  useTitle(t('about.menu'))
   const { me } = useAuth()
   const operator = me?.role === 'operator'
   const [about, setAbout] = useState<About | null>(null)
@@ -176,7 +179,7 @@ export function AboutPage() {
                 t('about.updates.none')
               )}
             </span>
-            {updates?.checked_at && <span className="text-xs text-mist-500">{t('about.updates.checkedAt', { when: new Date(updates.checked_at).toLocaleString(i18n.language) })}</span>}
+            {updates?.checked_at && <span className="text-xs text-mist-500">{t('about.updates.checkedAt', { when: moment(updates.checked_at, i18n.language) })}</span>}
           </div>
           <p className="text-xs leading-relaxed text-mist-500">{t('about.updates.whatGoesOut')}</p>
         </Card>

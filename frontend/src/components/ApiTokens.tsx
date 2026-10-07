@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom'
 import { ApiError, apiTokensApi, type ApiToken } from '../api/client'
 import { useBoards } from '../board/store'
 import { errorText } from '../lib/errors'
+import { moment } from '../lib/time'
 import { useAuth } from '../state/auth'
 import { copyText } from '../lib/copy'
 
@@ -73,7 +74,6 @@ export function ApiTokens() {
 
   if (!state) return null
   const day = (value: string) => new Date(value).toLocaleDateString(i18n.language)
-  const moment = (value: string) => new Date(value).toLocaleString(i18n.language, { dateStyle: 'short', timeStyle: 'short' })
   const title = (
     <h2 id="api-tokens-title" className="mb-1 flex items-center gap-2 font-semibold text-mist-100">
       <KeyRound className={'h-4 w-4 ' + (state.allowed ? 'text-accent-400' : 'text-mist-500')} strokeWidth={1.8} aria-hidden /> {t('apiTokens.title')}
@@ -183,7 +183,7 @@ export function ApiTokens() {
                       {end.text}
                     </span>
                   )}
-                  <span>{token.last_used_at ? t('apiTokens.used', { when: moment(token.last_used_at) }) : t('apiTokens.unused')}</span>
+                  <span>{token.last_used_at ? t('apiTokens.used', { when: moment(token.last_used_at, i18n.language) }) : t('apiTokens.unused')}</span>
                 </div>
               </li>
             )

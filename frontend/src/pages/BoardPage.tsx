@@ -33,7 +33,10 @@ import { NOTE_COLORS, paint } from '../board/palette'
 import { toBoard as boardFromInfo, useBoards } from '../board/store'
 import type { Board, Doc, End, InkItem, Item, LineItem, View } from '../board/types'
 import { ApiError, authApi, boardsApi, mediaApi, type Me } from '../api/client'
-import { errorText } from '../lib/errors'
+import { errorText, problemText } from '../lib/errors'
+import { useTitle } from '../lib/title'
+import { NotFound } from '../components/NotFound'
+import { TITLE_MAX } from '../board/types'
 import { useAuth } from '../state/auth'
 import { Dialog } from '../components/Dialog'
 import { Popover } from '../components/Popover'
@@ -153,16 +156,14 @@ export function BoardPage() {
   }, [id, known])
   const fetched = answer?.id === id ? answer.board : null
   const board = known ?? (fetched && fetched !== 'missing' ? fetched : undefined)
+  // The tab names the board (F13); one that is not there names nothing.
+  useTitle(board && !board.deleted ? board.title : null)
   if (!board && fetched !== 'missing') return <main className="nc-board flex-1" />
   if (!board || board.deleted) {
+    // In the family's words, with the way to all boards (E31).
     return (
-      <main className="grid flex-1 place-items-center p-8 text-center">
-        <div>
-          <p className="text-mist-400">{t('board.missing')}</p>
-          <Link to="/" className="mt-3 inline-block text-accent-400 hover:underline">
-            {t('board.back')}
-          </Link>
-        </div>
+      <main className="nc-scroll min-w-0 flex-1 overflow-y-auto px-4">
+        <NotFound text={t('board.missing')} />
       </main>
     )
   }
@@ -1467,11 +1468,18 @@ function Editor({ board }: { board: Board }) {
             <input
               autoFocus
               value={title}
+              maxLength={TITLE_MAX}
+              aria-label={t('board.name')}
               onChange={(e) => setTitle(e.target.value)}
               onFocus={(e) => e.target.select()}
               onBlur={() => {
-                if (title.trim()) boards.patch(board.id, { title: title.trim() })
-                setTitle(null)
+                const wanted = title.trim()
+                if (!wanted || wanted === board.title) return setTitle(null)
+                // A refusal says why and keeps what was typed in the field (E21).
+                boards.patch(board.id, { title: wanted }).then(
+                  () => setTitle(null),
+                  (error) => setNotice(problemText(error)),
+                )
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') (e.target as HTMLInputElement).blur()

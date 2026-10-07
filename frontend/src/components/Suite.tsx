@@ -12,6 +12,7 @@ import { Button, Card, Feedback, useAction } from '../pages/settings/ui'
 import { useAuth } from '../state/auth'
 import { Avatar } from './Avatar'
 import { Dialog } from './Dialog'
+import { moment } from '../lib/time'
 
 /** For the operator also who stops being an operator on disconnecting (B17): `operators_from_suite`; for a connection made
  * before the roles were kept (`roles_kept` false), the operators who stay operators. Names as people see them. */
@@ -88,7 +89,7 @@ export function useSuiteConnected(): boolean {
 
 /** Settings, Server, nexsuite. */
 export function SuiteCard() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { me, setMe } = useAuth()
   const [status, setStatus] = useState<Status | null>(null)
   const [wizard, setWizard] = useState(false)
@@ -129,7 +130,7 @@ export function SuiteCard() {
               <dt className="text-mist-500">{t('suite.address')}</dt>
               <dd className="font-mono text-mist-100">{status.url}</dd>
               <dt className="text-mist-500">{t('suite.lastSync')}</dt>
-              <dd className="text-mist-100">{status.last_sync ? new Date(status.last_sync).toLocaleString() : t('suite.never')}</dd>
+              <dd className="text-mist-100">{status.last_sync ? moment(status.last_sync, i18n.language) : t('suite.never')}</dd>
               <dt className="text-mist-500">{t('suite.emergencyCodes')}</dt>
               <dd className="text-mist-100">{status.emergency_codes ? t('suite.codesKnown', { count: status.emergency_codes }) : t('suite.codesNone')}</dd>
             </dl>

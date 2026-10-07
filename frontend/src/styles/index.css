@@ -61,7 +61,8 @@
 
   /* Darker coral, so white text on it stays readable. */
   --color-accent-300: #9a3412;
-  --color-accent-400: #b83d22;
+  /* Accent text, also on the coral wash of a chosen tab or row: 4.5 to 1 there too (Prüfgang G7, 4.2 with #b83d22). */
+  --color-accent-400: #9a3412;
   --color-accent-500: #c2452a;
   --color-accent-600: #a8381f;
   --color-accent-700: #8a2d18;
@@ -69,9 +70,10 @@
   --color-on-accent: #ffffff;
   --color-on-bad: #ffffff;
 
-  --color-ok-500: #16a34a;
-  --color-warn-500: #b45309;
-  --color-bad-500: #e11d48;
+  /* Status text 4.5 to 1 or more on white and on its own tint, as in nextasks, nexbrand and nexsuite (Prüfgang G7). */
+  --color-ok-500: #166534;
+  --color-warn-500: #92400e;
+  --color-bad-500: #b91c3c;
 
   --color-board: #fbfbfc;
   --color-board-dot: rgb(20 20 30 / 0.14);

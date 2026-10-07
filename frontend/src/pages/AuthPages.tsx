@@ -12,8 +12,10 @@ import { ThemeSwitcher } from '../components/ThemeSwitcher'
 import i18n from '../i18n'
 import { errorText } from '../lib/errors'
 import { safeNext, useAuth } from '../state/auth'
+import { useTitle } from '../lib/title'
 
 function AuthFrame({ title, text, children }: { title: string; text?: string; children: ReactNode }) {
+  useTitle(title)
   return (
     <div className="nc-scroll flex min-h-dvh flex-col overflow-y-auto">
       <header className="flex items-center justify-between px-5 py-4">
@@ -31,7 +33,7 @@ function AuthFrame({ title, text, children }: { title: string; text?: string; ch
   )
 }
 
-function Field({ label, value, onChange, type = 'text', autoComplete, autoFocus = false, hint }: {
+function Field({ label, value, onChange, type = 'text', autoComplete, autoFocus = false, hint, maxLength }: {
   label: string
   value: string
   onChange: (value: string) => void
@@ -39,6 +41,7 @@ function Field({ label, value, onChange, type = 'text', autoComplete, autoFocus 
   autoComplete?: string
   autoFocus?: boolean
   hint?: string
+  maxLength?: number
 }) {
   const hintId = useId()
   return (
@@ -50,6 +53,7 @@ function Field({ label, value, onChange, type = 'text', autoComplete, autoFocus 
           value={value}
           autoComplete={autoComplete}
           autoFocus={autoFocus}
+          maxLength={maxLength}
           aria-describedby={hint ? hintId : undefined}
           onChange={(event) => onChange(event.target.value)}
           className="mt-1 h-10 w-full rounded-lg border border-edge bg-ink-850 px-3 text-sm outline-none focus:border-accent-500"
@@ -276,7 +280,7 @@ export function LoginPage({ emergency = false }: { emergency?: boolean }) {
   )
 }
 
-type InviteState = { space: string | null; role: string | null; min_password: number; signed_in_as: string | null }
+type InviteState = { space: string | null; role: string | null; min_password: number; signed_in_as: string | null; by?: string | null }
 
 export function InvitePage() {
   const { t } = useTranslation()
@@ -284,8 +288,9 @@ export function InvitePage() {
   const { setMe, refresh } = useAuth()
   const navigate = useNavigate()
   const [state, setState] = useState<InviteState | null>(null)
-  /** Why the link does not hold: nexcanvas connected to nexsuite since (B26), or anything else. */
-  const [invalid, setInvalid] = useState<'invalid' | 'suite' | null>(null)
+  /** Why the link does not hold: nexcanvas connected to nexsuite since (B26), expired (G4), or anything else (used,
+   * withdrawn, replaced). */
+  const [invalid, setInvalid] = useState<'invalid' | 'expired' | 'suite' | null>(null)
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -293,20 +298,27 @@ export function InvitePage() {
   const [methods, setMethods] = useState<Methods | null>(null)
 
   useEffect(() => {
-    api<InviteState>(`/api/invite/${encodeURIComponent(token)}`).then(setState, (error) => setInvalid(codeOf(error) === 'invite_suite' ? 'suite' : 'invalid'))
+    api<InviteState>(`/api/invite/${encodeURIComponent(token)}`).then(setState, (error) => {
+      const code = codeOf(error)
+      setInvalid(code === 'invite_suite' ? 'suite' : code === 'invite_expired' ? 'expired' : 'invalid')
+    })
     authApi.methods().then(setMethods, () => undefined)
   }, [token])
 
   if (invalid) {
     return (
-      <AuthFrame title={t('auth.invite.invalidTitle')}>
-        <p className="text-sm text-mist-400">{invalid === 'suite' ? t('errors.invite_suite') : t('auth.invite.invalidText')}</p>
+      <AuthFrame title={invalid === 'expired' ? t('auth.invite.expiredTitle') : t('auth.invite.invalidTitle')}>
+        <p className="text-sm text-mist-400">{invalid === 'suite' ? t('errors.invite_suite') : invalid === 'expired' ? t('auth.invite.expiredText') : t('auth.invite.invalidText')}</p>
         <BackLink />
       </AuthFrame>
     )
   }
   if (!state) return null
-  const text = state.space ? t('auth.invite.intoSpace', { space: state.space, role: t(`roles.${state.role}`) }) : t('auth.invite.intoApp')
+  // Who invites, so the link is not taken for spam (E18, as nextasks).
+  const by = state.by ? 'By' : ''
+  const text = state.space
+    ? t(`auth.invite.intoSpace${by}`, { space: state.space, role: t(`roles.${state.role}`), by: state.by })
+    : t(`auth.invite.intoApp${by}`, { by: state.by })
 
   if (state.signed_in_as && !state.space) {
     // A link for a new account, opened by somebody signed in already: there is nothing to join (F2).
@@ -370,7 +382,8 @@ export function InvitePage() {
           }}
         >
           <Problem code={problem} />
-          <Field label={t('auth.name')} value={name} onChange={setName} autoComplete="username" autoFocus />
+          {/* The rule up front, not after the first refusal (E18). */}
+          <Field label={t('auth.invite.name')} value={name} onChange={setName} autoComplete="username" autoFocus hint={t('auth.invite.nameHint')} maxLength={64} />
           <Field label={t('auth.password')} value={password} onChange={setPassword} type="password" autoComplete="new-password" hint={t('auth.passwordHint')} />
           <Primary busy={busy}>{t('auth.invite.submit')}</Primary>
         </form>

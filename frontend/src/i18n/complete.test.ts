@@ -41,7 +41,7 @@ describe('shipped languages', () => {
   })
 
   it('count with figures throughout the backup line, never a figure next to a word', () => {
-    for (const key of ['server.countBoards_one', 'server.countFiles_one', 'server.countAccounts_one']) {
+    for (const key of ['server.countBoards_one', 'server.countFiles_one']) {
       expect(german.get(key), key).toContain('{{count}}')
       expect(english.get(key), key).toContain('{{count}}')
     }

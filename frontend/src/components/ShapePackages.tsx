@@ -11,11 +11,14 @@ import { Button, Confirm, Feedback } from '../pages/settings/ui'
 
 type Installed = ShapePackage & { key: number }
 
+/** The page's own refusals of a file, before anything reaches the server; named whole, so the text guard sees them. */
+const LOCAL: Record<string, string> = { not_svg: 'packages_not_svg', empty_svg: 'packages_empty_svg', not_json: 'packages_not_json' }
+
 /** What went wrong, as an error code with its values (the server says which shape and field a package fails on). */
 function trouble(error: unknown): { code: string; values: Record<string, unknown> } {
   if (error instanceof ApiError) return { code: error.code, values: error.values }
   const local = error instanceof Error ? error.message : ''
-  return { code: ['not_svg', 'empty_svg', 'not_json'].includes(local) ? `packages_${local}` : 'internal_error', values: {} }
+  return { code: Object.hasOwn(LOCAL, local) ? LOCAL[local] : 'internal_error', values: {} }
 }
 
 /** The parts of a package the server keeps (no key, scope or switch). */

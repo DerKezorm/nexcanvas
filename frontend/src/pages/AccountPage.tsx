@@ -8,17 +8,18 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 
-import { api, ApiError, authApi, type Me, type Methods } from '../api/client'
+import { api, authApi, type Me, type Methods } from '../api/client'
 import { ApiTokens } from '../components/ApiTokens'
 import { Avatar } from '../components/Avatar'
 import { Field, Problem } from '../components/Field'
 import { LibraryChoice } from '../components/LibraryChoice'
 import { Section } from '../components/Section'
 import { Managed } from '../components/Suite'
-import { errorText } from '../lib/errors'
+import { errorText, problemText } from '../lib/errors'
 import { useAuth } from '../state/auth'
 import { saveAsFile, TabRow, type Tab } from './settings/ui'
 import { copyText } from '../lib/copy'
+import { useTitle } from '../lib/title'
 
 type Part = 'profile' | 'security' | 'connections' | 'shapes'
 const PARTS: Part[] = ['profile', 'security', 'connections', 'shapes']
@@ -27,13 +28,11 @@ const QUIET = 'rounded-full border border-ink-700 px-3 py-1 text-xs text-mist-30
 const LOUD = 'rounded-full bg-accent-500 px-4 py-1.5 text-sm font-semibold text-on-accent hover:bg-accent-400 disabled:opacity-50'
 const PLAIN = 'rounded-full border border-ink-700 px-4 py-1.5 text-sm text-mist-300 hover:bg-ink-850 disabled:opacity-50'
 
-function code(error: unknown): string {
-  return error instanceof ApiError ? error.code : 'internal_error'
-}
 
 export function AccountPage() {
   const { t } = useTranslation()
   const { me, setMe, refresh } = useAuth()
+  useTitle(t('me.title'))
   const [shownAs, setShownAs] = useState(me?.display_name ?? '')
   // Whether a sign-in provider is set up at all: without one there is nothing to link.
   const [methods, setMethods] = useState<Methods | null>(null)
@@ -71,7 +70,7 @@ export function AccountPage() {
       setDone(success)
       await refresh()
     } catch (error) {
-      setProblem(errorText(code(error)))
+      setProblem(problemText(error))
     } finally {
       setBusy(false)
     }
@@ -153,7 +152,8 @@ export function AccountPage() {
               }}
             >
               <div className="min-w-0 flex-1">
-                <Field label={t('me.profile.displayName')} value={shownAs} onChange={setShownAs} autoComplete="name" />
+                {/* The server's limit (80), so a longer name cannot be typed; a refusal leaves the field as it is (E21). */}
+                <Field label={t('me.profile.displayName')} value={shownAs} onChange={setShownAs} autoComplete="name" maxLength={80} />
               </div>
               <button type="submit" disabled={busy || shownAs.trim() === (me.display_name ?? '')} className="h-10 rounded-full bg-accent-500 px-4 text-sm font-semibold text-on-accent hover:bg-accent-400 disabled:opacity-40">
                 {t('me.profile.displaySave')}
@@ -161,7 +161,7 @@ export function AccountPage() {
             </form>
             {/* Under the row, so the button sits beside the field and not beside its explanation. */}
             {me.suite !== 'connected' && (
-              <p className="mt-1 text-xs text-mist-500">{t(me.sign_in === 'password' ? 'me.profile.displayHintPassword' : 'me.profile.displayHint', { name: me.name })}</p>
+              <p className="mt-1 text-xs text-mist-500">{t('me.profile.displayHint', { name: me.name })}</p>
             )}
             <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm" data-testid="account-facts">
               <dt className="text-mist-500">{t('me.profile.name')}</dt>
@@ -249,7 +249,7 @@ export function AccountPage() {
                       api<{ url: string }>('/api/oidc/link/start', { method: 'POST', body: { password: linkPassword } }).then(
                         ({ url }) => window.location.assign(url),
                         (error) => {
-                          setProblem(errorText(code(error)))
+                          setProblem(problemText(error))
                           setBusy(false)
                         },
                       )
@@ -329,7 +329,7 @@ function SecondFactor({ me }: { me: Me }) {
     try {
       await work()
     } catch (error) {
-      setProblem(errorText(code(error)))
+      setProblem(problemText(error))
     } finally {
       setBusy(false)
     }

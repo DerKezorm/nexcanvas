@@ -4,7 +4,9 @@ import { useTranslation } from 'react-i18next'
 import type { Item, View } from '../types'
 import type { Peer } from './useLiveDoc'
 
-const COLORS = ['#60a5fa', '#f472b6', '#4ade80', '#fbbf24', '#a78bfa', '#2dd4bf', '#fb923c', '#f87171']
+/** The colours people get, by their name. */
+// eslint-disable-next-line react-refresh/only-export-components
+export const COLORS = ['#60a5fa', '#f472b6', '#4ade80', '#fbbf24', '#a78bfa', '#2dd4bf', '#fb923c', '#f87171']
 
 /** Everyone gets a colour of their own, the same in every browser: it comes from the name. */
 // eslint-disable-next-line react-refresh/only-export-components

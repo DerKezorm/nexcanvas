@@ -170,3 +170,6 @@ export interface Person {
   display_name: string
   avatar: string | null
 }
+
+/** The longest name a board may have, as the server allows it (services/boards.py MAX_TITLE). */
+export const TITLE_MAX = 200

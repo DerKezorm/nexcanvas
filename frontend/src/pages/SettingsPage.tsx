@@ -41,6 +41,7 @@ import { applyMode, storedMode, type Mode } from '../lib/theme'
 import { useAuth } from '../state/auth'
 import { AccountsCard, AllSpacesCard, ApiTokensCard, BackupsCard, FilesCard, LanguagesCard, LogCard, MailCard, ProxyHint, SharesCard, SignInCard, useServerSettings } from './settings/ServerCards'
 import { Button, Card, Feedback, saveAsFile, TabRow, Toggle, useAction, type Tab } from './settings/ui'
+import { useTitle } from '../lib/title'
 
 type Top = 'general' | 'looks' | 'spaces' | 'teams' | 'server'
 type Part = 'accounts' | 'signin' | 'suite' | 'shares' | 'api' | 'files' | 'shapes' | 'backups' | 'languages' | 'log'
@@ -51,6 +52,7 @@ const PART_ICON = { accounts: Users, signin: KeyRound, suite: Shield, shares: Gl
 
 export function SettingsPage() {
   const { t } = useTranslation()
+  useTitle(t('settings.title'))
   const { me } = useAuth()
   const [params, setParams] = useSearchParams()
   const operator = me?.role === 'operator'

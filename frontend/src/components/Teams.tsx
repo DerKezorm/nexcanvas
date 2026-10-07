@@ -13,7 +13,7 @@ import { useBoards, type Space } from '../board/store'
 import { Button, Card, Feedback, Toggle, useAction } from '../pages/settings/ui'
 import { useAuth } from '../state/auth'
 import { Managed } from './Suite'
-import { Avatar } from './Avatar'
+import { Avatar, letterColors } from './Avatar'
 import { Dialog } from './Dialog'
 import { SPACE_COLORS } from './NewSpaceDialog'
 import { COLOR_NAMES } from './NewSpaceDialog'
@@ -40,7 +40,7 @@ export function TeamBadge({ team, className = 'h-6 w-6 text-[11px]' }: { team: {
     <span
       title={team.name}
       className={'grid shrink-0 place-items-center rounded-md font-bold ' + className}
-      style={{ background: `color-mix(in srgb, ${team.color} 22%, var(--color-ink-850))`, color: team.color }}
+      style={letterColors(team.color)}
     >
       {team.name.trim()[0]?.toUpperCase()}
     </span>

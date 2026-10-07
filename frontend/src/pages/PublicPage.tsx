@@ -20,6 +20,7 @@ import type { Background, Doc, Item, LineItem, View } from '../board/types'
 import { Logo } from '../components/Logo'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
 import { errorText } from '../lib/errors'
+import { useTitle } from '../lib/title'
 
 type Page = { title: string; picture?: { items: Item[]; lines: LineItem[]; background?: Background; defs?: Doc['defs'] }; password?: boolean; token?: string }
 
@@ -42,6 +43,8 @@ export function PublicPage() {
   useEffect(() => {
     api<Page>(`/api/public/${encodeURIComponent(token)}`).then(setPage, () => setMissing(true))
   }, [token])
+  // The tab names the board once it is open (F13); the page carries noindex in index.html and every answer.
+  useTitle(page && !page.password ? page.title : null)
 
   const doc: Doc = page?.picture ?? { items: [], lines: [] }
 

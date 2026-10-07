@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { ApiError, boardsApi } from '../../api/client'
 import { Dialog } from '../../components/Dialog'
 import { errorText } from '../../lib/errors'
-import { ago } from '../../lib/time'
+import { ago, moment } from '../../lib/time'
 
 type Version = { id: number; created_at: string; authors: string; items: number }
 
@@ -55,7 +55,7 @@ export function VersionsDialog({ boardId, readOnly, onClose }: { boardId: string
                 <li key={row.id} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-ink-850">
                   <History className="h-4 w-4 shrink-0 text-mist-600" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm text-mist-100" title={when.toLocaleString(i18n.language)}>
+                    <p className="text-sm text-mist-100" title={moment(when, i18n.language)}>
                       {ago(when.getTime(), i18n.language)}
                     </p>
                     <p className="truncate text-xs text-mist-500">

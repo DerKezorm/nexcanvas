@@ -11,6 +11,7 @@ import type { Doc } from '../board/types'
 import { Dialog } from './Dialog'
 import { TemplatePicker, useOwnTemplates, type Start } from './Templates'
 import { useSuiteConnected } from './Suite'
+import { TITLE_MAX } from '../board/types'
 
 /**
  * Name, space and a starting point. The space decides who sees the board, as in nexlore. A board can also come from a
@@ -93,7 +94,7 @@ export function NewBoardDialog({
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block space-y-1.5">
             <span className="text-xs font-medium text-mist-500">{t('board.name')}</span>
-            <input className="nc-field" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('board.untitled')} />
+            <input className="nc-field" value={title} maxLength={TITLE_MAX} onChange={(e) => setTitle(e.target.value)} placeholder={t('board.untitled')} />
           </label>
           <label className="block space-y-1.5">
             <span className="text-xs font-medium text-mist-500">{t('board.space')}</span>

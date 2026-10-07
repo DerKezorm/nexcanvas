@@ -9,7 +9,7 @@ import { MembersDialog } from '../components/MembersDialog'
 import { AccountsCard, MailCard, useServerSettings } from './settings/ServerCards'
 
 vi.mock('../state/auth', () => ({ useAuth: () => ({ me: { id: 1, name: 'operator', role: 'operator', mail: true } }) }))
-vi.mock('../board/store', () => ({ useBoards: () => ({ refresh: async () => undefined }) }))
+vi.mock('../board/store', () => ({ useBoards: () => ({ refresh: async () => undefined, spaces: [] }) }))
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } })
 const SETTINGS = { smtp_host: 'smtp.example.com', smtp_port: 587, smtp_security: 'starttls', smtp_user: '', smtp_password_set: false, smtp_from: 'boards@example.com' }

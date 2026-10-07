@@ -1,12 +1,17 @@
-import { Copy, Globe, MoreHorizontal, Palette, Pencil, Plus, Star, Trash2, Users } from 'lucide-react'
+import { Box, Copy, Globe, MoreHorizontal, Palette, Pencil, Plus, Star, Trash2, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { spacesApi } from '../api/client'
+import { Problem } from '../components/Field'
+import { NotFound } from '../components/NotFound'
+import { problemText } from '../lib/errors'
+import { useTitle } from '../lib/title'
+import { useAuth } from '../state/auth'
 import { useBoards } from '../board/store'
 import { Thumb } from '../board/Thumb'
-import type { Board } from '../board/types'
+import { TITLE_MAX, type Board } from '../board/types'
 import { useShell } from '../components/AppShell'
 import { Avatar } from '../components/Avatar'
 import { Dialog } from '../components/Dialog'
@@ -35,6 +40,10 @@ export function BoardsPage() {
   const [members, setMembers] = useState(false)
   const [renaming, setRenaming] = useState<Board | null>(null)
   const connected = useSuiteConnected()
+  // A link to a space that is not there (any more), or not for this account, says so once the spaces are known,
+  // instead of silently showing all boards under the wrong address (Prüfgang E31).
+  const unknown = spaceId > 0 && boards.loaded && !space
+  useTitle(unknown ? null : space ? space.name : t('boards.all'))
 
   const list = boards.boards
     .filter((b) => !b.deleted && (!space || b.space === space.id))
@@ -62,85 +71,92 @@ export function BoardsPage() {
               </button>
             )}
           </nav>
-          <div className="flex flex-wrap items-center gap-3">
-            {space && <span className="h-3 w-3 rounded-full" style={{ background: space.color }} />}
-            <h1 className="text-2xl font-bold tracking-tight text-mist-100">{space ? space.name : t('boards.all')}</h1>
-            {space && (
-              <button type="button" onClick={() => setMembers(true)} className="ml-1 flex items-center gap-2 rounded-full border border-ink-700 py-1 pr-3 pl-1 text-xs text-mist-400 hover:bg-ink-850 hover:text-mist-100">
-                <span className="flex -space-x-1.5">
-                  {space.members.slice(0, 4).map((m) => (
-                    <Avatar key={m.id} person={m} className="h-6 w-6 text-[11px]" ring />
-                  ))}
-                </span>
-                <Users className="h-3.5 w-3.5" />
-                {t('members.button', { count: space.people ?? space.members.length })}
-              </button>
-            )}
-            {/* nexsuite let it go: only the operator sees it now, and may put it into the trash (B18). */}
-            {space?.dropped && (
-              <span className="rounded-full border border-warn-500/40 px-2 py-0.5 text-[11px] font-medium text-warn-500" title={t('suite.droppedHint')} data-testid="space-dropped">
-                {t('suite.dropped')}
-              </span>
-            )}
-            {space?.role === 'manage' && (
-              <Popover label={t('space.options')} className="rounded-full p-1.5 text-mist-500 hover:bg-ink-850 hover:text-mist-100" button={<MoreHorizontal className="h-4 w-4" />} align="left">
-                {(close) => (
-                  <>
-                    {!space.dropped && (
+          {unknown ? (
+            <NotFound text={t('notFound.space')} />
+          ) : (
+            <>
+              {boards.loaded && boards.spaces.length === 0 && <NoSpaceHint />}
+              <div className="flex flex-wrap items-center gap-3">
+                {space && <span className="h-3 w-3 rounded-full" style={{ background: space.color }} />}
+                <h1 className="text-2xl font-bold tracking-tight text-mist-100">{space ? space.name : t('boards.all')}</h1>
+                {space && (
+                  <button type="button" onClick={() => setMembers(true)} className="ml-1 flex items-center gap-2 rounded-full border border-ink-700 py-1 pr-3 pl-1 text-xs text-mist-400 hover:bg-ink-850 hover:text-mist-100">
+                    <span className="flex -space-x-1.5">
+                      {space.members.slice(0, 4).map((m) => (
+                        <Avatar key={m.id} person={m} className="h-6 w-6 text-[11px]" ring />
+                      ))}
+                    </span>
+                    <Users className="h-3.5 w-3.5" />
+                    {t('members.button', { count: space.people ?? space.members.length })}
+                  </button>
+                )}
+                {/* nexsuite let it go: only the operator sees it now, and may put it into the trash (B18). */}
+                {space?.dropped && (
+                  <span className="rounded-full border border-warn-500/40 px-2 py-0.5 text-[11px] font-medium text-warn-500" title={t('suite.droppedHint')} data-testid="space-dropped">
+                    {t('suite.dropped')}
+                  </span>
+                )}
+                {space?.role === 'manage' && (
+                  <Popover label={t('space.options')} className="rounded-full p-1.5 text-mist-500 hover:bg-ink-850 hover:text-mist-100" button={<MoreHorizontal className="h-4 w-4" />} align="left">
+                    {(close) => (
                       <>
-                        <button type="button" role="menuitem" className="nc-menu-item" onClick={() => { close(); setEditing(true) }}>
-                          <Palette className="h-4 w-4 text-mist-500" />
-                          {t('space.edit')}
+                        {!space.dropped && (
+                          <>
+                            <button type="button" role="menuitem" className="nc-menu-item" onClick={() => { close(); setEditing(true) }}>
+                              <Palette className="h-4 w-4 text-mist-500" />
+                              {t('space.edit')}
+                            </button>
+                            <div className="my-1 h-px bg-ink-700" />
+                          </>
+                        )}
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="nc-menu-item text-bad-500"
+                          onClick={() => {
+                            close()
+                            setTrashing(true)
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          {t('space.trash')}
                         </button>
-                        <div className="my-1 h-px bg-ink-700" />
                       </>
                     )}
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="nc-menu-item text-bad-500"
-                      onClick={() => {
-                        close()
-                        setTrashing(true)
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      {t('space.trash')}
-                    </button>
-                  </>
+                  </Popover>
                 )}
-              </Popover>
-            )}
-            <div className="ml-auto flex items-center gap-2">
-              <label className="sr-only" htmlFor="sort">
-                {t('boards.sort')}
-              </label>
-              <select id="sort" value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="rounded-full border border-ink-700 bg-ink-850 px-3 py-1.5 text-sm text-mist-300">
-                <option value="updated">{t('boards.sortUpdated')}</option>
-                <option value="title">{t('boards.sortTitle')}</option>
-                <option value="created">{t('boards.sortCreated')}</option>
-              </select>
-            </div>
-          </div>
-          <p className="mt-1 text-sm text-mist-600">{t('boards.count', { count: list.length })}</p>
+                <div className="ml-auto flex items-center gap-2">
+                  <label className="sr-only" htmlFor="sort">
+                    {t('boards.sort')}
+                  </label>
+                  <select id="sort" value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="rounded-full border border-ink-700 bg-ink-850 px-3 py-1.5 text-sm text-mist-300">
+                    <option value="updated">{t('boards.sortUpdated')}</option>
+                    <option value="title">{t('boards.sortTitle')}</option>
+                    <option value="created">{t('boards.sortCreated')}</option>
+                  </select>
+                </div>
+              </div>
+              <p className="mt-1 text-sm text-mist-600">{t('boards.count', { count: list.length })}</p>
 
-          <div className="mt-6 grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(250px,1fr))]">
-            {(!space || space.role === 'write' || space.role === 'manage') && boards.loaded && (
-              <button
-                type="button"
-                onClick={() => shell.newBoard(space?.id)}
-                className="group flex aspect-[16/12] flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-ink-700 text-mist-500 transition-colors hover:border-accent-500/70 hover:text-accent-400"
-              >
-                <span className="grid h-12 w-12 place-items-center rounded-full bg-ink-850 group-hover:bg-accent-500/15">
-                  <Plus className="h-6 w-6" />
-                </span>
-                <span className="text-sm font-semibold">{t('board.new')}</span>
-              </button>
-            )}
-            {list.map((board) => (
-              <BoardCard key={board.id} board={board} onRename={() => setRenaming(board)} />
-            ))}
-          </div>
+              <div className="mt-6 grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(250px,1fr))]">
+                {(!space || space.role === 'write' || space.role === 'manage') && boards.loaded && (
+                  <button
+                    type="button"
+                    onClick={() => shell.newBoard(space?.id)}
+                    className="group flex aspect-[16/12] flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-ink-700 text-mist-500 transition-colors hover:border-accent-500/70 hover:text-accent-400"
+                  >
+                    <span className="grid h-12 w-12 place-items-center rounded-full bg-ink-850 group-hover:bg-accent-500/15">
+                      <Plus className="h-6 w-6" />
+                    </span>
+                    <span className="text-sm font-semibold">{t('board.new')}</span>
+                  </button>
+                )}
+                {list.map((board) => (
+                  <BoardCard key={board.id} board={board} onRename={() => setRenaming(board)} />
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </main>
       {members && space && <MembersDialog space={space} onClose={() => setMembers(false)} />}
@@ -243,21 +259,29 @@ function BoardCard({ board, onRename }: { board: Board; onRename: () => void }) 
   )
 }
 
-function RenameDialog({ board, onClose }: { board: Board; onClose: () => void }) {
+/** Renaming a board: the field knows the server's limit, and a refusal says why and keeps what was typed (E21). */
+export function RenameDialog({ board, onClose }: { board: Board; onClose: () => void }) {
   const { t } = useTranslation()
   const boards = useBoards()
   const [title, setTitle] = useState(board.title)
+  const [problem, setProblem] = useState<string | null>(null)
   return (
     <Dialog title={t('board.rename')} onClose={onClose}>
       <form
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault()
-          if (title.trim()) boards.patch(board.id, { title: title.trim() })
-          onClose()
+          if (!title.trim()) return
+          try {
+            await boards.patch(board.id, { title: title.trim() })
+            onClose()
+          } catch (error) {
+            setProblem(problemText(error))
+          }
         }}
         className="space-y-4"
       >
-        <input className="nc-field" value={title} onChange={(e) => setTitle(e.target.value)} onFocus={(e) => e.target.select()} />
+        <input className="nc-field" value={title} maxLength={TITLE_MAX} onChange={(e) => setTitle(e.target.value)} onFocus={(e) => e.target.select()} aria-label={t('board.name')} />
+        <Problem text={problem} />
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className="nc-btn nc-btn-ghost">
             {t('common.cancel')}
@@ -268,5 +292,27 @@ function RenameDialog({ board, onClose }: { board: Board; onClose: () => void })
         </div>
       </form>
     </Dialog>
+  )
+}
+
+/**
+ * Somebody without any space (new, or every right taken): what to do now, on the start page, not only in the dialog
+ * for a new board (Prüfgang G5, as nextasks). Alone one makes a space; connected, rights come from nexsuite.
+ */
+function NoSpaceHint() {
+  const { t } = useTranslation()
+  const shell = useShell()
+  const { me } = useAuth()
+  const connected = me?.suite === 'connected'
+  return (
+    <div data-testid="no-space" className="mb-6 flex flex-wrap items-center gap-4 rounded-2xl border border-accent-500/40 bg-accent-500/[0.06] p-4">
+      <Box className="h-5 w-5 shrink-0 text-accent-400" strokeWidth={1.8} aria-hidden />
+      <p className="min-w-48 flex-1 text-sm text-mist-200">{connected ? t('boards.noSpaceSuite') : t('boards.noSpace')}</p>
+      {!connected && (
+        <button type="button" onClick={() => shell.newSpace()} className="nc-btn nc-btn-accent">
+          <Plus className="h-4 w-4" /> {t('sidebar.newSpace')}
+        </button>
+      )}
+    </div>
   )
 }

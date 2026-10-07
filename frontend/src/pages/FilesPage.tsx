@@ -8,10 +8,12 @@ import { useBoards } from '../board/store'
 import type { Board, FileItem, ImageItem } from '../board/types'
 import { Dialog } from '../components/Dialog'
 import { ago } from '../lib/time'
+import { useTitle } from '../lib/title'
 
 /** Every photo and file on the boards one can read, and the bin. As nexlore's files page. */
 export function FilesPage() {
   const { t, i18n } = useTranslation()
+  useTitle(t('nav.files'))
   const boards = useBoards()
   const [purging, setPurging] = useState<Board | null>(null)
   useEffect(() => {
