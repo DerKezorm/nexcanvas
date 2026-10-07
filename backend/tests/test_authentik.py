@@ -640,24 +640,26 @@ def test_the_stored_issuer_never_bends_another_instances_application(
     assert result["issuer"] == OWN_ISSUER
 
 
+@pytest.mark.parametrize("slug", [OWN_SLUG, "My_Boards"])
 def test_a_deleted_own_provider_comes_back_under_its_application(
-    client: TestClient, operator: Account, fake: FakeAuthentik
+    client: TestClient, operator: Account, fake: FakeAuthentik, slug: str
 ) -> None:
     """The own provider was deleted in authentik, its application is still there without one, and nexcanvas moved.
     The button makes the provider again for that application: the issuer stays, and so does every account bound to
-    it."""
+    it. Also for a slug with capitals and underscores, which authentik allows."""
     fake.existing = {"cert", "mapping", "provider", "application"}
     fake.provider_redirect = "https://first.example.com/api/oidc/callback"
     fake.provider_client = "the-first-instance"
-    fake.apps = [{"slug": OWN_SLUG, "name": f"nexcanvas ({OLD_HOST})", "provider": None}]
-    member = configured_as(OWN_ISSUER, "own-client")
+    fake.apps = [{"slug": slug, "name": f"nexcanvas ({OLD_HOST})", "provider": None}]
+    issuer = f"{URL}/application/o/{slug}/"
+    member = configured_as(issuer, "own-client")
     result = run_setup(client)
     methods = [(call.method, call.path) for call in fake.calls]
     made = next(call for call in fake.calls if (call.method, call.path) == ("POST", "/api/v3/providers/oauth2/"))
     assert made.body["name"] == f"nexcanvas ({OLD_HOST})"
-    assert ("PATCH", f"/api/v3/core/applications/{OWN_SLUG}/") in methods
+    assert ("PATCH", f"/api/v3/core/applications/{slug}/") in methods
     assert ("PATCH", "/api/v3/providers/oauth2/7/") not in methods
-    assert result["issuer"] == OWN_ISSUER and stored()["oidc_issuer"] == OWN_ISSUER
+    assert result["issuer"] == issuer and stored()["oidc_issuer"] == issuer
     with SessionLocal() as db:
         assert db.get(Account, member).oidc_subject == "subject-1"  # type: ignore[union-attr]
 
@@ -698,3 +700,18 @@ def test_a_left_application_named_like_another_instances_provider_is_not_taken(
     made = next(call for call in fake.calls if (call.method, call.path) == ("POST", "/api/v3/providers/oauth2/"))
     assert made.body["name"] == "nexcanvas (testserver)"
     assert result["issuer"] == f"{URL}/application/o/nexcanvas-testserver/"
+
+
+def test_an_issuer_without_a_slug_never_adopts_a_left_application(
+    client: TestClient, operator: Account, fake: FakeAuthentik
+) -> None:
+    """The stored issuer was typed by hand and names no slug, and the own provider is gone. A left application under
+    the plain slug is not taken for this instance's by guessing: the button goes by the plain names as on a first
+    run, and the renamed application gets the provider's name."""
+    fake.existing = {"cert", "mapping"}
+    fake.apps = [{"slug": "nexcanvas", "name": "Whiteboards", "provider": None}]
+    configured_as(f"{URL}/issuer-typed-by-hand", "own-client")
+    result = run_setup(client)
+    made = next(call for call in fake.calls if (call.method, call.path) == ("POST", "/api/v3/providers/oauth2/"))
+    assert made.body["name"] == "nexcanvas"
+    assert result["issuer"] == ISSUER
