@@ -228,7 +228,8 @@ async def _flow(api: _Api, designation: str, preferred: str) -> Any:
 
 
 #: The slug in an issuer this button stored: ``<authentik>/application/o/<slug>/``.
-_ISSUER_SLUG = re.compile(r"/application/o/([a-z0-9-]+)/?$")
+#: Letters of either case, digits, dashes and underscores: what authentik allows in a slug.
+_ISSUER_SLUG = re.compile(r"/application/o/([-A-Za-z0-9_]+)/?$")
 
 
 def _instance_names(redirect_uri: str) -> tuple[str, str]:
@@ -238,30 +239,51 @@ def _instance_names(redirect_uri: str) -> tuple[str, str]:
     return f"{NAME} ({host})", f"{SLUG}-{suffix}"
 
 
-def _own_names(db: Session, provider: dict[str, Any]) -> tuple[str, str] | None:
-    """Name and slug of the provider this nexcanvas signs in with, found by its client id: its name as authentik has
-    it, and the slug in the stored issuer, so the issuer stays. None when the stored issuer names no slug."""
+async def _own_names(db: Session, api: _Api) -> tuple[str, str] | None:
+    """Name and slug of what this nexcanvas signed in with so far, or None when authentik holds nothing of it.
+
+    The provider is its own when it carries the client id stored here: it keeps the name authentik has for it, and the
+    slug of its application, so the issuer stays. The slug in the stored issuer counts only for an application of that
+    very provider; an application that belongs to another one is somebody else's, even when the issuer names it. When
+    the own provider is gone but the application the issuer names is still there without one, the provider is made
+    again for it under the application's name: the issuer stays too."""
     found = _ISSUER_SLUG.search(str(settings_service.get(db, "oidc_issuer") or ""))
-    return (str(provider.get("name") or NAME), found.group(1)) if found else None
+    slug = found.group(1) if found else ""
+    named = await api.find_one("/core/applications/", {"slug": slug}, "slug", slug) if slug else None
+    own_client = str(settings_service.get(db, "oidc_client_id") or "")
+    own = None
+    if own_client:
+        own = await api.find_one("/providers/oauth2/", {"client_id": own_client}, "client_id", own_client)
+    if own is not None:
+        pk, name = str(own.get("pk") or ""), str(own.get("name") or NAME)
+        if named is not None and str(named.get("provider") or "") == pk:
+            return name, slug
+        app = await api.find_one("/core/applications/", {"provider": pk}, "provider", pk)
+        if app is not None and app.get("slug"):
+            return name, str(app["slug"])
+        return None
+    if named is not None and not named.get("provider"):
+        name = str(named.get("name") or NAME)
+        # A provider of that name is another instance's: the own one is gone, and taking it would bend that one.
+        if await api.find_one("/providers/oauth2/", {"name": name}, "name", name) is None:
+            return name, slug
+    return None
 
 
 async def _names(db: Session, api: _Api, redirect_uri: str) -> tuple[str, str]:
     """The names of the provider and application to make or update.
 
-    First the provider whose client id this nexcanvas has stored: that is its own, whatever its name and wherever it
-    sends people back to (the operator moved nexcanvas and runs the button again). Its names stay, so the issuer stays;
-    a new provider would change it and loosen every account bound to the old one. This holds for the plain names and
-    for those of a second instance (``nexcanvas (old host)``).
+    First what this nexcanvas signed in with so far (``_own_names``): its provider and application, whatever their
+    names and wherever they send people back to (the operator moved nexcanvas and runs the button again). Their names
+    stay, so the issuer stays; a new provider would change it and loosen every account bound to the old one. This holds
+    for the plain names and for those of a second instance (``nexcanvas (old host)``).
 
-    Without one: the plain names, unless a provider of that name sends people back to another address. Then a second
+    Without them: the plain names, unless a provider of that name sends people back to another address. Then a second
     instance of the app is at work here, and taking the plain names would break the first one's sign-in
     (Prüfgang C12)."""
-    own_client = str(settings_service.get(db, "oidc_client_id") or "")
-    if own_client:
-        own = await api.find_one("/providers/oauth2/", {"client_id": own_client}, "client_id", own_client)
-        names = _own_names(db, own) if own is not None else None
-        if names is not None:
-            return names
+    names = await _own_names(db, api)
+    if names is not None:
+        return names
     existing = await api.find_one("/providers/oauth2/", {"name": NAME}, "name", NAME)
     if existing is None:
         return NAME, SLUG

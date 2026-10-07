@@ -65,6 +65,8 @@ class FakeAuthentik:
     #: More providers, each with its application: ``{"pk", "name", "client_id", "redirect", "slug"}``. The provider
     #: of another instance, or this one's own under a name with the host added.
     others: list[dict] = field(default_factory=list)
+    #: Applications on their own: ``{"slug", "name", "provider"}``, the provider a pk or None (its provider is gone).
+    apps: list[dict] = field(default_factory=list)
     calls: list[Recorded] = field(default_factory=list)
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
@@ -76,7 +78,7 @@ class FakeAuthentik:
         self.calls.append(Recorded(method, path, query, request.headers.get("authorization", ""), body))
         if self.fail and (method, path) == self.fail[:2]:
             return httpx.Response(self.fail[2], text="<html>authentik error page</html>")
-        if path.startswith("/application/o/nexcanvas") and path.endswith("/.well-known/openid-configuration"):
+        if path.startswith("/application/o/") and path.endswith("/.well-known/openid-configuration"):
             if not self.discovery_ok:
                 return httpx.Response(404, text="not found")
             issuer = f"{URL}{path.removesuffix('.well-known/openid-configuration')}"
@@ -150,13 +152,19 @@ class FakeAuthentik:
             if (method, path) == ("PATCH", f"/providers/oauth2/{other['pk']}/"):
                 return httpx.Response(200, json={**body, "pk": other["pk"], "client_id": other["client_id"],
                                                   "client_secret": "generated-secret"})
-            if (method, path) == ("PATCH", f"/core/applications/{other['slug']}/"):
+            if other["slug"] and (method, path) == ("PATCH", f"/core/applications/{other['slug']}/"):
                 return httpx.Response(200, json={**body, "pk": f"app-{other['pk']}"})
+        for lone in self.apps:
+            if (method, path) == ("PATCH", f"/core/applications/{lone['slug']}/"):
+                return httpx.Response(200, json={**body, "pk": f"app-{lone['slug']}"})
         if (method, path) == ("GET", "/core/applications/"):
-            rows = [{"pk": "app-uuid", "slug": "nexcanvas", "name": "nexcanvas"}] if "application" in self.existing else []
-            rows += [{"pk": f"app-{other['pk']}", "slug": other["slug"], "name": other["name"]} for other in self.others]
-            if "slug" in query:
-                rows = [row for row in rows if row["slug"] == query["slug"]]
+            rows = [{"pk": "app-uuid", "slug": "nexcanvas", "name": "nexcanvas", "provider": 7}] if "application" in self.existing else []
+            rows += [{"pk": f"app-{other['pk']}", "slug": other["slug"], "name": other["name"], "provider": other["pk"]}
+                     for other in self.others if other["slug"]]
+            rows += [{"pk": f"app-{lone['slug']}", **lone} for lone in self.apps]
+            for key in ("slug", "provider"):
+                if key in query:
+                    rows = [row for row in rows if str(row[key]) == query[key]]
             return httpx.Response(200, json={"results": rows})
         if (method, path) in (("POST", "/core/applications/"), ("PATCH", "/core/applications/nexcanvas/")):
             return httpx.Response(201 if method == "POST" else 200, json={**body, "pk": "app-uuid"})
@@ -567,3 +575,126 @@ def test_an_answer_without_json_carries_its_status(client: TestClient, operator:
     result = run_setup(client)
     assert steps(result) == [("reached", False)]
     assert (result["steps"][0]["reason"], result["steps"][0]["status"]) == ("answered", 200)
+
+
+def test_its_own_application_keeps_a_slug_with_capitals_and_underscores(
+    client: TestClient, operator: Account, fake: FakeAuthentik
+) -> None:
+    """authentik allows capitals and underscores in a slug. The operator gave the application one; after a move the
+    button still finds its own provider and application by it, and the issuer stays."""
+    fake.existing = {"cert", "mapping", "provider", "application"}
+    fake.provider_redirect = "https://first.example.com/api/oidc/callback"
+    fake.provider_client = "the-first-instance"
+    fake.others = [{"pk": 8, "name": "Boards", "client_id": "own-client",
+                    "redirect": f"https://{OLD_HOST}/api/oidc/callback", "slug": "My_Boards"}]
+    member = configured_as(f"{URL}/application/o/My_Boards/", "own-client")
+    result = run_setup(client)
+    assert steps(result) == [(key, True) for key in authentik.STEP_KEYS]
+    methods = [(call.method, call.path) for call in fake.calls]
+    assert ("PATCH", "/api/v3/providers/oauth2/8/") in methods
+    assert ("PATCH", "/api/v3/core/applications/My_Boards/") in methods
+    assert ("POST", "/api/v3/providers/oauth2/") not in methods
+    assert ("POST", "/api/v3/core/applications/") not in methods
+    assert result["issuer"] == f"{URL}/application/o/My_Boards/"
+    with SessionLocal() as db:
+        assert db.get(Account, member).oidc_subject == "subject-1"  # type: ignore[union-attr]
+
+
+def test_its_own_application_is_found_by_its_provider_when_the_issuer_names_no_slug(
+    client: TestClient, operator: Account, fake: FakeAuthentik
+) -> None:
+    """The stored issuer was typed by hand and names no slug: the application that belongs to the own provider says
+    which one it is. Never the plain name only because nothing else was readable."""
+    fake.existing = {"cert", "mapping", "provider", "application"}
+    fake.provider_redirect = "https://first.example.com/api/oidc/callback"
+    fake.provider_client = "the-first-instance"
+    fake.others = [{"pk": 8, "name": f"nexcanvas ({OLD_HOST})", "client_id": "own-client",
+                    "redirect": f"https://{OLD_HOST}/api/oidc/callback", "slug": OWN_SLUG}]
+    configured_as(f"{URL}/issuer-typed-by-hand", "own-client")
+    result = run_setup(client)
+    methods = [(call.method, call.path) for call in fake.calls]
+    assert ("PATCH", "/api/v3/providers/oauth2/8/") in methods
+    assert ("PATCH", f"/api/v3/core/applications/{OWN_SLUG}/") in methods
+    assert ("PATCH", "/api/v3/core/applications/nexcanvas/") not in methods
+    assert ("POST", "/api/v3/providers/oauth2/") not in methods
+    assert result["issuer"] == OWN_ISSUER
+
+
+def test_the_stored_issuer_never_bends_another_instances_application(
+    client: TestClient, operator: Account, fake: FakeAuthentik
+) -> None:
+    """The client id belongs to the own provider, but the stored issuer names the slug of the application the first
+    instance signs in with (set by hand or left from before). That application stays as it is; the own provider's
+    application is the one updated."""
+    fake.existing = {"cert", "mapping", "provider", "application"}
+    fake.provider_redirect = "https://first.example.com/api/oidc/callback"
+    fake.provider_client = "the-first-instance"
+    fake.others = [{"pk": 8, "name": f"nexcanvas ({OLD_HOST})", "client_id": "own-client",
+                    "redirect": f"https://{OLD_HOST}/api/oidc/callback", "slug": OWN_SLUG}]
+    configured_as(ISSUER, "own-client")
+    result = run_setup(client)
+    methods = [(call.method, call.path) for call in fake.calls]
+    assert ("PATCH", "/api/v3/core/applications/nexcanvas/") not in methods, "the first instance's application stays"
+    assert ("PATCH", "/api/v3/providers/oauth2/7/") not in methods
+    assert ("PATCH", f"/api/v3/core/applications/{OWN_SLUG}/") in methods
+    assert result["issuer"] == OWN_ISSUER
+
+
+def test_a_deleted_own_provider_comes_back_under_its_application(
+    client: TestClient, operator: Account, fake: FakeAuthentik
+) -> None:
+    """The own provider was deleted in authentik, its application is still there without one, and nexcanvas moved.
+    The button makes the provider again for that application: the issuer stays, and so does every account bound to
+    it."""
+    fake.existing = {"cert", "mapping", "provider", "application"}
+    fake.provider_redirect = "https://first.example.com/api/oidc/callback"
+    fake.provider_client = "the-first-instance"
+    fake.apps = [{"slug": OWN_SLUG, "name": f"nexcanvas ({OLD_HOST})", "provider": None}]
+    member = configured_as(OWN_ISSUER, "own-client")
+    result = run_setup(client)
+    methods = [(call.method, call.path) for call in fake.calls]
+    made = next(call for call in fake.calls if (call.method, call.path) == ("POST", "/api/v3/providers/oauth2/"))
+    assert made.body["name"] == f"nexcanvas ({OLD_HOST})"
+    assert ("PATCH", f"/api/v3/core/applications/{OWN_SLUG}/") in methods
+    assert ("PATCH", "/api/v3/providers/oauth2/7/") not in methods
+    assert result["issuer"] == OWN_ISSUER and stored()["oidc_issuer"] == OWN_ISSUER
+    with SessionLocal() as db:
+        assert db.get(Account, member).oidc_subject == "subject-1"  # type: ignore[union-attr]
+
+
+def test_an_application_of_another_provider_is_not_taken_for_a_deleted_own_one(
+    client: TestClient, operator: Account, fake: FakeAuthentik
+) -> None:
+    """The own provider is gone, and the application the stored issuer names now belongs to another provider: that is
+    somebody else's. The button leaves it alone and makes names of its own."""
+    fake.existing = {"cert", "mapping", "provider", "application"}
+    fake.provider_redirect = "https://first.example.com/api/oidc/callback"
+    fake.provider_client = "the-first-instance"
+    fake.apps = [{"slug": OWN_SLUG, "name": f"nexcanvas ({OLD_HOST})", "provider": 7}]
+    configured_as(OWN_ISSUER, "own-client")
+    result = run_setup(client)
+    methods = [(call.method, call.path) for call in fake.calls]
+    assert ("PATCH", f"/api/v3/core/applications/{OWN_SLUG}/") not in methods
+    assert ("PATCH", "/api/v3/providers/oauth2/7/") not in methods
+    made = next(call for call in fake.calls if (call.method, call.path) == ("POST", "/api/v3/providers/oauth2/"))
+    assert made.body["name"] == "nexcanvas (testserver)"
+    assert result["issuer"] == f"{URL}/application/o/nexcanvas-testserver/"
+
+
+def test_a_left_application_named_like_another_instances_provider_is_not_taken(
+    client: TestClient, operator: Account, fake: FakeAuthentik
+) -> None:
+    """The own provider is gone and its application is left without one, but it carries the plain name, and the
+    provider of that name signs another instance in. Making the provider again under that name would update that
+    one instead: the button makes names of its own."""
+    fake.existing = {"cert", "mapping", "provider"}
+    fake.provider_redirect = "https://first.example.com/api/oidc/callback"
+    fake.provider_client = "the-first-instance"
+    fake.apps = [{"slug": "nexcanvas", "name": "nexcanvas", "provider": None}]
+    configured_as(ISSUER, "own-client")
+    result = run_setup(client)
+    methods = [(call.method, call.path) for call in fake.calls]
+    assert ("PATCH", "/api/v3/providers/oauth2/7/") not in methods
+    made = next(call for call in fake.calls if (call.method, call.path) == ("POST", "/api/v3/providers/oauth2/"))
+    assert made.body["name"] == "nexcanvas (testserver)"
+    assert result["issuer"] == f"{URL}/application/o/nexcanvas-testserver/"
