@@ -858,3 +858,43 @@ def test_when_every_slug_is_in_use_the_step_says_so(client: TestClient, operator
     changes = [call for call in fake.calls if call.method in ("POST", "PATCH") and "/core/applications/" in call.path]
     assert not changes
     assert not any(call.method in ("POST", "PATCH") and "/providers/oauth2/" in call.path for call in fake.calls)
+
+
+def test_a_left_application_under_a_fallback_slug_is_taken(client: TestClient, operator: Account, fake: FakeAuthentik) -> None:
+    """The slug of the own name is held by another provider's application; under the next one an application was left
+    without a provider. That one is free: the own provider is hung onto it, no new one is made."""
+    own_without_application(fake)
+    fake.others[0]["name"] = "Boards"
+    fake.apps = [{"slug": "boards", "name": "Boards", "provider": 7}, {"slug": "boards-8", "name": "Old boards", "provider": None}]
+    configured_as(ISSUER, "own-client")
+    result = run_setup(client)
+    methods = [(call.method, call.path) for call in fake.calls]
+    assert ("POST", "/api/v3/core/applications/") not in methods
+    assert ("PATCH", "/api/v3/core/applications/boards/") not in methods
+    patched = next(call for call in fake.calls if (call.method, call.path) == ("PATCH", "/api/v3/core/applications/boards-8/"))
+    assert patched.body == {"name": "Boards", "slug": "boards-8", "provider": 8}
+    assert result["issuer"] == f"{URL}/application/o/boards-8/"
+
+
+def test_the_fallback_slug_counts_on_until_one_is_free(client: TestClient, operator: Account, fake: FakeAuthentik) -> None:
+    own_without_application(fake)
+    fake.others[0]["name"] = "Boards"
+    held = ["boards", "boards-8", "boards-8-2", "boards-8-3", "boards-8-4"]
+    fake.apps = [{"slug": slug, "name": "Boards", "provider": 9} for slug in held]
+    configured_as(ISSUER, "own-client")
+    result = run_setup(client)
+    made = next(call for call in fake.calls if (call.method, call.path) == ("POST", "/api/v3/core/applications/"))
+    assert made.body == {"name": "Boards", "slug": "boards-8-5", "provider": 8}
+    assert not any(call.method == "PATCH" and "/core/applications/" in call.path for call in fake.calls)
+    assert result["issuer"] == f"{URL}/application/o/boards-8-5/"
+
+
+def test_a_slug_from_a_name_with_umlauts_spells_them_out(client: TestClient, operator: Account, fake: FakeAuthentik) -> None:
+    """Umlauts and sharp s are written out as German does, other letters lose their accents: no letter falls away."""
+    own_without_application(fake)
+    fake.others[0]["name"] = "Tafel Ü (Büro), Straße, Café"
+    configured_as(ISSUER, "own-client")
+    result = run_setup(client)
+    made = next(call for call in fake.calls if (call.method, call.path) == ("POST", "/api/v3/core/applications/"))
+    assert made.body["slug"] == "tafel-ue-buero-strasse-cafe"
+    assert result["issuer"] == f"{URL}/application/o/tafel-ue-buero-strasse-cafe/"

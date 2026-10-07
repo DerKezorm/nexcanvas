@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlsplit
@@ -249,11 +250,19 @@ async def _application_by_slug(api: _Api, slug: str) -> dict[str, Any] | None:
     return await api.find_one("/core/applications/", {"slug": slug, "superuser_full_list": "true"}, "slug", slug)
 
 
+#: German letters written out as German does; everything else loses its accents (NFKD) on the way to a slug.
+_SPELLED_OUT = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
+
+
+def _ascii(text: str) -> str:
+    return unicodedata.normalize("NFKD", text.translate(_SPELLED_OUT)).encode("ascii", "ignore").decode("ascii")
+
+
 async def _free_slug(api: _Api, name: str, pk: str) -> str:
     """A slug for a new application of the own provider: from its name, then with the provider's number added, then
     counted on. A slug is free when no application has it or the one there has no provider or this one; an
     application of another provider is never taken."""
-    base = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:50] or SLUG
+    base = re.sub(r"[^a-z0-9]+", "-", _ascii(name.lower())).strip("-")[:50] or SLUG
     tries = [base, f"{base}-{pk}"] + [f"{base}-{pk}-{number}" for number in range(2, SLUG_TRIES)]
     for candidate in tries:
         taken = await _application_by_slug(api, candidate)
