@@ -600,15 +600,16 @@ def test_its_own_application_keeps_a_slug_with_capitals_and_underscores(
         assert db.get(Account, member).oidc_subject == "subject-1"  # type: ignore[union-attr]
 
 
+@pytest.mark.parametrize("name", [f"nexcanvas ({OLD_HOST})", "Whiteboards"])
 def test_its_own_application_is_found_by_its_provider_when_the_issuer_names_no_slug(
-    client: TestClient, operator: Account, fake: FakeAuthentik
+    client: TestClient, operator: Account, fake: FakeAuthentik, name: str
 ) -> None:
     """The stored issuer was typed by hand and names no slug: the application that belongs to the own provider says
     which one it is. Never the plain name only because nothing else was readable."""
     fake.existing = {"cert", "mapping", "provider", "application"}
     fake.provider_redirect = "https://first.example.com/api/oidc/callback"
     fake.provider_client = "the-first-instance"
-    fake.others = [{"pk": 8, "name": f"nexcanvas ({OLD_HOST})", "client_id": "own-client",
+    fake.others = [{"pk": 8, "name": name, "client_id": "own-client",
                     "redirect": f"https://{OLD_HOST}/api/oidc/callback", "slug": OWN_SLUG}]
     configured_as(f"{URL}/issuer-typed-by-hand", "own-client")
     result = run_setup(client)
@@ -715,3 +716,84 @@ def test_an_issuer_without_a_slug_never_adopts_a_left_application(
     made = next(call for call in fake.calls if (call.method, call.path) == ("POST", "/api/v3/providers/oauth2/"))
     assert made.body["name"] == "nexcanvas"
     assert result["issuer"] == ISSUER
+
+
+def own_without_application(fake: FakeAuthentik) -> None:
+    """The plain names belong to the first instance; this one's provider is there, its application is not."""
+    fake.existing = {"cert", "mapping", "provider", "application"}
+    fake.provider_redirect = "https://first.example.com/api/oidc/callback"
+    fake.provider_client = "the-first-instance"
+    fake.others = [{"pk": 8, "name": f"nexcanvas ({OLD_HOST})", "client_id": "own-client",
+                    "redirect": f"https://{OLD_HOST}/api/oidc/callback", "slug": None}]
+
+
+def test_its_own_provider_without_an_application_gets_it_back_under_the_stored_slug(
+    client: TestClient, operator: Account, fake: FakeAuthentik
+) -> None:
+    """The application was deleted in authentik, the own provider is still there, and nexcanvas moved. The provider is
+    updated, never a second one made, and the application comes back under the slug the issuer names: the issuer stays,
+    and so does every account bound to it."""
+    own_without_application(fake)
+    member = configured_as(OWN_ISSUER, "own-client")
+    result = run_setup(client)
+    methods = [(call.method, call.path) for call in fake.calls]
+    assert ("PATCH", "/api/v3/providers/oauth2/8/") in methods
+    assert ("POST", "/api/v3/providers/oauth2/") not in methods
+    assert ("PATCH", "/api/v3/providers/oauth2/7/") not in methods
+    made = next(call for call in fake.calls if (call.method, call.path) == ("POST", "/api/v3/core/applications/"))
+    assert made.body == {"name": f"nexcanvas ({OLD_HOST})", "slug": OWN_SLUG, "provider": 8}
+    assert result["issuer"] == OWN_ISSUER and stored()["oidc_issuer"] == OWN_ISSUER
+    with SessionLocal() as db:
+        assert db.get(Account, member).oidc_subject == "subject-1"  # type: ignore[union-attr]
+
+
+def test_its_own_provider_without_an_application_takes_a_left_one_under_the_stored_slug(
+    client: TestClient, operator: Account, fake: FakeAuthentik
+) -> None:
+    """The application the issuer names is still there, but without a provider: it is free, and the own one is hung
+    onto it again."""
+    own_without_application(fake)
+    fake.apps = [{"slug": OWN_SLUG, "name": f"nexcanvas ({OLD_HOST})", "provider": None}]
+    configured_as(OWN_ISSUER, "own-client")
+    result = run_setup(client)
+    methods = [(call.method, call.path) for call in fake.calls]
+    assert ("PATCH", "/api/v3/providers/oauth2/8/") in methods
+    assert ("POST", "/api/v3/providers/oauth2/") not in methods
+    patched = next(call for call in fake.calls if (call.method, call.path) == ("PATCH", f"/api/v3/core/applications/{OWN_SLUG}/"))
+    assert patched.body["provider"] == 8
+    assert result["issuer"] == OWN_ISSUER
+
+
+def test_its_own_provider_without_an_application_never_takes_another_ones(
+    client: TestClient, operator: Account, fake: FakeAuthentik
+) -> None:
+    """The issuer names the application of the first instance. That one stays; the own provider gets a new application
+    under its own name, and still no second provider is made."""
+    own_without_application(fake)
+    configured_as(ISSUER, "own-client")
+    result = run_setup(client)
+    methods = [(call.method, call.path) for call in fake.calls]
+    assert ("PATCH", "/api/v3/providers/oauth2/8/") in methods
+    assert ("POST", "/api/v3/providers/oauth2/") not in methods
+    assert ("PATCH", "/api/v3/core/applications/nexcanvas/") not in methods
+    made = next(call for call in fake.calls if (call.method, call.path) == ("POST", "/api/v3/core/applications/"))
+    assert made.body == {"name": f"nexcanvas ({OLD_HOST})", "slug": OWN_SLUG, "provider": 8}
+    assert result["issuer"] == OWN_ISSUER
+
+
+def test_a_new_application_for_its_own_provider_never_takes_a_slug_in_use(
+    client: TestClient, operator: Account, fake: FakeAuthentik
+) -> None:
+    """The slug the own provider's name gives is held by another provider's application: the new one gets the
+    provider's number added instead of bending that one."""
+    own_without_application(fake)
+    fake.others[0]["name"] = "Boards"
+    fake.apps = [{"slug": "boards", "name": "Boards", "provider": 7}]
+    configured_as(ISSUER, "own-client")
+    result = run_setup(client)
+    methods = [(call.method, call.path) for call in fake.calls]
+    assert ("PATCH", "/api/v3/core/applications/boards/") not in methods
+    assert ("POST", "/api/v3/providers/oauth2/") not in methods
+    made = next(call for call in fake.calls if (call.method, call.path) == ("POST", "/api/v3/core/applications/"))
+    assert made.body == {"name": "Boards", "slug": "boards-8", "provider": 8}
+    assert result["issuer"] == f"{URL}/application/o/boards-8/"

@@ -244,7 +244,8 @@ async def _own_names(db: Session, api: _Api) -> tuple[str, str] | None:
 
     The provider is its own when it carries the client id stored here: it keeps the name authentik has for it, and the
     slug of its application, so the issuer stays. The slug in the stored issuer counts only for an application of that
-    very provider; an application that belongs to another one is somebody else's, even when the issuer names it. When
+    very provider; an application that belongs to another one is somebody else's, even when the issuer names it. An own
+    provider without an application keeps its name and gets one back, never a second provider beside it. When
     the own provider is gone but the application the issuer names is still there without one, the provider is made
     again for it under the application's name: the issuer stays too."""
     found = _ISSUER_SLUG.search(str(settings_service.get(db, "oidc_issuer") or ""))
@@ -261,7 +262,16 @@ async def _own_names(db: Session, api: _Api) -> tuple[str, str] | None:
         app = await api.find_one("/core/applications/", {"provider": pk}, "provider", pk)
         if app is not None and app.get("slug"):
             return name, str(app["slug"])
-        return None
+        # The own provider has no application: never a second provider. The application comes back under the slug
+        # the issuer names when that one is free (none there, or there without a provider), so the issuer stays;
+        # otherwise under a slug of the provider's own name.
+        if slug and (named is None or not named.get("provider")):
+            return name, slug
+        mine = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:50] or SLUG
+        taken = await api.find_one("/core/applications/", {"slug": mine}, "slug", mine)
+        if taken is not None and str(taken.get("provider") or "") not in ("", pk):
+            mine = f"{mine}-{pk}"
+        return name, mine
     if named is not None and not named.get("provider"):
         name = str(named.get("name") or NAME)
         # A provider of that name is another instance's: the own one is gone, and taking it would bend that one.
