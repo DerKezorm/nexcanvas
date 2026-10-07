@@ -26,9 +26,6 @@ FRONTEND = ROOT / "frontend" / "src"
 BUILT = {
     # services/suite.py: f"{what}_twice", f"{what}_unknown" for person, space, team
     "person_twice", "space_twice", "team_twice", "person_unknown", "space_unknown", "team_unknown",
-    # services/suite.py PAIR_CODES: nexsuite's own codes, passed on when it refuses to pair
-    "pair_code_invalid", "too_many_attempts", "invalid_url", "unknown_app", "suite_unreachable",
-    "app_still_connected", "app_not_reachable",
     # routers/oidc.py: issuer_unreachable / issuer_invalid from the provider's error
     "issuer_unreachable", "issuer_invalid",
 }
@@ -50,7 +47,11 @@ def _sources(folder: Path, suffixes: tuple[str, ...]) -> str:
 
 
 def server_codes() -> set[str]:
-    return set(RAISED.findall(_sources(APP, (".py",)))) | BUILT
+    from app.services import suite
+
+    # services/suite.py PAIR_CODES: nexsuite's own codes, passed on when it refuses to pair; read from there, so a
+    # code added to the list needs its sentence too.
+    return set(RAISED.findall(_sources(APP, (".py",)))) | BUILT | set(suite.PAIR_CODES)
 
 
 def texts(language: str) -> dict[str, str]:
@@ -65,6 +66,7 @@ def test_the_scan_finds_the_codes_it_should() -> None:
             "managed_by_suite", "token_invalid", "display_name_too_long"} <= codes
     # A floor: the scan reads the whole server, not one file.
     assert len(codes) > 100
+    assert {"app_still_connected", "app_not_reachable", "unknown_app"} <= codes
 
 
 @pytest.mark.parametrize("language", ["de", "en"])
