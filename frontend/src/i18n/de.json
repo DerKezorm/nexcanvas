@@ -1272,7 +1272,8 @@
   },
   "twofactor": {
     "title": "Zweiter Faktor",
-    "lead": "Neben dem Passwort ein Code aus einer App auf dem Handy (jede Authenticator-App, die einen QR-Code nimmt). Wiederherstellungscodes auf Papier bringen dich hinein, wenn das Handy weg ist. Sie gehören zum zweiten Faktor; die Notfallcodes aus nexsuite sind etwas anderes, mit ihnen trennt der Betreiber nexcanvas von nexsuite.",
+    "lead": "Neben dem Passwort ein Code aus einer App auf dem Handy (jede Authenticator-App, die einen QR-Code nimmt). Wiederherstellungscodes auf Papier bringen dich hinein, wenn das Handy weg ist.",
+    "leadSuite": "Sie gehören zum zweiten Faktor; die Notfallcodes aus nexsuite sind etwas anderes, mit ihnen trennt der Betreiber nexcanvas von nexsuite.",
     "provider": "Du meldest dich über den Anbieter an; dort gilt sein zweiter Faktor.",
     "off": "Aus.",
     "on_one": "An. Noch {{count}} Wiederherstellungscode.",

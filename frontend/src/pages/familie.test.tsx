@@ -393,8 +393,12 @@ describe('links into nothing (E31) and a person without a space (G5)', () => {
   it('waits for the spaces before it says so', async () => {
     const { BoardsPage } = await import('./BoardsPage')
     scene.loaded = false
+    document.title = 'Something else'
     await render(<BoardsPage />, '/?space=77')
     expect(box.querySelector('[data-testid="not-found"]')).toBeNull()
+    // Neutral until the spaces are known: not "All boards" for a moment, in the page or the tab.
+    expect(box.querySelector('h1')?.textContent ?? '').not.toContain('All boards')
+    expect(document.title).toBe('nexcanvas')
   })
 
   it('an address nexcanvas does not know says so too', async () => {
@@ -529,5 +533,38 @@ describe('a refusal in the settings says the numbers it names (useAction)', () =
     const { Feedback } = await import('./settings/ui')
     await render(<Feedback problem="network" />)
     expect(box.querySelector('[role="alert"]')?.textContent).toBe(i18n.t('errors.network'))
+  })
+})
+
+describe('the second factor names the emergency codes only where there are any (H11)', () => {
+  it('alone without the sentence about nexsuite, connected with it', async () => {
+    const { AccountPage } = await import('./AccountPage')
+    handler = (_m, path) => (path === '/api/auth/methods' ? { status: 200, body: { password: true, oidc: false, oidc_name: '' } } : undefined)
+    await render(<AccountPage />, '/account?tab=security')
+    const lead = () => box.querySelector('[data-testid="second-factor-lead"]')?.textContent
+    expect(lead()).toBe(i18n.t('twofactor.lead'))
+    expect(lead()).not.toContain('nexsuite')
+    scene.me = { ...scene.me!, suite: 'connected', suite_emergency: true }
+    await render(<AccountPage />, '/account?tab=security')
+    expect(lead()).toBe(`${i18n.t('twofactor.lead')} ${i18n.t('twofactor.leadSuite')}`)
+    expect(lead()).toContain('emergency codes from nexsuite')
+  })
+})
+
+describe('the tab names the board (F13)', () => {
+  it('shows "title · nexcanvas" while a board is open', async () => {
+    const { BoardPage } = await import('./BoardPage')
+    vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }))
+    vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} })
+    scene.spaces = [space(4, 'Studio')]
+    scene.boards = [{ id: 'b1', title: 'Ideen', space: 4, created: 0, updated: 0, opened: 0, favorite: false, deleted: false, role: 'manage', picture: { items: [], lines: [] } }]
+    document.title = 'nexcanvas'
+    await render(
+      <Routes>
+        <Route path="/b/:id" element={<BoardPage />} />
+      </Routes>,
+      '/b/b1',
+    )
+    expect(document.title).toBe('Ideen · nexcanvas')
   })
 })

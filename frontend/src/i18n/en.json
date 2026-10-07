@@ -1272,7 +1272,8 @@
   },
   "twofactor": {
     "title": "Second factor",
-    "lead": "Besides the password, a code from an app on your phone (any authenticator app that takes a QR code). Recovery codes on paper get you in when the phone is gone. They belong to the second factor; the emergency codes from nexsuite are something else, the operator disconnects nexcanvas from nexsuite with them.",
+    "lead": "Besides the password, a code from an app on your phone (any authenticator app that takes a QR code). Recovery codes on paper get you in when the phone is gone.",
+    "leadSuite": "They belong to the second factor; the emergency codes from nexsuite are something else, the operator disconnects nexcanvas from nexsuite with them.",
     "provider": "You sign in through the provider; its second factor applies.",
     "off": "Off.",
     "on_one": "On. {{count}} recovery code left.",

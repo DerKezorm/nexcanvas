@@ -43,7 +43,9 @@ export function BoardsPage() {
   // A link to a space that is not there (any more), or not for this account, says so once the spaces are known,
   // instead of silently showing all boards under the wrong address (Prüfgang E31).
   const unknown = spaceId > 0 && boards.loaded && !space
-  useTitle(unknown ? null : space ? space.name : t('boards.all'))
+  // Until then a link to a space shows nothing of its own, not "All boards" for a moment, in the page or the tab.
+  const waiting = spaceId > 0 && !boards.loaded
+  useTitle(unknown || waiting ? null : space ? space.name : t('boards.all'))
 
   const list = boards.boards
     .filter((b) => !b.deleted && (!space || b.space === space.id))
@@ -73,7 +75,7 @@ export function BoardsPage() {
           </nav>
           {unknown ? (
             <NotFound text={t('notFound.space')} />
-          ) : (
+          ) : waiting ? null : (
             <>
               {boards.loaded && boards.spaces.length === 0 && <NoSpaceHint />}
               <div className="flex flex-wrap items-center gap-3">

@@ -339,7 +339,10 @@ function SecondFactor({ me }: { me: Me }) {
 
   return (
     <div className="space-y-3 text-sm" data-testid="second-factor">
-      <p className="text-mist-400">{t('twofactor.lead')}</p>
+      {/* The emergency codes are told apart only where there are any: connected to nexsuite (H11). */}
+      <p className="text-mist-400" data-testid="second-factor-lead">
+        {me.suite === 'connected' ? `${t('twofactor.lead')} ${t('twofactor.leadSuite')}` : t('twofactor.lead')}
+      </p>
       {!enrolment && <Problem text={problem} />}
 
       {codes ? (
