@@ -194,8 +194,9 @@ The routes are in [docs/api.md](docs/api.md).
 
 - Passwords are hashed with Argon2id; failed sign-ins lock an account for a while (its API tokens keep working), and
   a brake per name and per sender across all names slows guessing on top. A browser that signed in as a name before
-  is let through the brake per sender, so somebody guessing cannot keep everybody out. With a second factor, the
-  password alone opens nothing.
+  is counted on its own for that name (until a new password, a block or signing out everywhere): somebody guessing
+  from the same address, that very name included, does not hold it, while its own wrong passwords still slow it
+  down. With a second factor, the password alone opens nothing.
 - Pictures of more than 50 million pixels are refused before they are decoded.
 - Every changing request needs the header `X-Nexcanvas-Client`, which a page on another site cannot send; the live
   connection checks where it comes from and checks the rights of each connection again every 30 seconds, so a

@@ -150,6 +150,48 @@ def test_a5_the_operator_gets_in_from_its_browser_while_a_stranger_guesses(clien
     assert _passes(_browser(), "tester") == 429
 
 
+def _spray_name(name: str, count: int = 12) -> list[int]:
+    """A stranger behind the same proxy guesses the password of one name only."""
+    stranger = _browser()
+    return [stranger.post("/api/auth/login", json={"name": name, "password": f"guess {n}"}).status_code
+            for n in range(count)]
+
+
+@pytest.mark.parametrize("name", ["tester", "anna"])
+def test_a5_a_stranger_guessing_that_very_name_does_not_keep_its_known_browser_out(client: TestClient,
+                                                                                   operator: Account,
+                                                                                   name: str) -> None:
+    """Behind a proxy nobody named, everybody has one address: the count per address and name would hold the own
+    browser too after five guesses at the operator's (or the emergency account's) name. For a browser with a device
+    cookie of that name the count per name goes with the browser (decided 2026-10-07)."""
+    if name != "tester":
+        make_account(name)
+    own = _known(name)
+    brake.forget()
+    assert 429 in _spray_name(name)
+    without = _browser().post("/api/auth/login", json={"name": name, "password": PASSWORD})
+    assert without.status_code == 429, "without the cookie the sender waits"
+    assert own.post("/api/auth/login", json={"name": name, "password": PASSWORD}).status_code == 200
+
+
+def test_a5_the_known_browser_is_still_slowed_by_its_own_wrong_passwords(client: TestClient,
+                                                                         operator: Account) -> None:
+    own = _known("tester")
+    brake.forget()
+    tries = [own.post("/api/auth/login", json={"name": "tester", "password": f"wrong {n}"}).status_code
+             for n in range(8)]
+    assert tries[:5] == [401] * 5 and 429 in tries
+    # The count is its own: another name from the same browser is not held by it.
+    make_account("anna")
+    assert own.post("/api/auth/login", json={"name": "anna", "password": PASSWORD}).status_code == 200
+
+
+def test_a5_a_device_cookie_with_an_endless_account_number_is_no_cookie(client: TestClient, operator: Account) -> None:
+    browser = _browser("192.0.2.77")
+    browser.cookies.set(DEVICE_COOKIE, "9" * 40 + ".abc." + "0f" * 16, path="/api/auth")
+    assert browser.post("/api/auth/login", json={"name": "tester", "password": PASSWORD}).status_code == 200
+
+
 def test_a5_the_operator_hears_of_a_proxy_nobody_named(client: TestClient, operator: Account,
                                                        monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(deps, "_warned_unknown_proxy", False)
@@ -273,13 +315,17 @@ def test_a5_an_account_from_before_the_device_key_gets_one_at_its_next_sign_in(c
 def _picture(kind: str, width: int, height: int) -> bytes:
     from PIL import Image
 
+    if kind == "HEIF":
+        import pillow_heif
+
+        pillow_heif.register_heif_opener()
     out = io.BytesIO()
     mode = "1" if kind in ("PNG", "BMP", "GIF") else "L"
     Image.new(mode, (width, height)).save(out, kind)
     return out.getvalue()
 
 
-@pytest.mark.parametrize("kind", ["PNG", "JPEG", "WEBP", "GIF", "BMP"])
+@pytest.mark.parametrize("kind", ["PNG", "JPEG", "WEBP", "GIF", "BMP", "HEIF", "AVIF"])
 def test_a7_a_picture_of_too_many_pixels_is_refused_before_anything_decodes_it(
     client: TestClient, operator: Account, space: int, monkeypatch: pytest.MonkeyPatch, kind: str
 ) -> None:
@@ -287,11 +333,14 @@ def test_a7_a_picture_of_too_many_pixels_is_refused_before_anything_decodes_it(
     monkeypatch.setattr(media_store, "MAX_PIXELS", 5_000)
     decoded: list[str] = []
     monkeypatch.setattr(media, "strip", lambda path, k: decoded.append("strip") or set())
+    monkeypatch.setattr(media, "to_webp", lambda source, target: decoded.append("webp") or False)
     monkeypatch.setattr(media_store, "PREVIEW_SIDE", 10)
     monkeypatch.setattr(media_store, "_make_preview", lambda source, target: decoded.append("preview") or False)
     with SessionLocal() as db:
         settings_service.save(db, {"strip_location": True})
-    big = client.post(f"/api/media?space={space}&name=big.{kind.lower()}", content=_picture(kind, 100, 100))
+    picture = _picture(kind, 100, 100)
+    assert media.sniff(picture[:64]) == {"HEIF": "heic", "JPEG": "jpeg"}.get(kind, kind.lower())
+    big = client.post(f"/api/media?space={space}&name=big.{kind.lower()}", content=picture)
     assert big.status_code == 422, big.text
     assert big.json()["detail"]["code"] == "too_many_pixels" and big.json()["detail"]["max_million"] == 0
     assert decoded == []
@@ -337,6 +386,16 @@ def test_a13_a_mail_address_with_a_control_character_is_refused(client: TestClie
     assert _code(client.post("/api/invites", json={"email": address})) == "invalid_email"
     assert _code(client.post("/api/settings/mail-test", json={"to": address})) == "invalid_email"
     assert _code(client.put("/api/settings", json={"smtp_from": address})) == "invalid_email"
+
+
+@pytest.mark.parametrize("address", ["anna@example.com\n", "anna@example.com\nBcc: x@example.com",
+                                     "anna@example.com\r"])
+def test_a13_the_mail_pattern_ends_at_the_end(address: str) -> None:
+    """Every caller strips the address first; the pattern itself does not let a closing line break pass either."""
+    from app.services import accounts
+
+    assert accounts.EMAIL_PATTERN.match(address) is None
+    assert accounts.EMAIL_PATTERN.match("anna@example.com") is not None
 
 
 @pytest.mark.parametrize("name", ["Anna\x85Berg", "Anna\x9b31m", "Anna\x00", "Anna\x1b[31m", "Anna\x7f",

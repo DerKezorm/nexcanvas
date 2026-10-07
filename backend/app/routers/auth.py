@@ -250,16 +250,21 @@ def login(payload: LoginIn, request: Request, response: Response, db: DbSession)
     # before, any such header took this count away (Prüfgang 05.10.2026 A5). Behind a proxy the operator did not
     # name, all senders share it; the log and Settings, Server say so and name the setting.
     #
-    # So that a stranger behind such a proxy cannot keep everybody out with 30 wrong names, a browser that signed in
-    # as this very name before (its device cookie, signed by the server) passes the count per sender; the count per
-    # name stays (decided 2026-10-05, A5). The emergency account gets in that way while somebody guesses.
+    # So that a stranger behind such a proxy cannot keep everybody out, a browser that signed in as this very name
+    # before (its device cookie, signed by the server) is counted on its own: not per sender, and per name only
+    # together with the browser (``login-dev``), so that guesses at that very name from the same address do not hold
+    # it either (decided 2026-10-05 and 2026-10-07, A5). Its own wrong passwords still slow it down. The emergency
+    # account gets in that way while somebody guesses.
     ip = client_ip(request)
     behind_unknown_proxy(request)
-    keys = [("login:" + ip + "|" + payload.name.strip().lower()[:64], Brake.FREE)]
-    device = device_of(db, request.cookies.get(DEVICE_COOKIE))
+    name = payload.name.strip().lower()[:64]
+    cookie = request.cookies.get(DEVICE_COOKIE)
+    device = device_of(db, cookie)
     known = accounts.by_name(db, payload.name) if device is not None else None
-    if known is None or known.id != device:
-        keys.append(("login-ip:" + ip, LOGIN_FREE_PER_SENDER))
+    if known is not None and known.id == device and cookie:
+        keys = [("login-dev:" + cookie.split(".")[1] + "|" + name, Brake.FREE)]
+    else:
+        keys = [("login:" + ip + "|" + name, Brake.FREE), ("login-ip:" + ip, LOGIN_FREE_PER_SENDER)]
     wait = max(brake.wait_seconds(key, free) for key, free in keys)
     if wait:
         raise HTTPException(
