@@ -277,8 +277,9 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: (keptInS
     const people = new Set(found.people.map((p) => p.id))
     const candidates = new Set(found.candidates.map((c) => c.id))
     const teamCandidates = new Set((found.team_candidates ?? []).map((c) => c.id))
+    // Once /finish went out the choices that went with it stand as they were, unfiltered (nexsuite offers no space then).
     const pick = (suggest: string, earlier: string | undefined, known: Set<string>, extra: string[]) =>
-      earlier !== undefined && (extra.includes(earlier) || known.has(earlier)) ? earlier : suggest
+      earlier !== undefined && (found.sent || extra.includes(earlier) || known.has(earlier)) ? earlier : suggest
     setProposal(found)
     setAccounts(Object.fromEntries(found.accounts.map((a) => [a.id, pick(a.suggest, before?.accounts?.[String(a.id)], people, a.id === me?.id ? ['new'] : ['new', 'skip'])])))
     setSpaces(Object.fromEntries(found.spaces.map((s) => [s.id, pick(s.suggest, before?.spaces?.[String(s.id)], candidates, ['new', 'keep'])])))
@@ -296,7 +297,8 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: (keptInS
   }, [resume]) // eslint-disable-line react-hooks/exhaustive-deps
   // Kept on the server as they are made: closing the assistant or reloading the page resumes here (B23).
   useEffect(() => {
-    if (!proposal || (step !== 2 && step !== 3)) return
+    // Once /finish went out the choices are fixed (the server refuses others): nothing to keep.
+    if (!proposal || proposal.sent || (step !== 2 && step !== 3)) return
     void api('/api/suite/choices', { method: 'PUT', body: { accounts, spaces, teams, step } }).catch(() => undefined)
   }, [proposal, accounts, spaces, teams, step])
   const titles = ['', t('suite.step1'), t('suite.step2'), t('suite.step3'), t('suite.step4')]

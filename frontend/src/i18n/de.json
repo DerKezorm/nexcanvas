@@ -938,7 +938,7 @@
     "suite_no_account": "nexcanvas kennt dich noch nicht. Versuch es in ein paar Sekunden noch einmal; klappt es dann nicht, frag den Betreiber von nexsuite.",
     "invite_suite": "Diese Einladung gilt nicht mehr: nexcanvas ist jetzt mit nexsuite verbunden, und du meldest dich über nexsuite an.",
     "too_many": "Das sind zu viele.",
-    "connection_sent": "Die Verbindung ist schon an nexsuite geschickt. Es gilt die Auswahl von da; für eine andere Auswahl brich ab und verbinde neu."
+    "connection_sent": "Die Verbindung ist schon an nexsuite geschickt. Es gilt die Auswahl von damals; für eine andere Auswahl brich ab und verbinde neu."
   },
   "auth": {
     "name": "Name",
@@ -1486,7 +1486,7 @@
     "dropped": "nicht mehr in nexsuite",
     "droppedHint": "nexsuite gibt nexcanvas diesen Bereich nicht mehr. Die Boards bleiben, sehen kann ihn nur der Betreiber. Du kannst ihn in den Papierkorb legen.",
     "abortMade": "Was schon in nexsuite angelegt ist (Personen, Teams, Bereiche), bleibt dort, wenn du abbrichst. Neue Personen mit Adresse haben die Mail zum Setzen ihres Passworts schon bekommen. Beim nächsten Verbinden schlägt nexcanvas sie wieder vor.",
-    "sentChoices": "Die Verbindung ist schon an nexsuite geschickt. Es gilt die Auswahl von da; für eine andere Auswahl brich ab und verbinde neu.",
+    "sentChoices": "Die Verbindung ist schon an nexsuite geschickt. Es gilt die Auswahl von damals; für eine andere Auswahl brich ab und verbinde neu.",
     "abortKept": "nexsuite war nicht erreichbar. Dort kann nexcanvas noch unter Apps stehen; trenne es dort, bevor du neu verbindest."
   },
   "colorNames": {

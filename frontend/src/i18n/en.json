@@ -938,7 +938,7 @@
     "suite_no_account": "nexcanvas does not know you yet. Try again in a few seconds; if it still does not work, ask the operator of nexsuite.",
     "invite_suite": "This invitation is not valid any more: nexcanvas is connected to nexsuite now, and you sign in through nexsuite.",
     "too_many": "That is too many.",
-    "connection_sent": "The connection has been sent to nexsuite already. The choices made then apply; for other choices, cancel and connect again."
+    "connection_sent": "The connection has been sent to nexsuite already. The choices from then apply; for other choices, cancel and connect again."
   },
   "auth": {
     "name": "Name",
@@ -1486,7 +1486,7 @@
     "dropped": "no longer in nexsuite",
     "droppedHint": "nexcanvas no longer gets this space from nexsuite. Its boards stay, only the operator sees it. You can move it to the trash.",
     "abortMade": "What is created in nexsuite already (people, teams, spaces) stays there if you cancel. New people with an address have been sent the mail to set their password. Connecting again suggests them once more.",
-    "sentChoices": "The connection has been sent to nexsuite already. The choices made then apply; for other choices, cancel and connect again.",
+    "sentChoices": "The connection has been sent to nexsuite already. The choices from then apply; for other choices, cancel and connect again.",
     "abortKept": "nexsuite could not be reached. nexcanvas may still be listed there under Apps; disconnect it there before you connect again."
   },
   "colorNames": {

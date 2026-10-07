@@ -389,8 +389,24 @@ def proposal(db: Session) -> Proposal:
                           for t in db.scalars(select(Team).where(Team.source == TEAM_LOCAL).order_by(Team.id))],
                          team_candidates)
     pending = settings_service.get(db, "suite_pending") or {}
+    chosen = pending.get("chosen") or None
+    sent = pending.get("sent") or {}
+    if "chosen" in sent:
+        # /finish went out: the choices that went with it, as they were, with their targets by name (nexsuite offers
+        # no space once it has the connection). Accounts, spaces and teams that came here since are not among them.
+        picked, names = sent["chosen"], sent.get("names") or {}
+        accounts_out = [entry for entry in accounts_out if str(entry["id"]) in picked["accounts"]]
+        spaces_out = [entry for entry in spaces_out if str(entry["id"]) in picked["spaces"]]
+        teams_out = [entry for entry in teams_out if str(entry["id"]) in picked["teams"]]
+        listed = {str(person["id"]) for person in people}
+        people = people + [person for person in names.get("people") or [] if person["id"] not in listed]
+        candidates = list(names.get("spaces") or [])
+        listed_teams = {team["id"] for team in team_candidates}
+        team_candidates = team_candidates + [team for team in names.get("teams") or []
+                                             if team["id"] not in listed_teams]
+        chosen = {**picked, "step": 3}
     return Proposal(people=people, accounts=accounts_out, spaces=spaces_out, candidates=candidates, teams=teams_out,
-                    team_candidates=team_candidates, chosen=pending.get("chosen") or None,
+                    team_candidates=team_candidates, chosen=chosen,
                     made=len(pending.get("made") or {}), sent=bool(pending.get("sent")))
 
 
@@ -401,7 +417,7 @@ def _as_sent(accounts_map: dict[int, str], spaces_map: dict[int, str], teams_map
 
 
 def _sent_already() -> SuiteError:
-    return SuiteError("connection_sent", "The connection was sent to nexsuite already; its choices hold. Cancel and "
+    return SuiteError("connection_sent", "The connection was sent to nexsuite already; its choices apply. Cancel and "
                                          "connect again for other choices.", 409)
 
 
@@ -483,10 +499,9 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
     sent = (settings_service.get(db, "suite_pending") or {}).get("sent")
     if sent:
         # /finish went out before and its answer did not come, or writing it here failed: nexsuite may have the
-        # connection already and refuse everything else. Only /finish again, with what was matched then; other
-        # choices now are refused, never applied as the old ones in silence (review of e709c94).
-        if "chosen" in sent and _as_sent(accounts_map, spaces_map, teams_map) != sent["chosen"]:
-            raise _sent_already()
+        # connection already and refuse everything else. Only /finish again, with what was matched then. What came
+        # with this request does not count: the choices are fixed since (keeping others is refused, the assistant
+        # shows these locked), and accounts made or deleted meanwhile change nothing (decided 2026-10-07).
         return _confirm(db, _token(db), sent)
     _no_twice(accounts_map, "person")
     _no_twice(spaces_map, "space")
@@ -589,7 +604,17 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
     plan = {"operator": operator.id, "people": {str(k): v for k, v in person_of.items()},
             "teams": {str(k): v for k, v in team_of.items()}, "spaces": {str(k): v for k, v in space_of.items()},
             "skip": [k for k, v in accounts_map.items() if v == "skip"], "new_people": new_people,
-            "chosen": _as_sent(accounts_map, spaces_map, teams_map)}
+            "chosen": _as_sent(accounts_map, spaces_map, teams_map),
+            # The targets by name, for showing the choices after a reload: nexsuite offers no space once it has
+            # the connection.
+            "names": {
+                "people": [{"id": str(p["id"]), "name": p.get("name") or "",
+                            "display_name": p.get("display_name") or "", "email": p.get("email") or ""}
+                           for p in seen["people"] if str(p["id"]) in set(accounts_map.values())],
+                "spaces": [{"id": str(c["id"]), "name": c.get("name") or "", "color": c.get("color") or ""}
+                           for c in seen.get("candidates") or [] if str(c["id"]) in set(spaces_map.values())],
+                "teams": [{"id": str(t["id"]), "name": t.get("name") or "", "color": t.get("color") or ""}
+                          for t in seen.get("teams") or [] if str(t["id"]) in set(teams_map.values())]}}
     pending = dict(settings_service.get(db, "suite_pending") or {})
     pending["sent"] = plan
     settings_service.save(db, {"suite_pending": pending})

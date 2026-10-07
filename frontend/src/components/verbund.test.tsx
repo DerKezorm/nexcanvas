@@ -289,12 +289,37 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     server.answers['GET /api/suite/proposal'] = { ...proposal(), made: 1, sent: true }
     await click(button(page, 'Connect'))
     await settle()
-    const sentence = 'The connection has been sent to nexsuite already. The choices made then apply; for other choices, cancel and connect again.'
+    const sentence = 'The connection has been sent to nexsuite already. The choices from then apply; for other choices, cancel and connect again.'
     expect(page.querySelector('[data-testid="suite-sent"]')!.textContent).toBe(sentence)
     expect([...page.querySelectorAll('li select')].every((select) => (select as HTMLSelectElement).disabled)).toBe(true)
     await click(button(page, 'Back'))
     expect(page.querySelector('[data-testid="suite-sent"]')!.textContent).toBe(sentence)
     expect(row(page, 'jona').querySelector('select')!.disabled).toBe(true)
+  })
+
+  it('shows after a reload exactly the choices that went out, locked, though nexsuite offers no space any more', async () => {
+    connecting()
+    server.answers['GET /api/suite/proposal'] = {
+      ...proposal(),
+      candidates: [{ id: '10', name: 'Ideen' }],
+      spaces: [{ id: 1, name: 'Ideen', color: '#ff8a70', suggest: 'keep' }],
+      sent: true,
+      made: 1,
+      chosen: { accounts: { '1': '1', '4': '6', '7': 'new' }, spaces: { '1': '10' }, teams: {}, step: 3 },
+    }
+    const page = await mount(<SuiteCard />)
+    await click(button(page, 'Continue connecting'))
+    await settle()
+    const space = page.querySelector<HTMLSelectElement>('li select')!
+    expect(space.value).toBe('10')
+    expect(space.selectedOptions[0].textContent).toContain('Ideen')
+    expect(space.disabled).toBe(true)
+    expect(page.querySelector('[data-testid="suite-sent"]')).not.toBeNull()
+    await click(button(page, 'Back'))
+    expect(row(page, 'jona').querySelector('select')!.value).toBe('6')
+    expect(row(page, 'mila').querySelector('select')!.value).toBe('new')
+    expect(row(page, 'jona').querySelector('select')!.disabled).toBe(true)
+    expect(calls('PUT /api/suite/choices')).toHaveLength(0)
   })
 
   it('says after giving up when nexsuite may still list nexcanvas, and only then', async () => {

@@ -1662,9 +1662,9 @@ def _lose_finish_once(fake: FakeSuite, monkeypatch: pytest.MonkeyPatch) -> None:
 def test_after_finish_went_out_other_choices_are_refused_not_ignored(client: TestClient, operator: Account,
                                                                      world: dict, fake: FakeSuite,
                                                                      monkeypatch: pytest.MonkeyPatch) -> None:
-    """The answer to /finish got lost; the operator then sets anna to "leave out". Neither keeping that nor finishing
-    with it passes silently with the plan of then: both are refused, anna stays untouched; the choices of then
-    finish."""
+    """The answer to /finish got lost; the operator then tries to set anna to "leave out", or to change a team. Keeping
+    that is refused (the assistant shows the choices of then, locked); finishing sends /finish again and applies the
+    choices of then, whatever comes along with it (decided 2026-10-07)."""
     chosen = _choices(client, world)
     _lose_finish_once(fake, monkeypatch)
     assert client.post("/api/suite/finish", json=chosen).status_code in (409, 502)
@@ -1672,12 +1672,57 @@ def test_after_finish_went_out_other_choices_are_refused_not_ignored(client: Tes
     other = {**chosen, "accounts": {**chosen["accounts"], world["anna"].id: "skip"}}
     kept = client.put("/api/suite/choices", json={**other, "teams": {}, "step": 2})
     assert kept.status_code == 409 and _code(kept) == "connection_sent"
-    refused = client.post("/api/suite/finish", json=other)
-    assert refused.status_code == 409 and _code(refused) == "connection_sent"
+    team_only = client.put("/api/suite/choices", json={**chosen, "teams": {str(world["team"]): "70"}, "step": 3})
+    assert team_only.status_code == 409 and _code(team_only) == "connection_sent"
     assert _setting("suite_state") == "connecting" and _row("anna").oidc_subject == ""
-    done = client.post("/api/suite/finish", json=chosen)
+    done = client.post("/api/suite/finish", json=other)
     assert done.status_code == 200, done.text
-    assert _row("anna").oidc_subject == "2"
+    assert _row("anna").oidc_subject == "2" and _row("anna").blocked_at is None, "the choices of then"
+
+
+def _sent_and_lost(client: TestClient, world: dict, fake: FakeSuite, monkeypatch: pytest.MonkeyPatch) -> dict:
+    chosen = _choices(client, world)
+    _lose_finish_once(fake, monkeypatch)
+    assert client.post("/api/suite/finish", json=chosen).status_code in (409, 502)
+    assert fake.connected
+    return chosen
+
+
+def test_after_reloading_the_assistant_shows_what_was_sent_and_finishes_with_it(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """R5: nexsuite has the connection, so it offers no space any more. The proposal still names the choices that
+    went out, with the names of their targets, and finishing with them works."""
+    chosen = _sent_and_lost(client, world, fake, monkeypatch)
+    found = client.get("/api/suite/proposal").json()
+    assert found["sent"] is True
+    assert found["chosen"]["spaces"][str(world["ideen"])] == "10"
+    assert {"id": "10", "name": "Ideen", "color": "#f472b6"} in found["candidates"], "the target by its name"
+    assert found["chosen"]["accounts"] == {str(k): v for k, v in chosen["accounts"].items()}
+    assert {person["id"] for person in found["people"]} >= {"1", "2", "3"}
+    body = {key: found["chosen"][key] for key in ("accounts", "spaces", "teams")}
+    done = client.post("/api/suite/finish", json=body)
+    assert done.status_code == 200, done.text
+    with SessionLocal() as db:
+        ideen = db.get(Space, world["ideen"])
+        assert ideen is not None and ideen.external_id == "10"
+
+
+def test_an_account_made_after_sending_is_not_in_the_list_and_stops_nothing(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """R6: an account made here after /finish went out is not among the choices, and a finish that brings it along
+    still finishes; nothing is made for it in nexsuite."""
+    chosen = _sent_and_lost(client, world, fake, monkeypatch)
+    late = make_account("spaet")
+    found = client.get("/api/suite/proposal").json()
+    assert "spaet" not in {row["name"] for row in found["accounts"]}
+    people = len(fake.people)
+    body = {**chosen, "accounts": {**chosen["accounts"], late.id: "new"}}
+    done = client.post("/api/suite/finish", json=body)
+    assert done.status_code == 200, done.text
+    assert len(fake.people) == people
+    assert _row("spaet").oidc_subject == ""
 
 
 def test_giving_up_after_finish_went_out_says_when_nexsuite_may_still_list_the_app(
