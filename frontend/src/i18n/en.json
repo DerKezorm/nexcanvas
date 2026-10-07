@@ -1483,7 +1483,8 @@
     "operatorsBack": "Members again, they were operators through nexsuite only: {{names}}.",
     "leaveOperatorsUnknown": "For this connection it is not known who was an operator before; these operators stay operators: {{names}}.",
     "dropped": "no longer in nexsuite",
-    "droppedHint": "nexsuite no longer gives nexcanvas this space. Its boards stay, only the operator sees it. You can move it to the trash."
+    "droppedHint": "nexsuite no longer gives nexcanvas this space. Its boards stay, only the operator sees it. You can move it to the trash.",
+    "abortMade": "What is created in nexsuite already (people, teams, spaces) stays there if you cancel. New people with an address have been sent the mail to set their password. Connecting again suggests them once more."
   },
   "colorNames": {
     "pink": "Pink",

@@ -256,6 +256,25 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     expect(row(page, 'mila').querySelector('select')!.value).toBe('new')
   })
 
+  it('says what stays in nexsuite on giving up, only once something was made there', async () => {
+    connecting()
+    const page = await mount(<SuiteCard />)
+    await click(button(page, 'Continue connecting'))
+    await settle()
+    expect(page.querySelector('[data-testid="suite-made"]')).toBeNull()
+    await click(button(page, 'Next'))
+    await settle()
+    // The last step fails half way: ben is a person in nexsuite now.
+    server.refuse['POST /api/suite/finish'] = { status: 502, code: 'suite_unreachable' }
+    server.answers['GET /api/suite/proposal'] = { ...proposal(), made: 1 }
+    await click(button(page, 'Connect'))
+    await settle()
+    await click(button(page, 'Back'))
+    expect(page.querySelector('[data-testid="suite-made"]')!.textContent).toBe(
+      'What is created in nexsuite already (people, teams, spaces) stays there if you cancel. New people with an address have been sent the mail to set their password. Connecting again suggests them once more.',
+    )
+  })
+
   it('says what takes a moment and connects once for two clicks (B25)', async () => {
     connecting()
     const page = await mount(<SuiteCard />)

@@ -1526,3 +1526,118 @@ def test_settled_a_person_deleted_before_the_update_leaves_no_link_behind(
     assert (anna.oidc_subject, anna.oidc_subject_local, anna.sign_in) == ("", "", "password")
     rows = _again(client)
     assert rows["anna"]["gone"] is True and rows["anna"]["suggest"] == "skip"
+
+
+# --- Review of 4f54522: nexsuite took /finish, nexcanvas did not hear it ---------------------------------------------
+
+
+def _connected_here(world: dict) -> None:
+    assert _setting("suite_state") == "connected" and _setting("suite_pending") is None
+    assert _row("anna").oidc_subject == "2" and _row("cleo").blocked_at is not None
+    with SessionLocal() as db:
+        team = db.get(Team, world["team"])
+        space = db.get(Space, world["studio"])
+        assert team is not None and team.source == "admin" and team.external_id
+        assert space is not None and space.external_id
+
+
+def test_finish_whose_answer_got_lost_finishes_with_the_next_try(client: TestClient, operator: Account, world: dict,
+                                                                fake: FakeSuite, monkeypatch: pytest.MonkeyPatch) -> None:
+    """nexsuite took /finish, the answer never came. The next try sends only /finish again; nexsuite's
+    already_connected (asked with this app's token) is the confirmation."""
+    chosen = _choices(client, world)
+    real = fake.handle
+    lost = {"once": True}
+
+    def losing(method: str, url: str, **kwargs: Any) -> Any:
+        answer = real(method, url, **kwargs)
+        if url.endswith("/api/connect/v1/finish") and lost.pop("once", False):
+            raise suite.SuiteError("suite_unreachable", "nexsuite cannot be reached.")
+        return answer
+
+    monkeypatch.setattr(suite, "request", losing)
+    failed = client.post("/api/suite/finish", json=chosen)
+    assert failed.status_code in (409, 502) and _code(failed) == "suite_unreachable"
+    assert fake.connected and _setting("suite_state") == "connecting"
+    people, teams = len(fake.people), len(fake.teams)
+    calls = len(fake.calls)
+    done = client.post("/api/suite/finish", json=chosen)
+    assert done.status_code == 200, done.text
+    _connected_here(world)
+    again = [call for call in fake.calls[calls:] if call[0] == "POST" and call[1] != "/finish"]
+    assert again == [], "nothing but /finish is sent again"
+    assert len(fake.people) == people and len(fake.teams) == teams
+
+
+def test_finish_whose_local_commit_failed_finishes_with_the_next_try(client: TestClient, operator: Account,
+                                                                   world: dict, fake: FakeSuite,
+                                                                   monkeypatch: pytest.MonkeyPatch) -> None:
+    """nexsuite confirmed /finish, then writing it here failed (a full disk, a lock): nothing here changed, and the
+    next try writes it."""
+    chosen = _choices(client, world)
+    real = settings_service.save
+    broken = {"once": True}
+
+    def failing(db: Any, changes: dict[str, Any]) -> None:
+        if changes.get("suite_state") == "connected" and broken.pop("once", False):
+            raise RuntimeError("the disk is full")
+        real(db, changes)
+
+    monkeypatch.setattr(settings_service, "save", failing)
+    with TestClient(client.app, base_url="http://testserver", headers=dict(client.headers),
+                    raise_server_exceptions=False, cookies=client.cookies) as same:
+        assert same.post("/api/suite/finish", json=chosen).status_code == 500
+    assert fake.connected and _setting("suite_state") == "connecting"
+    assert _row("anna").oidc_subject == "" and _row("cleo").blocked_at is None, "nothing written here"
+    done = client.post("/api/suite/finish", json=chosen)
+    assert done.status_code == 200, done.text
+    _connected_here(world)
+
+
+def test_finish_sent_and_given_up_tells_nexsuite_to_forget(client: TestClient, operator: Account, world: dict,
+                                                           fake: FakeSuite, monkeypatch: pytest.MonkeyPatch) -> None:
+    chosen = _choices(client, world)
+    real = fake.handle
+
+    def losing(method: str, url: str, **kwargs: Any) -> Any:
+        answer = real(method, url, **kwargs)
+        if url.endswith("/api/connect/v1/finish"):
+            raise suite.SuiteError("suite_unreachable", "nexsuite cannot be reached.")
+        return answer
+
+    monkeypatch.setattr(suite, "request", losing)
+    assert client.post("/api/suite/finish", json=chosen).status_code in (409, 502)
+    assert client.post("/api/suite/abort").status_code == 204
+    assert ("POST", "/leave") in fake.calls and not fake.connected
+    assert _setting("suite_state") == "" and _row("anna").oidc_subject == ""
+
+
+def test_settled_an_oidc_account_without_a_password_keeps_its_own_link(client: TestClient, operator: Account,
+                                                                     world: dict, fake: FakeSuite) -> None:
+    """Connected under bf64550: dora came through authentik (no password of her own) and was left out, keeping her
+    link. Her subject is no person of nexsuite's: she keeps it apart and gets it back on disconnecting."""
+    from app.services import accounts
+
+    with SessionLocal() as db:
+        dora_id = accounts.create_oidc(db, "dora", "authentik-hash-of-dora", "dora@example.com").id
+    chosen = _choices(client, world)
+    chosen["accounts"][dora_id] = "skip"
+    assert client.post("/api/suite/finish", json=chosen).status_code == 200
+    _legacy({"dora": "authentik-hash-of-dora"}, dora={"blocked_at": utcnow()})
+    assert client.post("/api/suite/sync").status_code == 200
+    dora = _row("dora")
+    assert (dora.oidc_subject, dora.suite_person, dora.oidc_subject_local) == ("", "", "authentik-hash-of-dora")
+    _disconnect(client, fake)
+    dora = _row("dora")
+    assert (dora.oidc_subject, dora.suite_person, dora.sign_in) == ("authentik-hash-of-dora", "", "oidc")
+    rows = _again(client)
+    assert rows["dora"]["from_suite"] is False and rows["dora"]["gone"] is False
+
+
+def test_the_proposal_says_when_something_was_made_in_nexsuite_already(client: TestClient, operator: Account,
+                                                                       world: dict, fake: FakeSuite) -> None:
+    chosen = _choices(client, world)
+    assert client.get("/api/suite/proposal").json()["made"] == 0
+    fake.fail_on = "/spaces"
+    assert client.post("/api/suite/finish", json=chosen).status_code in (409, 502)
+    assert client.get("/api/suite/proposal").json()["made"] == 2, "ben as a person and the team Design"

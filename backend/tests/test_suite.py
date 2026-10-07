@@ -94,10 +94,15 @@ class FakeSuite:
                 raise suite.SuiteError(self.pair_refused, "nexsuite refused.", 409)
             if body["code"] != "GOOD-CODE-1234":
                 raise suite.SuiteError("pair_code_invalid", "nexsuite refused.", 409)
+            self.connected = False  # a new app in nexsuite, connecting
             return {"app_id": 1, "client_id": "nxs-client", "client_secret": "the-client-secret",
                     "token": self.token, "issuer": SUITE}
         if token != self.token or not self.known:
             raise suite.SuiteError("suite_refused", "nexsuite does not know this app any more.", 409)
+        if self.connected and method == "POST" and (path in ("/people", "/teams", "/spaces", "/finish") or path.endswith(
+                ("/email", "/name", "/join", "/tick"))):
+            # As nexsuite's ``apps._connecting``: what an app brings while connecting, and ``finish``, only until then.
+            raise suite.SuiteError("already_connected", "nexsuite refused.", 409)
         if path == "/directory":
             return {
                 "revision": 7, "suite": {"name": "nexsuite", "url": SUITE},
@@ -172,6 +177,8 @@ class FakeSuite:
             self.reports.append(body)
             return None
         if path == "/leave":
+            # nexsuite forgets the app; connecting again pairs a new one.
+            self.connected = False
             return None
         raise AssertionError(path)
 

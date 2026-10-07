@@ -285,6 +285,8 @@ class Proposal:
     team_candidates: list[dict[str, Any]] = field(default_factory=list)
     #: The choices kept from before the assistant was closed (``keep_choices``), or None.
     chosen: dict[str, Any] | None = None
+    #: How many people, teams and spaces an earlier try made in nexsuite already: they stay there on giving up.
+    made: int = 0
 
 
 def _fold(text: str) -> str:
@@ -384,9 +386,10 @@ def proposal(db: Session) -> Proposal:
     teams_out = _suggest([{"id": t.id, "name": t.name, "color": t.color}
                           for t in db.scalars(select(Team).where(Team.source == TEAM_LOCAL).order_by(Team.id))],
                          team_candidates)
-    chosen = (settings_service.get(db, "suite_pending") or {}).get("chosen")
+    pending = settings_service.get(db, "suite_pending") or {}
     return Proposal(people=people, accounts=accounts_out, spaces=spaces_out, candidates=candidates, teams=teams_out,
-                    team_candidates=team_candidates, chosen=chosen or None)
+                    team_candidates=team_candidates, chosen=pending.get("chosen") or None,
+                    made=len(pending.get("made") or {}))
 
 
 def keep_choices(db: Session, chosen: dict[str, Any]) -> None:
@@ -460,6 +463,11 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
             teams_map: dict[int, str] | None) -> list[dict[str, str]]:
     if state(db) != "connecting":
         raise SuiteError("not_connecting", "Start with the address and the code.", 409)
+    sent = (settings_service.get(db, "suite_pending") or {}).get("sent")
+    if sent:
+        # /finish went out before and its answer did not come, or writing it here failed: nexsuite may have the
+        # connection already and refuse everything else. Only /finish again, with what was matched then.
+        return _confirm(db, _token(db), sent)
     teams_map = teams_map or {}
     _no_twice(accounts_map, "person")
     _no_twice(spaces_map, "space")
@@ -557,8 +565,32 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
             request("POST", _api(db, f"/spaces/{int(choice)}/tick"), token=token,
                     body={"people": people, "teams": teams})
             space_of[space.id] = str(int(choice))
-    request("POST", _api(db, "/finish"), token=token, body={"people": len(person_of), "spaces": len(space_of)})
-    # Confirmed: everything here in one transaction with the settings below (``settings_service.save`` commits).
+    # Kept before /finish goes out: nexsuite may take it and the answer never come back (a lost answer, or writing
+    # here fails afterwards). The next try sends only /finish again and applies this (review of 4f54522).
+    plan = {"operator": operator.id, "people": {str(k): v for k, v in person_of.items()},
+            "teams": {str(k): v for k, v in team_of.items()}, "spaces": {str(k): v for k, v in space_of.items()},
+            "skip": [k for k, v in accounts_map.items() if v == "skip"], "new_people": new_people}
+    pending = dict(settings_service.get(db, "suite_pending") or {})
+    pending["sent"] = plan
+    settings_service.save(db, {"suite_pending": pending})
+    return _confirm(db, token, plan)
+
+
+def _confirm(db: Session, token: str, plan: dict[str, Any]) -> list[dict[str, str]]:
+    """Sends ``/finish`` and, once nexsuite has the connection, applies what was matched, here in one transaction with
+    the settings (``settings_service.save`` commits). nexsuite's ``already_connected`` to it, asked with this app's own
+    token, says it took an earlier ``/finish`` whose answer got lost: that is the confirmation too."""
+    person_of = {int(k): str(v) for k, v in plan["people"].items()}
+    team_of = {int(k): str(v) for k, v in plan["teams"].items()}
+    space_of = {int(k): str(v) for k, v in plan["spaces"].items()}
+    try:
+        request("POST", _api(db, "/finish"), token=token, body={"people": len(person_of), "spaces": len(space_of)})
+    except SuiteError as exc:
+        if exc.code != "already_connected":
+            raise
+        logger.info("nexsuite has the connection already; it is finished here now")
+    operator_id = int(plan["operator"])
+    accounts_here = {row.id: row for row in db.scalars(select(Account))}
     for space_id, external in space_of.items():
         space = db.get(Space, space_id)
         if space is not None:
@@ -573,9 +605,9 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
             row.oidc_subject_local = row.oidc_subject
         row.oidc_subject = person or ""
         row.suite_person = person or ""
-    for account_id, choice in accounts_map.items():
-        if choice == "skip" and account_id in accounts_here and account_id != operator.id:
-            accounts_here[account_id].blocked_at = utcnow()
+    for account_id in plan["skip"]:
+        if int(account_id) in accounts_here and int(account_id) != operator_id:
+            accounts_here[int(account_id)].blocked_at = utcnow()
     for team_id, external in team_of.items():
         team = db.get(Team, team_id)
         if team is not None:
@@ -595,11 +627,11 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
         "password_login": False,
         "suite_pending": None,
         "suite_state": "connected",
-        "suite_emergency_account": operator.id,
+        "suite_emergency_account": operator_id,
     })
     logger.info("Connected to nexsuite: %s accounts, %s spaces", len(person_of), len(space_of))
     sync(db)
-    return new_people
+    return list(plan.get("new_people") or [])
 
 
 def abort(db: Session) -> None:

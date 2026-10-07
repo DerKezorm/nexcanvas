@@ -32,6 +32,8 @@ type Proposal = {
   team_candidates: { id: string; name: string }[]
   /** The choices kept from before the assistant was closed (B23). */
   chosen?: Chosen | null
+  /** People, teams and spaces an earlier try made in nexsuite already. */
+  made?: number
 }
 
 /** Codes of a choice nexsuite does not know (any more): the lists are loaded anew (B9). */
@@ -315,6 +317,10 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
           // Something chosen is gone from nexsuite meanwhile: the lists anew, the other choices kept.
           take(await api<Proposal>('/api/suite/proposal'), { accounts, spaces, teams })
           if (error.code === 'person_unknown') setStep(2)
+        } else {
+          // Part of it may be made in nexsuite already: giving up then says what stays there.
+          const again = await api<Proposal>('/api/suite/proposal').catch(() => null)
+          if (again) setProposal((before) => (before ? { ...before, made: again.made } : before))
         }
         throw error
       }
@@ -408,6 +414,8 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: () => vo
           <p className="text-xs text-mist-500">{t('suite.newPersonHint')}</p>
           {own === 'skip' && <p className="text-sm text-bad-500">{t('errors.operator_unmatched')}</p>}
           <Feedback problem={action.problem} />
+          {/* An earlier try made people, teams or spaces in nexsuite: they stay there when giving up. */}
+          {(proposal.made ?? 0) > 0 && <p className="text-xs text-warn-500" data-testid="suite-made">{t('suite.abortMade')}</p>}
           <div className="flex justify-between gap-2">
             <button type="button" className="nc-btn nc-btn-ghost text-bad-500" onClick={abort}>
               {t('suite.abort')}

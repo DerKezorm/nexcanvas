@@ -1483,7 +1483,8 @@
     "operatorsBack": "Wieder Mitglied, Betreiber waren sie nur durch nexsuite: {{names}}.",
     "leaveOperatorsUnknown": "Für diese Verbindung ist nicht bekannt, wer vorher Betreiber war; diese Betreiber bleiben es: {{names}}.",
     "dropped": "nicht mehr in nexsuite",
-    "droppedHint": "nexsuite gibt nexcanvas diesen Bereich nicht mehr. Die Boards bleiben, sehen kann ihn nur der Betreiber. Du kannst ihn in den Papierkorb legen."
+    "droppedHint": "nexsuite gibt nexcanvas diesen Bereich nicht mehr. Die Boards bleiben, sehen kann ihn nur der Betreiber. Du kannst ihn in den Papierkorb legen.",
+    "abortMade": "Was schon in nexsuite angelegt ist (Personen, Teams, Bereiche), bleibt dort, wenn du abbrichst. Neue Personen mit Adresse haben die Mail zum Setzen ihres Passworts schon bekommen. Beim nächsten Verbinden schlägt nexcanvas sie wieder vor."
   },
   "colorNames": {
     "pink": "Rosa",
