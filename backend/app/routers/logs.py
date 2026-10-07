@@ -23,6 +23,8 @@ class LogEntry(BaseModel):
     message: str
     request_id: str | None = None
     user: str | None = None
+    #: The moment with its offset, for the reader's own time (Prüfgang G11).
+    at: str | None = None
 
 
 class LogMode(BaseModel):

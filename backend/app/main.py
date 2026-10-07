@@ -174,6 +174,10 @@ async def _plain_http_error(request: Request, exc: StarletteHTTPException) -> JS
     # FastAPI's own 400 for a body that is not JSON carries only a text; give it a code like every other answer.
     if exc.status_code == 400 and isinstance(exc.detail, str):
         return JSONResponse(status_code=400, content={"detail": detail("invalid_input", "The input is not valid.")})
+    # A file under /assets/ that is not there (an old page after an update), or a path no route knows: the same
+    # answer as every other "not found", not Starlette's bare text (Prüfgang H18, as nextasks).
+    if exc.status_code == 404 and isinstance(exc.detail, str):
+        return JSONResponse(status_code=404, content={"detail": detail("not_found", "Not found.")})
     return await http_exception_handler(request, exc)
 
 

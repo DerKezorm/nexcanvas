@@ -300,6 +300,12 @@ def find_invite(db: Session, token: str) -> Invite | None:
     return invite
 
 
+def invite_expired(db: Session, token: str) -> bool:
+    """Whether the link's invitation is still there and only expired (to say so instead of "not valid any more")."""
+    invite = db.scalar(select(Invite).where(Invite.token_hash == hash_token(token)))
+    return invite is not None and invite.expires_at <= utcnow()
+
+
 def consume(db: Session, invite: Invite) -> bool:
     """Takes the invitation away, in the open transaction; False when another request took it first. Of two requests
     at the same moment the database lets exactly one delete the row, so a link is used once whatever the timing."""
@@ -340,6 +346,8 @@ def redeem(db: Session, invite: Invite, account: Account, *, consumed: bool = Fa
 def accept_invite(db: Session, token: str, name: str, password: str) -> Account:
     invite = find_invite(db, token)
     if invite is None:
+        if invite_expired(db, token):
+            raise AccountError("invite_expired", "This invitation has expired.", 404)
         raise AccountError("invite_invalid", "This invitation is not valid any more.", 404)
     check_name(db, name)
     # The invitation goes before the account comes, in one transaction: two requests with the same link at the same

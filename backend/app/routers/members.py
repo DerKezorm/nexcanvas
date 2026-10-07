@@ -332,6 +332,8 @@ class InviteIn(BaseModel):
     send: bool = False
     #: The language the inviter's page shows: the mail's, when neither the receiver nor the inviter has one.
     language: str = Field(default="", max_length=16)
+    #: Into nexcanvas and straight into this space with ``role`` (operator, E18); left out: into nexcanvas only.
+    space: int | None = Field(default=None, ge=1)
 
 
 class AcceptIn(BaseModel):
@@ -405,17 +407,29 @@ def invite_to_space(space_id: SpaceId, payload: InviteIn, request: Request, acco
     return _create(db, request, account, space, payload)
 
 
-@router.get("/invites", summary="Open invitations without a space (operator)")
+@router.get("/invites", summary="Open invitations, with the space they bring into if any (operator)")
 def list_invites(_operator: OperatorAccount, db: DbSession) -> list[dict[str, Any]]:
-    return [_invite_view(invite, db) for invite in accounts.invites_of(db, space_id=None)]
+    # Those into a space are listed too, with its name: the operator makes them here as well (E18). One into a space
+    # in the trash is no way in any more and is left out.
+    names = {row[0]: row[1] for row in db.execute(select(Space.id, Space.name).where(Space.deleted_at.is_(None)))}
+    return [{**_invite_view(invite, db), "space": names.get(invite.space_id) if invite.space_id else None}
+            for invite in accounts.invites_of(db, space_id=None, all_spaces=True)
+            if invite.space_id is None or invite.space_id in names]
 
 
-@router.post("/invites", status_code=201, summary="Invite into nexcanvas without a space (operator)")
+@router.post("/invites", status_code=201, summary="Invite into nexcanvas, and straight into a space if one is named "
+             "(operator)")
 def invite(payload: InviteIn, request: Request, operator: OperatorAccount, db: DbSession) -> dict[str, Any]:
     suite.refuse_if_managed(db)
-    if payload.role:
-        raise error("invalid_role", "A right needs a space.", 422)
-    return _create(db, request, operator, None, payload)
+    if payload.space is None:
+        if payload.role:
+            raise error("invalid_role", "A right needs a space.", 422)
+        return _create(db, request, operator, None, payload)
+    # Straight into a space as well (E18): the same checks as an invitation from the space's members dialog.
+    space = _space(db, operator, payload.space)
+    if payload.role not in SPACE_ROLES:
+        raise error("invalid_role", "Unknown right.", 422)
+    return _create(db, request, operator, space, payload)
 
 
 @router.delete("/invites/{invite_id}", status_code=204, summary="Withdraw an invitation")
@@ -435,6 +449,10 @@ def withdraw(invite_id: int, account: Account, db: DbSession) -> None:
 def _valid(db: DbSession, token: str) -> Invite:
     row = accounts.find_invite(db, token)
     if row is None:
+        # A link that expired says so; everything else (used, withdrawn, replaced by a newer one, or its sender no
+        # longer manages the space) gets the one answer naming them (Prüfgang G4, as nextasks).
+        if accounts.invite_expired(db, token):
+            raise error("invite_expired", "This invitation has expired.", 404)
         raise error("invite_invalid", "This invitation is not valid any more.", 404)
     return row
 
@@ -449,9 +467,12 @@ def invite_state(token: Token, request: Request, db: DbSession) -> dict[str, Any
                     404)
     space = db.get(Space, row.space_id) if row.space_id else None
     signed_in = session_account(db, request.cookies.get(SESSION_COOKIE))
+    by = db.get(AccountRow, row.created_by) if row.created_by else None
     return {
         "space": space.name if space else None,
         "role": row.space_role or None,
+        # Who invites, as others see them (E18): a link from nobody one knows is easily taken for spam.
+        "by": (by.display_name or by.name) if by else None,
         "min_password": MIN_PASSWORD,
         "signed_in_as": signed_in.name if signed_in else None,
     }

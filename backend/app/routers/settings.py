@@ -124,7 +124,7 @@ def save(payload: SettingsIn, operator: OperatorAccount, db: DbSession) -> Setti
             try:
                 value = settings_service.normalize_public_url(value)
             except ValueError as exc:
-                raise error("invalid_url", "Give an address like https://notes.example.com.", 422) from exc
+                raise error("invalid_url", "Enter an address starting with http:// or https://.", 422) from exc
         elif key == "smtp_from":
             value = value.strip()
             if value and not accounts.EMAIL_PATTERN.match(value):

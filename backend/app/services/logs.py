@@ -149,6 +149,17 @@ class LogLine:
     message: str
     request_id: str | None = None
     user: str | None = None
+    #: ``time`` as a moment with its offset: the file has the server's clock (UTC in the container), the page shows
+    #: the reader's own time from this, written like every other moment (Prüfgang G11, as nexsuite).
+    at: str | None = None
+
+
+def moment_of(written: str) -> str | None:
+    """The time of a line as the logging module wrote it (the server's local clock), with that clock's offset."""
+    try:
+        return datetime.strptime(written, DATE_FORMAT).astimezone().isoformat()
+    except ValueError:
+        return None
 
 
 @dataclass(frozen=True)
@@ -380,6 +391,7 @@ def parse_line(line: str) -> LogLine | None:
         message=match["message"],
         request_id=request_id,
         user=user,
+        at=moment_of(match["time"]),
     )
 
 
@@ -406,7 +418,8 @@ def read(limit: int = 200, level: str | None = None, search: str | None = None) 
             continue
         if raw.count("\n") > 1:
             parsed = LogLine(
-                parsed.time, parsed.level, parsed.logger, raw.split("|", 1)[1].strip(), parsed.request_id, parsed.user
+                parsed.time, parsed.level, parsed.logger, raw.split("|", 1)[1].strip(), parsed.request_id, parsed.user,
+                parsed.at,
             )
         if LEVEL_ORDER.index(parsed.level) < minimum:
             continue

@@ -48,6 +48,8 @@ SECURITY_HEADERS: tuple[tuple[bytes, bytes], ...] = (
     (b"referrer-policy", b"same-origin"),
     (b"x-frame-options", b"DENY"),
     (b"permissions-policy", b"camera=(), microphone=(), geolocation=()"),
+    # Nothing of nexcanvas belongs in a search engine: not the app, not a public board (F13, as nexbrand).
+    (b"x-robots-tag", b"noindex, nofollow"),
 )
 
 

@@ -27,10 +27,18 @@ MAX_PIXELS = 50_000_000
 KINDS = {"jpeg", "png", "webp", "gif", "bmp", "heic", "avif"}
 
 
+#: The English sentence for each code, for whoever uses the API directly; the page builds its own from the code.
+MESSAGES = {
+    "avatar_too_large": "The picture is too large.",
+    "avatar_not_a_picture": "That is not a picture nexcanvas accepts (JPEG, PNG, WebP, GIF, HEIC or AVIF).",
+}
+
+
 class AvatarError(ValueError):
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
+        self.message = MESSAGES[code]
 
 
 def make(data: bytes) -> bytes:

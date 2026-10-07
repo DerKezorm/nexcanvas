@@ -26,7 +26,7 @@ async def set_avatar(request: Request, account: Account, db: DbSession) -> dict[
     try:
         picture = avatars.make(data)
     except avatars.AvatarError as exc:
-        raise error(exc.code, exc.code.replace("_", " "), 422, max_mb=avatars.MAX_BYTES // (1024 * 1024)) from exc
+        raise error(exc.code, exc.message, 422, max_mb=avatars.MAX_BYTES // (1024 * 1024)) from exc
     row = db.get(AccountRow, account.id)
     assert row is not None
     row.avatar = picture
