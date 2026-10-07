@@ -2,9 +2,12 @@
  * Who is signed in. `loading` until the server answered, `setup` while nexcanvas has no account yet, `signedOut`,
  * or `signedIn` with the account. A request that finds the session gone sends `SIGNED_OUT_EVENT`; then `ended` is set, so
  * the sign-in can say why (blocked, signed out everywhere; A8 of the check on 05.10.2026). While signed in, the page asks
- * after its session every `SESSION_MS`, so that this happens within seconds and not at the next full load.
+ * after its session every `SESSION_MS` and whenever its tab shows again, so that this happens within seconds and not at
+ * the next full load. A public page of a board (`/s/…`) does not ask: it needs no session.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+
+import { useLocation } from 'react-router-dom'
 
 import { ApiError, authApi, SIGNED_OUT_EVENT, type Me } from '../api/client'
 import i18n, { changeLanguage } from '../i18n'
@@ -31,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('loading')
   const [me, setMeState] = useState<Me | null>(null)
   const [ended, setEnded] = useState(false)
+  const publicPage = useLocation().pathname.startsWith('/s/')
 
   const setMe = useCallback((next: Me) => {
     setMeState(next)
@@ -76,11 +80,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refresh])
 
   useEffect(() => {
-    if (status !== 'signedIn') return
+    if (status !== 'signedIn' || publicPage) return
     // A 401 sends SIGNED_OUT_EVENT (api/client.ts); anything else, such as the server restarting, changes nothing.
-    const session = window.setInterval(() => document.visibilityState === 'visible' && void authApi.me().catch(() => undefined), SESSION_MS)
-    return () => window.clearInterval(session)
-  }, [status])
+    const ask = () => {
+      if (document.visibilityState === 'visible') void authApi.me().catch(() => undefined)
+    }
+    const session = window.setInterval(ask, SESSION_MS)
+    document.addEventListener('visibilitychange', ask)
+    return () => {
+      window.clearInterval(session)
+      document.removeEventListener('visibilitychange', ask)
+    }
+  }, [status, publicPage])
 
   const signOut = useCallback(async () => {
     await authApi.logout().catch(() => undefined)

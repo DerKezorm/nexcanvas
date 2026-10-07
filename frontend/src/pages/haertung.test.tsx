@@ -130,6 +130,22 @@ describe('team leads (D3)', () => {
     expect(box.querySelector<HTMLInputElement>('input[type="checkbox"]')!.checked).toBe(true)
   })
 
+  it('puts the switch back when the server refuses it', async () => {
+    const { TeamsCard } = await import('../components/Teams')
+    me.value = { ...me.value, id: 1, role: 'operator', may_edit_led_teams: true }
+    handler = (method, path) => {
+      if (path === '/api/directory') return { status: 200, body: { ...directory, me: 1 } }
+      if (path === '/api/settings' && method === 'GET') return { status: 200, body: { team_leads_edit: false } }
+      if (path === '/api/settings' && method === 'PUT') return { status: 409, body: { detail: { code: 'managed_by_suite' } } }
+      return undefined
+    }
+    await render(<TeamsCard />)
+    await act(async () => box.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click())
+    await settle()
+    expect(box.querySelector<HTMLInputElement>('input[type="checkbox"]')!.checked).toBe(false)
+    expect(box.textContent).toContain(errorText('managed_by_suite'))
+  })
+
   it('names a team only in the hint in every space, as in nextasks', () => {
     expect(i18n.getFixedT('de')('teams.leadsSwitchHint')).toContain('in allen Bereichen')
     expect(i18n.getFixedT('en')('teams.leadsSwitchHint')).toContain('in every space')
@@ -185,6 +201,106 @@ describe('an open page asks after its session (A8)', () => {
     await settle()
     expect(asked()).toBe(before + 1)
     expect(box.querySelector('[data-testid="where"]')?.textContent).toBe('/login?ended=1&next=%2Fabout')
+    // Loading the whole app the first time takes seconds on a slow machine; the clock of the test stands still.
+  }, 30_000)
+
+  let visible = 'visible'
+  function shown(state: 'visible' | 'hidden'): void {
+    visible = state
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visible })
+  }
+
+  async function provider(at: string, signedIn: boolean): Promise<{ asked: () => number }> {
+    mockedAuth = false
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    const { AuthProvider, useAuth } = await import('../state/auth')
+    function State() {
+      const auth = useAuth()
+      return (
+        <>
+          <span data-testid="state">{`${auth.status} ended=${auth.ended}`}</span>
+          <button type="button" onClick={() => void auth.signOut()}>
+            out
+          </button>
+        </>
+      )
+    }
+    handler = (_m, path) => {
+      if (path === '/api/setup') return { status: 200, body: { needs_setup: false, signed_in: signedIn } }
+      if (path === '/api/auth/me') return { status: 200, body: { ...me.value, id: 1 } }
+      if (path === '/api/auth/logout') return { status: 204, body: null }
+      return undefined
+    }
+    await render(
+      <AuthProvider>
+        <Routes>
+          <Route path="*" element={<State />} />
+        </Routes>
+      </AuthProvider>,
+      at,
+    )
+    return { asked: () => calls.filter((c) => c.path === '/api/auth/me').length }
+  }
+
+  async function wait(ms: number): Promise<void> {
+    await act(async () => {
+      vi.advanceTimersByTime(ms)
+    })
+    await settle()
+  }
+
+  afterEach(() => shown('visible'))
+
+  it('asks nothing while signed out', async () => {
+    const { asked } = await provider('/login', false)
+    await wait(30_000)
+    expect(asked()).toBe(0)
+  })
+
+  it('asks nothing in a hidden tab, and once at once when it shows again', async () => {
+    const { asked } = await provider('/about', true)
+    const before = asked()
+    shown('hidden')
+    await wait(30_000)
+    expect(asked()).toBe(before)
+    shown('visible')
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    await settle()
+    expect(asked()).toBe(before + 1)
+  })
+
+  it('asks nothing on a public page, signed in or not', async () => {
+    const { asked } = await provider('/s/abcdefgh', true)
+    const before = asked()
+    await wait(30_000)
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    await settle()
+    expect(asked()).toBe(before)
+  })
+
+  it('says nothing ended after signing out here, also when a request ends meanwhile', async () => {
+    const { SIGNED_OUT_EVENT } = await import('../api/client')
+    await provider('/about', true)
+    const state = () => box.querySelector('[data-testid="state"]')?.textContent
+    expect(state()).toBe('signedIn ended=false')
+    // Ended elsewhere: said.
+    await act(async () => {
+      window.dispatchEvent(new Event(SIGNED_OUT_EVENT))
+    })
+    expect(state()).toBe('signedOut ended=true')
+    // Signing out here puts it away, and a request that finds the session gone while signing out does not say it.
+    const inner = handler
+    handler = (method, path, body) => {
+      if (path === '/api/auth/logout') window.dispatchEvent(new Event(SIGNED_OUT_EVENT))
+      return inner(method, path, body)
+    }
+    await act(async () => box.querySelector('button')!.click())
+    await settle()
+    expect(state()).toBe('signedOut ended=false')
   })
 })
 
