@@ -19,6 +19,8 @@ type Answer = { status: number; body: unknown }
 type Handler = (method: string, path: string, body: unknown) => Answer | undefined
 
 let handler: Handler = () => undefined
+/** While set, the ways in (`/api/auth/methods`) wait for it: the page must show no form before they are known. */
+let held: Promise<void> | null = null
 const calls: { method: string; path: string; body: unknown }[] = []
 
 const scene = vi.hoisted(() => ({
@@ -26,12 +28,13 @@ const scene = vi.hoisted(() => ({
   spaces: [] as Record<string, unknown>[],
   boards: [] as Record<string, unknown>[],
   loaded: true,
+  status: 'signedIn' as string,
   patch: (async () => undefined) as (id: string, change: Record<string, unknown>) => Promise<void>,
 }))
 
 vi.mock('../state/auth', async (original) => ({
   ...(await original<typeof import('../state/auth')>()),
-  useAuth: () => ({ me: scene.me, status: 'signedIn', setMe: () => undefined, refresh: async () => undefined, signOut: async () => undefined }),
+  useAuth: () => ({ me: scene.me, status: scene.status, setMe: () => undefined, refresh: async () => undefined, signOut: async () => undefined }),
 }))
 vi.mock('../lib/notices', async (original) => ({ ...(await original<typeof import('../lib/notices')>()), useNotices: () => [] }))
 vi.mock('../board/store', async (original) => ({
@@ -60,6 +63,8 @@ beforeEach(async () => {
   scene.spaces = []
   scene.boards = []
   scene.loaded = true
+  scene.status = 'signedIn'
+  held = null
   scene.patch = async () => undefined
   vi.stubGlobal(
     'fetch',
@@ -68,6 +73,7 @@ beforeEach(async () => {
       const method = init?.method ?? 'GET'
       const body = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined
       calls.push({ method, path, body })
+      if (path === '/api/auth/methods' && held) await held
       const answer = handler(method, path, body) ?? { status: 404, body: { detail: { code: 'not_found' } } }
       return new Response(JSON.stringify(answer.body), { status: answer.status, headers: { 'Content-Type': 'application/json' } })
     }),
@@ -445,5 +451,53 @@ describe('limits said in the field (E21)', () => {
     expect(closed).toBe(false)
     expect(field.value).toBe('Ideen')
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain(i18n.t('errors.invalid_title'))
+  })
+})
+
+describe('the sign-in and invitation pages before the ways in are known (as nextasks 52237bf)', () => {
+  function hold(): () => void {
+    let release = () => undefined as void
+    held = new Promise<void>((done) => (release = done))
+    return release
+  }
+
+  it('the sign-in page shows no password form that connected turns into the nexsuite button', async () => {
+    const { LoginPage } = await import('./AuthPages')
+    scene.me = null
+    scene.status = 'signedOut'
+    handler = (_m, path) => (path === '/api/auth/methods' ? { status: 200, body: { password: true, oidc: true, oidc_name: 'nexsuite', suite: true, suite_url: 'https://suite.example.com' } } : undefined)
+    const release = hold()
+    await render(<LoginPage />, '/login')
+    expect(box.querySelector('input[type="password"]')).toBeNull()
+    expect(box.textContent).toBe('')
+    release()
+    await settle()
+    expect(box.querySelector('input[type="password"]')).toBeNull()
+    expect(box.querySelector('a[href^="/api/oidc/start"]')).not.toBeNull()
+  })
+
+  it('the invitation waits for them too, and then shows only the way that is there', async () => {
+    const { InvitePage } = await import('./AuthPages')
+    scene.me = null
+    scene.status = 'signedOut'
+    handler = (_m, path) => {
+      if (path.startsWith('/api/invite/')) return { status: 200, body: { space: null, role: null, by: 'Robin', min_password: 12, signed_in_as: null } }
+      if (path === '/api/auth/methods') return { status: 200, body: { password: false, oidc: true, oidc_name: 'authentik' } }
+      return undefined
+    }
+    const release = hold()
+    await render(
+      <Routes>
+        <Route path="/invite/:token" element={<InvitePage />} />
+      </Routes>,
+      '/invite/abc',
+    )
+    expect(calls.some((call) => call.path.startsWith('/api/invite/'))).toBe(true)
+    expect(box.querySelector('input[type="password"]')).toBeNull()
+    expect(box.textContent).toBe('')
+    release()
+    await settle()
+    expect(box.querySelector('input[type="password"]')).toBeNull()
+    expect(box.textContent).toContain('Accept with authentik')
   })
 })

@@ -148,6 +148,9 @@ export function LoginPage({ emergency = false }: { emergency?: boolean }) {
   if (status === 'loading') return null
   if (status === 'setup') return <Navigate to="/setup" replace />
   if (status === 'signedIn') return <Navigate to={next} replace />
+  // Nothing until the ways in are known: connected, the password form flashed up before the nexsuite button, and the
+  // emergency page first read as the usual one (as nextasks and nexbrand).
+  if (methods === null) return null
 
   const submit = async () => {
     if (step === 'password' && !name.trim()) return setProblem('name_missing')
@@ -302,7 +305,7 @@ export function InvitePage() {
       const code = codeOf(error)
       setInvalid(code === 'invite_suite' ? 'suite' : code === 'invite_expired' ? 'expired' : 'invalid')
     })
-    authApi.methods().then(setMethods, () => undefined)
+    authApi.methods().then(setMethods, () => setMethods({ password: true, oidc: false, oidc_name: '' }))
   }, [token])
 
   if (invalid) {
@@ -313,7 +316,8 @@ export function InvitePage() {
       </AuthFrame>
     )
   }
-  if (!state) return null
+  // The ways in first, as on the sign-in page: no password form that turns out not to be one.
+  if (!state || methods === null) return null
   // Who invites, so the link is not taken for spam (E18, as nextasks).
   const by = state.by ? 'By' : ''
   const text = state.space
