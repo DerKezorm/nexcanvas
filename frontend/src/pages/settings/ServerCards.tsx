@@ -114,7 +114,8 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
             <Avatar person={row} className="h-8 w-8 text-sm" />
             {/* Wide enough to read: when the buttons crowd it, they move below instead of cutting it (Prüfgang G6). */}
             <div className="min-w-[15rem] flex-1 basis-[15rem]">
-              <div className="truncate text-sm font-medium text-mist-100">
+              {/* Wraps too: at 375 px a long display name cut off the sign-in name behind it (measured 07.10.2026). */}
+              <div data-testid="account-name" className="text-sm font-medium break-words text-mist-100">
                 {row.display_name || row.name}
                 {row.display_name && <span className="ml-1 text-xs font-normal text-mist-500">@{row.name}</span>}
                 {row.id === me?.id && <span className="ml-1.5 text-xs font-normal text-mist-500">{t('members.you')}</span>}

@@ -121,6 +121,8 @@ describe('the account list (G6, H4)', () => {
     expect(status('alex')?.textContent).toContain('in one space')
     // The line wraps instead of being cut off ("in eine..." at 1440 px).
     expect(status('alex')?.className).not.toContain('truncate')
+    // The name line too: the sign-in name after a long display name stays readable on a phone.
+    expect(box.querySelector('[data-testid="account-row-alex"] [data-testid="account-name"]')?.className).not.toContain('truncate')
     const row = box.querySelector('[data-testid="account-row-alex"]')!
     const labels = [...row.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))
     expect(labels.length).toBeGreaterThanOrEqual(4)
