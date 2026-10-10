@@ -136,8 +136,9 @@ export type Me = {
   role: 'operator' | 'member'
   sign_in: 'password' | 'oidc'
   email: string
+  /** The address a sign-in provider knows the account by, offered when it differs from the own one. */
+  provider_email?: string
   language: string
-  oidc_linked: boolean
   two_factor: boolean
   two_factor_recovery_left: number
   avatar: string | null
@@ -231,7 +232,54 @@ export type MediaInfo = {
 
 export type SetupState = { needs_setup: boolean; code_required: boolean; signed_in: boolean; version: string; min_password: number }
 /** `suite_url`: connected, where nexsuite opens, for "Sign in as someone else" (B11). */
-export type Methods = { password: boolean; oidc: boolean; oidc_name: string; suite?: boolean; suite_url?: string }
+/** A button of the sign-in page: an active provider (the shared sign-in module, vendor/nexoidc). */
+export type ProviderButton = { slug: string; label: string }
+export type Methods = { password: boolean; providers: ProviderButton[]; suite?: boolean; suite_url?: string }
+/** An active provider and whether the own account is linked to it. */
+export type MyProvider = ProviderButton & { linked: boolean; managed: string }
+/** A provider an account is linked to, as a mark in the operator's account list. */
+export type LinkedProvider = { id: number; slug: string; label: string; managed: string }
+/** An entry of the provider list as the operator sees it: never the secret, only whether one is stored. */
+export type OidcProvider = {
+  id: number
+  slug: string
+  label: string
+  issuer: string
+  client_id: string
+  has_secret: boolean
+  scopes: string
+  enabled: boolean
+  auto_create: boolean
+  trusts_second_factor: boolean
+  /** "" by hand, "authentik" through the button, "nexsuite" from the coupling. */
+  managed: string
+  position: number
+  redirect_uri: string
+  links: number
+  editable: boolean
+}
+/** The provider form. `slug` counts only when adding; an empty `client_secret` keeps the stored one. */
+export type OidcProviderForm = {
+  label: string
+  slug?: string
+  issuer: string
+  client_id: string
+  client_secret: string
+  scopes: string
+  enabled: boolean
+  auto_create: boolean
+  trusts_second_factor: boolean
+}
+export type OidcImpact = { issuer_change: number; count: number; only: number; only_names: string[] }
+export type AuthentikStep = { key: string; ok: boolean; detail: string; reason?: string; status?: number }
+export type AuthentikResult = {
+  ok: boolean
+  steps: AuthentikStep[]
+  client_id: string
+  issuer: string
+  provider_id: number | null
+  links_dropped: number
+}
 
 // ---- Calls ----------------------------------------------------------------------------------------------------------
 
@@ -250,6 +298,29 @@ export const authApi = {
   profile: (display_name: string) => api<Me>('/api/me/profile', { method: 'PUT', body: { display_name } }),
   password: (current: string, next: string) => api<void>('/api/auth/password', { method: 'PUT', body: { current, new: next } }),
   whatsNewSeen: () => api<Me>('/api/me/whats-new/seen', { method: 'POST' }),
+  myProviders: () => api<MyProvider[]>('/api/oidc/me'),
+  linkStart: (slug: string, password: string) =>
+    api<{ url: string }>(`/api/oidc/${encodeURIComponent(slug)}/link`, { method: 'POST', body: { password } }),
+  unlink: (slug: string) => api<void>(`/api/oidc/${encodeURIComponent(slug)}/link`, { method: 'DELETE' }),
+  /** Takes the address a provider knows the account by, or stops the page from offering it. */
+  takeProviderEmail: () => api<{ email: string }>('/api/oidc/me/address', { method: 'POST' }),
+  declineProviderEmail: () => api<void>('/api/oidc/me/address', { method: 'DELETE' }),
+}
+
+/** The operator's sign-in providers (Settings, Server, Sign-in) and the authentik button. */
+export const oidcAdminApi = {
+  providers: () => api<OidcProvider[]>('/api/oidc/admin/providers'),
+  addProvider: (form: OidcProviderForm) => api<OidcProvider>('/api/oidc/admin/providers', { method: 'POST', body: form }),
+  saveProvider: (id: number, form: OidcProviderForm) =>
+    api<OidcProvider & { dropped: number }>(`/api/oidc/admin/providers/${id}`, { method: 'PUT', body: form }),
+  removeProvider: (id: number) => api<OidcImpact>(`/api/oidc/admin/providers/${id}`, { method: 'DELETE' }),
+  providerImpact: (id: number, issuer = '') =>
+    api<OidcImpact>(`/api/oidc/admin/providers/${id}/impact${issuer ? `?issuer=${encodeURIComponent(issuer)}` : ''}`),
+  orderProviders: (ids: number[]) => api<ProviderButton[]>('/api/oidc/admin/providers/order', { method: 'PUT', body: { ids } }),
+  authentik: (url: string, token: string) => api<AuthentikResult>('/api/oidc/authentik/setup', { method: 'POST', body: { url, token } }),
+  /** Takes an account's link to a provider, with the operator's own password. */
+  unlinkAccount: (accountId: number, providerId: number, current_password: string) =>
+    api<void>(`/api/oidc/admin/accounts/${accountId}/links/${providerId}`, { method: 'DELETE', body: { current_password } }),
 }
 
 export const spacesApi = {

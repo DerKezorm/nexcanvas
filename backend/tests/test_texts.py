@@ -26,8 +26,6 @@ FRONTEND = ROOT / "frontend" / "src"
 BUILT = {
     # services/suite.py: f"{what}_twice", f"{what}_unknown" for person, space, team
     "person_twice", "space_twice", "team_twice", "person_unknown", "space_unknown", "team_unknown",
-    # routers/oidc.py: issuer_unreachable / issuer_invalid from the provider's error
-    "issuer_unreachable", "issuer_invalid",
 }
 
 #: Typed errors that carry an error code to the page.
@@ -58,11 +56,18 @@ def texts(language: str) -> dict[str, str]:
     return json.loads((FRONTEND / "i18n" / f"{language}.json").read_text(encoding="utf-8"))["errors"]
 
 
+def shared_texts(language: str) -> dict[str, str]:
+    """The sentences the shared sign-in module brings for its fixed codes (``oidc.error``, ``oidc.formError``): the page
+    falls back to them (``lib/errors.ts``)."""
+    tree = json.loads((FRONTEND / "vendor" / "nexoidc" / f"oidc.{language}.json").read_text(encoding="utf-8"))["oidc"]
+    return {**tree["error"], **tree["formError"]}
+
+
 def test_the_scan_finds_the_codes_it_should() -> None:
     codes = server_codes()
     # One of each way in: error(), a typed error, a refusal of the middleware, the keeper check, a sign-in redirect,
     # a code a function hands back for a redirect, and a nexsuite refusal.
-    assert {"not_found", "invalid_title", "client_required", "backups_emergency_only", "oidc_not_configured",
+    assert {"not_found", "invalid_title", "client_required", "backups_emergency_only", "oidc_only_account",
             "managed_by_suite", "token_invalid", "display_name_too_long"} <= codes
     # A floor: the scan reads the whole server, not one file.
     assert len(codes) > 100
@@ -71,7 +76,7 @@ def test_the_scan_finds_the_codes_it_should() -> None:
 
 @pytest.mark.parametrize("language", ["de", "en"])
 def test_every_code_the_server_sends_has_a_sentence(language: str) -> None:
-    assert sorted(server_codes() - set(texts(language))) == []
+    assert sorted(server_codes() - set(texts(language)) - set(shared_texts(language))) == []
 
 
 def test_every_sentence_belongs_to_a_code_still_used() -> None:

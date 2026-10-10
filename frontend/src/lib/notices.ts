@@ -7,7 +7,7 @@ import { useEffect, useSyncExternalStore } from 'react'
 
 import { api } from '../api/client'
 
-export type Notice = { id: number; kind: 'invite' | 'operator_added' | 'operator_role' | 'operator_removed'; space: string; role: string; actor: string; subject: string; created_at: string }
+export type Notice = { id: number; kind: 'invite' | 'operator_added' | 'operator_role' | 'operator_removed' | 'operator_unlinked'; space: string; role: string; actor: string; subject: string; created_at: string }
 
 let list: Notice[] = []
 const listeners = new Set<() => void>()

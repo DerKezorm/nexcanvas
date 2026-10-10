@@ -25,6 +25,7 @@ from sqlalchemy import (
     LargeBinary,
     String,
     Text,
+    UniqueConstraint,
     event,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -112,6 +113,18 @@ class Account(Base):
     #: Argon2id. Empty for accounts that sign in through OIDC only.
     password_hash: Mapped[str] = mapped_column(String(255), default="")
     email: Mapped[str] = mapped_column(String(255), default="")
+    #: Where ``email`` came from: "" (an invitation, nexsuite, or from before this was kept) or ``provider`` (a sign-in
+    #: provider's address). An address from a provider goes with the account's last link (the shared sign-in
+    #: blueprint 01).
+    email_source: Mapped[str] = mapped_column(String(16), default="")
+    #: The address a provider knows the account by, offered on the account page to an account with a password (it
+    #: takes it only when it says so); empty when there is nothing to offer. ``provider_email_off``: the address the
+    #: account said "don't ask again" to.
+    provider_email: Mapped[str] = mapped_column(String(255), default="")
+    provider_email_off: Mapped[str] = mapped_column(String(255), default="")
+    #: Before the sign-in provider list: the subject of the one provider of the settings, which became a link of the
+    #: entry ``oidc`` (``oidc_links``) and stays readable for one version as the way back. While connected to nexsuite
+    #: it holds the account's person there (``services/suite.py``), mirrored into the links of the coupled entry.
     oidc_subject: Mapped[str] = mapped_column(String(255), default="")
     #: The interface language chosen in the account menu; empty: the browser's.
     language: Mapped[str] = mapped_column(String(16), default="")
@@ -188,6 +201,57 @@ class AuthSession(Base):
     last_seen_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
     ip: Mapped[str] = mapped_column(String(64), default="")
     user_agent: Mapped[str] = mapped_column(String(255), default="")
+
+
+class OidcProvider(Base):
+    """A sign-in provider (OpenID Connect), one row each; the columns as the shared sign-in blueprint names them. Read
+    and written only through ``services/oidc_store.py`` for the shared module ``vendor/nexoidc``."""
+
+    __tablename__ = "oidc_providers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    #: Part of the callback address ``/api/oidc/<slug>/callback``; fixed once made.
+    slug: Mapped[str] = mapped_column(String(40), unique=True)
+    #: The name on the sign-in button.
+    label: Mapped[str] = mapped_column(String(64))
+    #: Stored without blanks and without a slash at the end.
+    issuer: Mapped[str] = mapped_column(String(500))
+    client_id: Mapped[str] = mapped_column(String(255))
+    #: Encrypted with the server secret under the context ``oidc-provider:<id>``; empty for a public client.
+    client_secret_enc: Mapped[str] = mapped_column(Text, default="")
+    scopes: Mapped[str] = mapped_column(String(500), default="openid profile email")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    #: "New people get an account": off from the start.
+    auto_create: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: "The provider checks the second factor itself": on from the start.
+    trusts_second_factor: Mapped[bool] = mapped_column(Boolean, default=True)
+    #: "" by hand, "authentik" made by the authentik button, "nexsuite" from the coupling.
+    managed: Mapped[str] = mapped_column(String(20), default="")
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    #: A callback path the provider knew before (a migration or a coupling sets it); "" is the standard one.
+    redirect_path: Mapped[str] = mapped_column(String(300), default="")
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+
+class OidcLink(Base):
+    """One identity at one provider, bound to one account. Found only by ``(provider_id, subject)``, never by an
+    address: ``email`` is for display."""
+
+    __tablename__ = "oidc_links"
+    __table_args__ = (
+        UniqueConstraint("provider_id", "subject"),
+        UniqueConstraint("provider_id", "account_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    provider_id: Mapped[int] = mapped_column(ForeignKey("oidc_providers.id", ondelete="CASCADE"), index=True)
+    subject: Mapped[str] = mapped_column(String(255))
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id", ondelete="CASCADE"), index=True)
+    #: The ``iss`` of the token that made the link (with Entra ``common`` the real tenant).
+    issuer: Mapped[str] = mapped_column(String(500))
+    email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    last_used_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
 
 
 class Membership(Base):
@@ -271,7 +335,8 @@ class SpaceNotice(Base):
     account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id", ondelete="CASCADE"), index=True)
     space_id: Mapped[int | None] = mapped_column(ForeignKey("spaces.id", ondelete="CASCADE"), nullable=True)
     space_name: Mapped[str] = mapped_column(String(255), default="")
-    #: ``invite``, or what the operator did: ``operator_added``, ``operator_role``, ``operator_removed``.
+    #: ``invite``, or what the operator did: ``operator_added``, ``operator_role``, ``operator_removed``; and, without
+    #: a space, ``operator_unlinked`` (it took the account's link to the provider named in ``subject``, routers/oidc).
     kind: Mapped[str] = mapped_column(String(24))
     role: Mapped[str] = mapped_column(String(16), default="")
     actor: Mapped[str] = mapped_column(String(64), default="")

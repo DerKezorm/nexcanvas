@@ -34,12 +34,13 @@ import { Avatar } from '../components/Avatar'
 import { Dialog } from '../components/Dialog'
 import { MembersDialog } from '../components/MembersDialog'
 import { PackageList } from '../components/ShapePackages'
-import { ManagedCard, SuiteCard, useSuiteConnected } from '../components/Suite'
+import { SuiteCard, useSuiteConnected } from '../components/Suite'
 import { TeamBadge, TeamRightsDialog, TeamsCard } from '../components/Teams'
 import { changeLanguage, languageOptions, templateFile, type LanguageOption } from '../i18n'
 import { applyMode, storedMode, type Mode } from '../lib/theme'
 import { useAuth } from '../state/auth'
-import { AccountsCard, AllSpacesCard, ApiTokensCard, BackupsCard, FilesCard, LanguagesCard, LogCard, MailCard, ProxyHint, SharesCard, SignInCard, useServerSettings } from './settings/ServerCards'
+import { AccountsCard, AllSpacesCard, ApiTokensCard, BackupsCard, FilesCard, LanguagesCard, LogCard, MailCard, ProxyHint, SharesCard, useServerSettings } from './settings/ServerCards'
+import { SignInPart } from './settings/SignInCards'
 import { Button, Card, Feedback, saveAsFile, TabRow, Toggle, useAction, type Tab } from './settings/ui'
 import { useTitle } from '../lib/title'
 
@@ -100,7 +101,8 @@ function ServerPart({ part }: { part: Part }) {
         </>
       )
     case 'signin':
-      return connected ? <ManagedCard title={t('settings.parts.signin')} text={t('suite.managedSignIn')} /> : <SignInCard server={server} />
+      // Coupled too: the list stays visible (the own entries set aside, "off"), the authentik card locked (blueprint 06).
+      return <SignInPart server={server} connected={connected} />
     case 'suite':
       return <SuiteCard />
     case 'shares':

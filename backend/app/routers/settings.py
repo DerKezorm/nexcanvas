@@ -1,7 +1,7 @@
 """The operator's settings: address, sign-in, public pages, uploads, invitation mail, backups.
 
 Secrets (the mail password) are written encrypted and never read back: the answer only says whether one is set.
-The OIDC settings live in ``routers/oidc.py``.
+The sign-in providers live in ``routers/oidc.py``.
 """
 
 from __future__ import annotations
@@ -20,6 +20,8 @@ from ..models import SIGN_IN_PASSWORD
 from ..models import Account as AccountRow
 from ..security import encrypt_secret
 from ..services import accounts, mailer, settings_service, suite
+from ..services.oidc_store import SqlStore
+from ..vendor.nexoidc import providers
 
 logger = logging.getLogger("nexcanvas.settings")
 
@@ -135,9 +137,9 @@ def save(payload: SettingsIn, operator: OperatorAccount, db: DbSession) -> Setti
             # Else the operator would be the first one sent to the account page, with nothing else in reach.
             raise error("own_second_factor_first", "Set up your own second factor first.", 409)
         elif key == "password_login" and not value:
-            current = settings_service.get_all(db)
-            if not (current["oidc_issuer"] and current["oidc_client_id"]):
-                # Without a provider nobody but the operator could sign in any more, and invitations would fail.
+            if not providers.public_list(SqlStore(db)):
+                # Without an active provider nobody but the operator could sign in any more, and invitations would
+                # fail (blueprint 01, "Passwort-Anmeldung").
                 raise error("provider_first", "Set up a sign-in provider first.", 409)
         elif key == "upload_max_mb":
             value = min(int(value), get_settings().upload_max_mb)

@@ -169,7 +169,7 @@ describe('an open page asks after its session (A8)', () => {
       if (path === '/api/setup') return { status: 200, body: { needs_setup: false, signed_in: session } }
       if (path === '/api/auth/me')
         return session ? { status: 200, body: { ...me.value, id: 1, preferences: { start: 'boards' } } } : { status: 401, body: { detail: { code: 'sign_in_required' } } }
-      if (path === '/api/auth/methods') return { status: 200, body: { password: true, oidc: false, oidc_name: '', suite: false } }
+      if (path === '/api/auth/methods') return { status: 200, body: { password: true, providers: [], suite: false } }
       // The page behind the sign-in only has to stand; what it shows does not matter here.
       if (path.startsWith('/api/about')) return { status: 500, body: { detail: { code: 'internal_error' } } }
       if (path.startsWith('/api/')) return { status: 200, body: [] }

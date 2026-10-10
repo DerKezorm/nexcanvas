@@ -8,9 +8,11 @@ import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-r
 
 import { ApiError, api, authApi, type Me, type Methods } from '../api/client'
 import { Logo } from '../components/Logo'
+import { ProviderButtons } from '../components/ProviderButtons'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
 import i18n from '../i18n'
-import { errorText } from '../lib/errors'
+import { errorText, signInErrorText } from '../lib/errors'
+import { startAddress } from '../lib/providers'
 import { safeNext, useAuth } from '../state/auth'
 import { useTitle } from '../lib/title'
 
@@ -76,11 +78,11 @@ function Primary({ children, busy = false }: { children: ReactNode; busy?: boole
   )
 }
 
-function Problem({ code }: { code: string | null }) {
+function Problem({ code, fromAddress = false }: { code: string | null; fromAddress?: boolean }) {
   if (!code) return null
   return (
     <p role="alert" className="rounded-lg border border-bad-500/30 bg-bad-500/10 px-3 py-2 text-sm text-bad-500">
-      {errorText(code)}
+      {fromAddress ? signInErrorText(code) : errorText(code)}
     </p>
   )
 }
@@ -89,7 +91,7 @@ const codeOf = (error: unknown) => (error instanceof ApiError ? error.code : 'in
 
 /** How long the pages wait for the ways in before they fall back to the password, as on a failed answer. */
 export const WAYS_IN_WAIT_MS = 5000
-const PASSWORD_ONLY: Methods = { password: true, oidc: false, oidc_name: '' }
+const PASSWORD_ONLY: Methods = { password: true, providers: [] }
 
 /** The ways in, or the password way when the answer fails or does not come in time: the page waits for them before it
  * shows a form, and must not stay empty for good behind an answer that hangs. */
@@ -97,7 +99,8 @@ function waysIn(): Promise<Methods> {
   return new Promise((resolve) => {
     const timer = window.setTimeout(() => resolve(PASSWORD_ONLY), WAYS_IN_WAIT_MS)
     authApi.methods().then(
-      (methods) => resolve(methods),
+      // An answer without a list (an older server during an update) has no buttons, not a broken page.
+      (methods) => resolve({ ...methods, providers: Array.isArray(methods.providers) ? methods.providers : [] }),
       () => resolve(PASSWORD_ONLY),
     ).finally(() => window.clearTimeout(timer))
   })
@@ -149,10 +152,15 @@ export function LoginPage({ emergency = false }: { emergency?: boolean }) {
   const [methods, setMethods] = useState<Methods | null>(null)
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
-  const [step, setStep] = useState<'password' | 'code'>('password')
+  // After a provider that is not trusted with the second factor the server parked the sign-in: the code step.
+  const [step, setStep] = useState<'password' | 'code'>(params.get('step') === 'code' ? 'code' : 'password')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(params.get('error'))
+  // The problem came from the provider's way back (`?error=`), not from this page's own form.
+  const [fromAddress, setFromAddress] = useState(params.get('error') !== null)
+  // Password sign-in off: the form waits behind "Sign in as the operator with a password".
+  const [operatorWay, setOperatorWay] = useState(false)
   const next = safeNext(params.get('next'))
   /** Sent here from an open board whose session ended (blocked, signed out everywhere, E2). */
   const ended = params.get('ended') === '1'
@@ -173,6 +181,7 @@ export function LoginPage({ emergency = false }: { emergency?: boolean }) {
     if (step === 'password' && !password) return setProblem('password_missing')
     setBusy(true)
     setProblem(null)
+    setFromAddress(false)
     try {
       let answer: Me | { second_factor: true }
       if (step === 'code') answer = await authApi.code(code.trim())
@@ -206,7 +215,7 @@ export function LoginPage({ emergency = false }: { emergency?: boolean }) {
             if (code.trim()) void submit()
           }}
         >
-          <Problem code={problem} />
+          <Problem code={problem} fromAddress={fromAddress} />
           <Field label={t('auth.code.label')} value={code} onChange={setCode} autoComplete="one-time-code" autoFocus hint={t('auth.code.hint')} />
           <Primary busy={busy}>{t('auth.login.submit')}</Primary>
           <button
@@ -231,8 +240,10 @@ export function LoginPage({ emergency = false }: { emergency?: boolean }) {
       <AuthFrame title={t('auth.login.title')} text={t('suite.loginText')}>
         {/* Connected, a new password in nexsuite ends the sessions here too (B12). */}
         {ended && <p className="mb-3 rounded-xl border border-warn-500/30 bg-warn-500/10 px-3 py-2 text-xs text-mist-200">{t('auth.login.endedSuite')}</p>}
-        <Problem code={problem} />
-        <a href={`/api/oidc/start?next=${encodeURIComponent(next)}`} className="nc-btn nc-btn-accent flex h-10 w-full items-center justify-center">
+        <Problem code={problem} fromAddress={fromAddress} />
+        {/* The coupled entry of the provider list (slug "oidc"); its button names nexsuite (blueprint 06: the app
+            names it). */}
+        <a href={startAddress(methods.providers[0]?.slug ?? 'oidc', { next })} className="nc-btn nc-btn-accent flex h-10 w-full items-center justify-center">
           {t('suite.loginButton')}
         </a>
         {/* Signing out here leaves nexsuite signed in, and the button would bring the same person back (B11). Who is
@@ -260,40 +271,45 @@ export function LoginPage({ emergency = false }: { emergency?: boolean }) {
 
   // The emergency page speaks of nexsuite only while connected; alone it is the usual sign-in (H, b3).
   const emergencyNow = emergency && !!methods?.suite
+  // Blueprint 04: password form, below the line "or" a button per active provider. With the password sign-in off only
+  // the buttons, and small at the bottom the operator's way in with the password.
+  const providers = emergency ? [] : methods.providers
+  const passwordShown = methods.password || providers.length === 0 || operatorWay || emergency
+  const endedNote = ended && <p className="rounded-xl border border-warn-500/30 bg-warn-500/10 px-3 py-2 text-xs text-mist-200">{t(methods?.suite ? 'auth.login.endedSuite' : 'auth.login.ended')}</p>
   return (
     <AuthFrame title={emergencyNow ? t('suite.emergencyTitle') : t('auth.login.title')} text={emergencyNow ? t('suite.emergencyLoginText') : t('auth.login.text')}>
-      <form
-        className="space-y-4"
-        onSubmit={(event) => {
-          event.preventDefault()
-          void submit()
-        }}
-      >
-        {ended && <p className="rounded-xl border border-warn-500/30 bg-warn-500/10 px-3 py-2 text-xs text-mist-200">{t(methods?.suite ? 'auth.login.endedSuite' : 'auth.login.ended')}</p>}
-        <Problem code={problem} />
-        <Field label={t('auth.name')} value={name} onChange={setName} autoComplete="username" autoFocus />
-        <Field label={t('auth.password')} value={password} onChange={setPassword} type="password" autoComplete="current-password" />
-        <Primary busy={busy}>{t('auth.login.submit')}</Primary>
-        {methods && !methods.password && !emergencyNow && <p className="text-xs text-mist-500">{t('auth.login.passwordOff')}</p>}
-      </form>
+      {passwordShown ? (
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void submit()
+          }}
+        >
+          {endedNote}
+          <Problem code={problem} fromAddress={fromAddress} />
+          <Field label={t('auth.name')} value={name} onChange={setName} autoComplete="username" autoFocus />
+          <Field label={t('auth.password')} value={password} onChange={setPassword} type="password" autoComplete="current-password" />
+          <Primary busy={busy}>{t('auth.login.submit')}</Primary>
+        </form>
+      ) : (
+        <div className="space-y-4">
+          {endedNote}
+          <Problem code={problem} fromAddress={fromAddress} />
+        </div>
+      )}
+      <ProviderButtons providers={providers} next={next} withOr={passwordShown} />
+      {!passwordShown && (
+        <button type="button" className="mt-4 w-full text-center text-xs text-mist-500 hover:text-mist-300" onClick={() => setOperatorWay(true)}>
+          {t('oidc.login.operator')}
+        </button>
+      )}
       {emergencyNow && (
         <p className="mt-4 text-center text-xs text-mist-600">
           <Link to="/login" className="hover:text-mist-300">
             {t('auth.backToLogin')}
           </Link>
         </p>
-      )}
-      {methods?.oidc && !emergency && (
-        <>
-          <div className="my-4 flex items-center gap-3 text-xs text-mist-600">
-            <span className="h-px flex-1 bg-ink-700" />
-            {t('auth.or')}
-            <span className="h-px flex-1 bg-ink-700" />
-          </div>
-          <a href={`/api/oidc/start?next=${encodeURIComponent(next)}`} className="flex h-10 w-full items-center justify-center rounded-full border border-ink-700 text-sm font-medium hover:bg-ink-850">
-            {t('auth.login.oidc', { name: methods.oidc_name || 'OpenID Connect' })}
-          </a>
-        </>
       )}
     </AuthFrame>
   )
@@ -376,13 +392,7 @@ export function InvitePage() {
 
   return (
     <AuthFrame title={t('auth.invite.title')} text={text}>
-      {/* Through the sign-in provider (a1-9, C9): the invitation is the permission for the new account. */}
-      {methods?.oidc && (
-        <a href={`/api/oidc/start?invite=${encodeURIComponent(token)}`} className="mb-4 flex h-10 w-full items-center justify-center rounded-full bg-accent-500 text-sm font-semibold text-on-accent hover:bg-accent-400">
-          {t('auth.invite.withProvider', { name: methods.oidc_name || 'OpenID Connect' })}
-        </a>
-      )}
-      {methods && !methods.password && !methods.oidc && <p className="text-sm text-mist-400">{t('auth.invite.noWay')}</p>}
+      {methods && !methods.password && methods.providers.length === 0 && <p className="text-sm text-mist-400">{t('auth.invite.noWay')}</p>}
       {(!methods || methods.password) && (
         <>
         <form
@@ -409,6 +419,9 @@ export function InvitePage() {
         </form>
         </>
       )}
+      {/* Through a sign-in provider (a1-9, C9, blueprint 04): the invitation is the permission for the new account,
+          it travels along to the provider. */}
+      <ProviderButtons providers={methods?.providers ?? []} invite={token} withOr={!methods || methods.password} />
     </AuthFrame>
   )
 }

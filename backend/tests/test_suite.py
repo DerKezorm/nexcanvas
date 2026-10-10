@@ -21,7 +21,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from fastapi.testclient import TestClient
 
 from app.db import SessionLocal
-from app.models import Account, AuthSession, Membership, Space, Team, TeamGrant, TeamMember
+from app.models import Account, AuthSession, Membership, OidcLink, OidcProvider, Space, Team, TeamGrant, TeamMember
 from app.services import settings_service, suite
 
 from .conftest import PASSWORD, make_account, new_client
@@ -245,7 +245,15 @@ def test_connecting_matches_accounts_and_spaces_and_brings_the_rest(client: Test
     assert suggested == {"tester": "1", "anna": "2", "ben": "new", "cleo": "new", "erik": "3"}
     assert {s["name"]: s["suggest"] for s in found["spaces"]}["ideen"] == "10", "names match whatever the case"
     assert _setting("suite_state") == "connected"
-    assert _setting("oidc_issuer") == SUITE and _setting("oidc_client_id") == "nxs-client"
+    # nexsuite is the coupled entry "oidc" of the provider list (blueprint 06); the settings of the one provider from
+    # before the list stay as they were.
+    with SessionLocal() as db:
+        entry = db.query(OidcProvider).filter_by(slug="oidc").one()
+        assert (entry.managed, entry.issuer, entry.client_id, entry.label) == ("nexsuite", SUITE, "nxs-client", "nexsuite")
+        assert sorted((link.subject, link.account_id) for link in db.query(OidcLink).filter_by(provider_id=entry.id)) == sorted(
+            (row.oidc_subject, row.id) for row in db.query(Account).filter(Account.oidc_subject != "")
+            if row.blocked_at is None)
+    assert _setting("oidc_issuer") == ""
     assert _setting("password_login") is False
     assert _row("anna").oidc_subject == "2" and _row("tester").oidc_subject == "1"
     ben_id = _row("ben").oidc_subject
@@ -345,9 +353,18 @@ def test_what_nexsuite_keeps_cannot_be_changed_here(client: TestClient, operator
         client.post(f"/api/spaces/{own}/invites", json={"role": "read", "days": 7}),
         client.put("/api/me/profile", json={"display_name": "Me"}),
         client.put("/api/settings", json={"password_login": True}),
-        client.delete("/api/oidc/config"),
+        client.post("/api/oidc/oidc/link", json={"password": PASSWORD}),
     ):
         assert answer.status_code == 409 and answer.json()["detail"]["code"] == "managed_by_suite", answer.text
+
+
+def test_connected_the_provider_list_changes_only_through_the_coupling(client: TestClient, operator: Account,
+                                                                     world: dict, fake: FakeSuite) -> None:
+    connect(client, world, operator)
+    added = client.post("/api/oidc/admin/providers", json={"label": "x", "issuer": "https://x.example.com", "client_id": "x"})
+    assert added.status_code == 422 and added.json()["detail"]["code"] == "provider_managed"
+    listed = client.get("/api/oidc/admin/providers").json()
+    assert [(item["slug"], item["managed"], item["editable"]) for item in listed] == [("oidc", "nexsuite", False)]
 
 
 def test_only_the_emergency_account_signs_in_with_a_password(client: TestClient, operator: Account, world: dict,
@@ -753,5 +770,5 @@ def test_connected_an_old_invitation_is_no_way_in_through_nexsuite(client: TestC
     token = client.post("/api/invites", json={"days": 7}).json()["link"].rsplit("/", 1)[1]
     connect(client, world, operator)
     with new_client() as stranger:
-        answer = stranger.get(f"/api/oidc/start?invite={token}", follow_redirects=False)
+        answer = stranger.get(f"/api/oidc/oidc/start?invite={token}", follow_redirects=False)
         assert answer.status_code in (302, 303) and "invite_invalid" in answer.headers["location"]

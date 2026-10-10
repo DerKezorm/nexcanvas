@@ -13,6 +13,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from .. import __version__
 from ..config import get_settings
@@ -46,6 +47,8 @@ from ..security import (
 )
 from ..services import accounts, avatars, locales, mailer, settings_service, spaces, suite, totp
 from ..services.accounts import AccountError
+from ..services.oidc_store import SqlStore, linked_providers, offered_address
+from ..vendor.nexoidc import providers
 
 logger = logging.getLogger("nexcanvas.auth")
 
@@ -141,7 +144,7 @@ def check_language(language: str) -> str:
     return language
 
 
-def account_view(account: AccountRow) -> dict[str, Any]:
+def account_view(account: AccountRow, db: Session | None = None) -> dict[str, Any]:
     return {
         "id": account.id,
         "name": account.name,
@@ -152,8 +155,9 @@ def account_view(account: AccountRow) -> dict[str, Any]:
         "role": account.role,
         "sign_in": account.sign_in,
         "email": account.email,
+        # The address a sign-in provider knows the account by, offered on the account page (blueprint 01).
+        "provider_email": offered_address(db, account) if db is not None else "",
         "language": account.language,
-        "oidc_linked": bool(account.oidc_subject),
         "two_factor": bool(account.totp_secret_enc),
         "two_factor_recovery_left": len(totp.load_recovery(account.totp_recovery)) if account.totp_secret_enc else 0,
         "created_at": account.created_at.isoformat(),
@@ -222,12 +226,10 @@ def setup(payload: SetupIn, request: Request, response: Response, db: DbSession)
 
 @router.get("/auth/methods", summary="How one can sign in here (no sign-in needed)")
 def methods(db: DbSession) -> dict[str, Any]:
-    values = settings_service.get_all(db)
-    oidc = bool(values["oidc_issuer"] and values["oidc_client_id"])
+    # The buttons of the sign-in page: slug and label of each active provider, nothing else (vendor/nexoidc).
     return {
-        "password": bool(values["password_login"]),
-        "oidc": oidc,
-        "oidc_name": values["oidc_provider_name"] if oidc else "",
+        "password": bool(settings_service.get(db, "password_login")),
+        "providers": providers.public_list(SqlStore(db)),
         # Connected to nexsuite: people sign in there; the password form is the operator's emergency way.
         "suite": suite.connected(db),
         # Where nexsuite opens, for "Sign in as someone else": signing out there first (B11). The button to sign in
@@ -340,7 +342,7 @@ def logout_everywhere(request: Request, response: Response, account: Account, db
 @router.get("/auth/me", summary="The signed-in account, and what this server offers it")
 def me(account: Account, db: DbSession) -> dict[str, Any]:
     return {
-        **account_view(account),
+        **account_view(account, db),
         "shares_allowed": bool(settings_service.get(db, "shares_allowed")),
         "mail": mailer.configured(db),
         "second_factor_setup_required": totp.setup_required(db, account),
@@ -532,9 +534,12 @@ def list_accounts(_operator: OperatorAccount, db: DbSession) -> list[dict[str, A
     spaces: dict[int, int] = {}
     for account_id in db.scalars(select(Membership.account_id)):
         spaces[account_id] = spaces.get(account_id, 0) + 1
+    # The providers each account is linked to, as marks in the operator's list (the shared sign-in blueprint 04).
+    linked = linked_providers(db)
     return [
         {**account_view(row), "spaces": spaces.get(row.id, 0), "locked": accounts.is_locked(row),
-         "blocked": row.blocked_at is not None, "has_password": bool(row.password_hash)}
+         "blocked": row.blocked_at is not None, "has_password": bool(row.password_hash),
+         "providers": linked.get(row.id, [])}
         for row in db.scalars(select(AccountRow).order_by(AccountRow.created_at))
     ]
 

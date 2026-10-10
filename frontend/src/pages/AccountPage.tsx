@@ -1,6 +1,6 @@
 /**
  * The own account, built as nexlore's (same parts, same words, same order): Profile (picture, display name, name, role,
- * mail address), Security (password, second factor, the link to the provider, signing out everywhere), Connections
+ * mail address), Security (password, second factor, a row per sign-in provider, signing out everywhere), Connections
  * (API tokens for programs) and Shapes (which packages the own library shows). The tab stands in the address (`?tab=`).
  */
 import { KeyRound, Lock, Plug, Shapes, Shield, ShieldCheck, UserRound } from 'lucide-react'
@@ -8,14 +8,15 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 
-import { api, authApi, type Me, type Methods } from '../api/client'
+import { api, authApi, type Me, type MyProvider } from '../api/client'
 import { ApiTokens } from '../components/ApiTokens'
 import { Avatar } from '../components/Avatar'
 import { Field, Problem } from '../components/Field'
 import { LibraryChoice } from '../components/LibraryChoice'
 import { Section } from '../components/Section'
 import { Managed } from '../components/Suite'
-import { errorText, problemText } from '../lib/errors'
+import { errorText, problemText, signInErrorText } from '../lib/errors'
+import { go } from '../lib/providers'
 import { useAuth } from '../state/auth'
 import { saveAsFile, TabRow, type Tab } from './settings/ui'
 import { copyText } from '../lib/copy'
@@ -34,10 +35,11 @@ export function AccountPage() {
   const { me, setMe, refresh } = useAuth()
   useTitle(t('me.title'))
   const [shownAs, setShownAs] = useState(me?.display_name ?? '')
-  // Whether a sign-in provider is set up at all: without one there is nothing to link.
-  const [methods, setMethods] = useState<Methods | null>(null)
+  // The active sign-in providers and whether this account is linked to each: without one there is nothing to link.
+  const [providers, setProviders] = useState<MyProvider[] | null>(null)
+  const loadProviders = () => authApi.myProviders().then(setProviders, () => setProviders([]))
   useEffect(() => {
-    authApi.methods().then(setMethods, () => setMethods(null))
+    void loadProviders()
   }, [])
   const [params, setParams] = useSearchParams()
   const asked = params.get('tab') as Part | null
@@ -47,8 +49,15 @@ export function AccountPage() {
   const [next, setNext] = useState('')
   const [again, setAgain] = useState('')
   const [linkPassword, setLinkPassword] = useState('')
-  const [done, setDone] = useState<string | null>(params.get('linked') ? t('me.linked') : null)
-  const [problem, setProblem] = useState<string | null>(params.get('error') ? errorText(params.get('error')!) : null)
+  // The provider whose "Link" was pressed: its row asks for the password.
+  const [linking, setLinking] = useState<string | null>(null)
+  // Back from linking: the provider by the name on its button, once the list is there (the address has its slug).
+  const linkedSlug = params.get('linked')
+  const [linkedShown, setLinkedShown] = useState(!!linkedSlug)
+  const linkedLabel = providers?.find((entry) => entry.slug === linkedSlug)?.label
+  const [done, setDone] = useState<string | null>(null)
+  // Back from the provider with a refusal: only a known sign-in code becomes a sentence, never the raw code.
+  const [problem, setProblem] = useState<string | null>(params.get('error') ? signInErrorText(params.get('error')!) : null)
   const [busy, setBusy] = useState(false)
   const picker = useRef<HTMLInputElement>(null)
 
@@ -65,6 +74,7 @@ export function AccountPage() {
     setBusy(true)
     setProblem(null)
     setDone(null)
+    setLinkedShown(false)
     try {
       await action()
       setDone(success)
@@ -94,7 +104,11 @@ export function AccountPage() {
         />
         <div aria-live="polite">
           <Problem text={problem} />
-          {done && <p className="rounded-lg border border-ok-500/30 bg-ok-500/10 px-3 py-2 text-sm text-ok-500">{done}</p>}
+          {(done ?? (linkedShown && linkedLabel)) && (
+            <p className="rounded-lg border border-ok-500/30 bg-ok-500/10 px-3 py-2 text-sm text-ok-500">
+              {done ?? t('me.linked', { name: linkedLabel })}
+            </p>
+          )}
         </div>
 
         {part === 'profile' && (
@@ -175,6 +189,21 @@ export function AccountPage() {
                 </>
               )}
             </dl>
+            {/* A provider knows the account by another address: offered, taken only when the account says so
+                (blueprint 01; an account through providers only follows it by itself). */}
+            {me.provider_email && (
+              <div data-testid="mail-offer" className="mt-4 rounded-xl border border-accent-500/35 bg-accent-500/10 px-3.5 py-3 text-sm">
+                <p className="text-mist-200">{t('me.emailOffer', { address: me.provider_email })}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button type="button" disabled={busy} className={LOUD} onClick={() => void run(() => authApi.takeProviderEmail(), t('me.emailTaken'))}>
+                    {t('me.emailTake')}
+                  </button>
+                  <button type="button" disabled={busy} className={PLAIN} onClick={() => void run(() => authApi.declineProviderEmail(), t('me.emailDeclined'))}>
+                    {t('me.emailDecline')}
+                  </button>
+                </div>
+              </div>
+            )}
           </Section>
         )}
 
@@ -228,40 +257,72 @@ export function AccountPage() {
               {me.suite === 'connected' && me.sign_in !== 'password' ? <Managed text={t('suite.managedTwoFactor')} /> : <SecondFactor me={me} />}
             </Section>
 
-            {me.suite !== 'connected' && (methods?.oidc || me.sign_in === 'oidc' || me.oidc_linked) && (
-              <Section icon={Shield} title={t('me.oidc.title')}>
-                {me.sign_in === 'oidc' ? (
-                  <p className="text-sm text-mist-400">{t('me.oidc.only')}</p>
-                ) : me.oidc_linked ? (
-                  <div className="flex flex-wrap items-center gap-3 text-sm">
-                    <span className="text-mist-400">{t('me.oidc.linked')}</span>
-                    <button type="button" disabled={busy} onClick={() => void run(() => api('/api/oidc/link', { method: 'DELETE' }), t('me.oidc.unlinked'))} className={QUIET}>
-                      {t('me.oidc.unlink')}
-                    </button>
-                  </div>
-                ) : (
-                  <form
-                    className="space-y-3"
-                    onSubmit={(event) => {
-                      event.preventDefault()
-                      setBusy(true)
-                      setProblem(null)
-                      api<{ url: string }>('/api/oidc/link/start', { method: 'POST', body: { password: linkPassword } }).then(
-                        ({ url }) => window.location.assign(url),
-                        (error) => {
-                          setProblem(problemText(error))
-                          setBusy(false)
-                        },
-                      )
-                    }}
-                  >
-                    <p className="text-sm text-mist-400">{t('me.oidc.text')}</p>
-                    <Field label={t('auth.password')} value={linkPassword} onChange={setLinkPassword} type="password" autoComplete="current-password" />
-                    <button type="submit" disabled={busy} className={PLAIN}>
-                      {t('me.oidc.link')}
-                    </button>
-                  </form>
-                )}
+            {/* A row per active provider with its state and "Link" or "Unlink" (blueprint 04). Connected, the person is
+                nexsuite's and nothing is linked here. */}
+            {me.suite !== 'connected' && providers !== null && (providers.length > 0 || me.sign_in === 'oidc') && (
+              <Section icon={Shield} title={t('oidc.account.title')}>
+                <p className="mb-3 text-sm text-mist-400">{t('oidc.account.text')}</p>
+                <ul className="divide-y divide-ink-700 rounded-xl border border-ink-700" data-testid="my-providers">
+                  {providers.map((provider) => {
+                    // The last link of an account without a password stays: it would lock the account out.
+                    const lastLink = me.sign_in === 'oidc' && provider.linked && providers.filter((entry) => entry.linked).length === 1
+                    return (
+                      <li key={provider.slug} className="px-3 py-2.5 text-sm">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="min-w-0 flex-1 truncate font-medium text-mist-100">{provider.label}</span>
+                          <span className={`rounded-full px-2 py-0.5 text-xs ${provider.linked ? 'bg-ok-500/10 text-ok-500' : 'border border-ink-700 text-mist-400'}`}>
+                            {provider.linked ? t('oidc.account.linked') : t('oidc.account.notLinked')}
+                          </span>
+                          {provider.linked && !lastLink && (
+                            <button
+                              type="button"
+                              disabled={busy}
+                              className={QUIET}
+                              onClick={() =>
+                                void run(async () => {
+                                  await authApi.unlink(provider.slug)
+                                  await loadProviders()
+                                }, t('me.unlinked', { name: provider.label }))
+                              }
+                            >
+                              {t('oidc.account.unlink')}
+                            </button>
+                          )}
+                          {!provider.linked && me.sign_in === 'password' && linking !== provider.slug && (
+                            <button type="button" disabled={busy} className={QUIET} onClick={() => setLinking(provider.slug)}>
+                              {t('oidc.account.link')}
+                            </button>
+                          )}
+                        </div>
+                        {lastLink && <p className="mt-1 text-xs text-mist-500">{t('oidc.account.only', { name: provider.label })}</p>}
+                        {linking === provider.slug && (
+                          <form
+                            className="mt-3 flex flex-wrap items-end gap-2"
+                            onSubmit={(event) => {
+                              event.preventDefault()
+                              setBusy(true)
+                              setProblem(null)
+                              authApi.linkStart(provider.slug, linkPassword).then(
+                                ({ url }) => go(url),
+                                (error) => {
+                                  setProblem(problemText(error))
+                                  setBusy(false)
+                                },
+                              )
+                            }}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <Field label={t('auth.password')} value={linkPassword} onChange={setLinkPassword} type="password" autoComplete="current-password" />
+                            </div>
+                            <button type="submit" disabled={busy} className={PLAIN}>
+                              {t('oidc.account.link')}
+                            </button>
+                          </form>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
               </Section>
             )}
 

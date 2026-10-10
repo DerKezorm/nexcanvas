@@ -29,13 +29,15 @@ DEFAULTS: dict[str, Any] = {
     #: Every account that signs in with a password needs a second factor; until it has one, it reaches only its
     #: account page. Accounts from OIDC bring their provider's.
     "two_factor_required": False,
-    #: OIDC: issuer, client id and the encrypted client secret; empty means not set up.
+    #: The single OIDC provider before the provider list (``oidc_providers``): read once by the migration
+    #: (``services/oidc_store.migrate_settings``) and left for one version as the way back, then gone.
     "oidc_issuer": "",
     "oidc_client_id": "",
     "oidc_client_secret_enc": "",
     "oidc_provider_name": "",
-    #: Whether an unknown identity from the provider gets an account. Off: only invited or linked accounts.
     "oidc_auto_create": False,
+    #: The settings above were looked at once and, where there was a provider, became the entry ``oidc``.
+    "oidc_list_migrated": False,
     #: Public read-only pages of boards: a way out, closed until the operator opens it.
     "shares_allowed": False,
     #: Tokens for programs such as n8n or nexdeck (``/api/v1``): closed until the operator opens it.
@@ -62,6 +64,9 @@ DEFAULTS: dict[str, Any] = {
     "suite_token_enc": "",
     "suite_pending": None,
     "suite_saved": None,
+    #: While connected: how the own sign-in providers looked before they were set aside (``nexoidc.coupling``), for
+    #: putting them back on disconnecting.
+    "suite_coupling": None,
     "suite_emergency_account": 0,
     "suite_emergency": [],
     "suite_mail": False,

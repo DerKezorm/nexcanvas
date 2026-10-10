@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from ..deps import Account, DbSession, OperatorAccount, confirm_operator
 from ..errors import error
 from ..services import suite
-from .oidc import _redirect_uri
+from ..vendor.nexoidc import LEGACY_SLUG, flow
 
 logger = logging.getLogger("nexcanvas.suite")
 
@@ -63,8 +63,9 @@ def status(account: Account, db: DbSession) -> dict[str, Any]:
 
 @router.post("/start", summary="Pair with nexsuite using a one-time code; returns what to match (operator)")
 def start(payload: StartIn, request: Request, operator: OperatorAccount, db: DbSession) -> dict[str, Any]:
-    redirect = _redirect_uri(db, request)
-    own = redirect.removesuffix("/api/oidc/callback")
+    # The return address of the coupled entry ``oidc`` (blueprint 06): nexsuite compares it exactly and keeps it.
+    redirect = flow.redirect_uri(LEGACY_SLUG, str(request.base_url))
+    own = flow.base_address(str(request.base_url))
     try:
         found = suite.start(db, payload.url, payload.code, redirect, own)
     except suite.SuiteError as exc:

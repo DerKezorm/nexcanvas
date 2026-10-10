@@ -15,8 +15,8 @@ from app.models import Account
 from app.services import mailer, settings_service
 
 from .conftest import PASSWORD, make_account
-from .test_oidc import FakeProvider, configure, fresh_browser, sign_in_via_oidc
-from .test_oidc import provider as oidc_provider
+from .oidc_helpers import FakeProvider, configure, fresh_browser, sign_in_via_oidc
+from .oidc_helpers import provider as oidc_provider
 
 provider = oidc_provider
 
@@ -199,7 +199,7 @@ def test_a_sign_in_notes_the_browsers_language(client: TestClient, operator: Acc
 
 def test_a_sign_in_through_oidc_notes_the_browsers_language(
         client: TestClient, operator: Account, provider: FakeProvider) -> None:
-    configure(client)
+    configure(client, provider)
     browser = fresh_browser(client)
     browser.headers["Accept-Language"] = "de-CH"
     answer = sign_in_via_oidc(browser, provider)

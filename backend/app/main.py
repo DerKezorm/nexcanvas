@@ -32,8 +32,9 @@ from .routers import suite as suite_router
 from .routers import totp as totp_router
 from .routers import v1 as v1_router
 from .security import HashingBusy, purge_sessions
-from .services import accounts, backups, cleanup, locales, logs, settings_service, totp
+from .services import accounts, backups, cleanup, locales, logs, oidc_store, settings_service, totp
 from .services import boards as boards_service
+from .vendor import nexoidc
 
 logger = logging.getLogger("nexcanvas")
 
@@ -93,6 +94,10 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     logs.setup()
     backups.apply_pending()
     init_db()
+    # The single sign-in provider of the settings becomes the entry "oidc" of the list, once (backup first).
+    oidc_store.migrate_settings()
+    # The TLS context of the calls to providers and authentik, read once here outside the event loop (vendor/nexoidc).
+    await nexoidc.warm()
     private.tighten_all()
     logs.attach_store(_read_log_mode, _write_log_mode)
     logs.apply_stored_mode()
@@ -185,6 +190,9 @@ app.add_exception_handler(Exception, unhandled_error)
 
 for module in ROUTERS:
     app.include_router(module.router)
+
+# The shared sign-in module learns who it runs in before the first request (vendor/nexoidc).
+oidc_store.configure()
 
 
 def _mount_frontend(target: FastAPI, dist: Path) -> None:

@@ -15,24 +15,32 @@ import time
 import types
 from datetime import timedelta
 from typing import Any
-from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.db import SessionLocal
 from app.main import app
-from app.models import OPERATOR, Account, Board, Space, SpaceNotice, Team, utcnow
+from app.models import OPERATOR, Account, Board, OidcProvider, Space, SpaceNotice, Team, utcnow
 from app.services import logs, settings_service, suite
 
-from . import test_oidc, test_suite
+from . import oidc_helpers, test_suite
 from .conftest import PASSWORD, make_account, new_client
 from .test_suite import SUITE, FakeSuite, connect
 
 # The fixtures of the suite and OIDC tests, under the names pytest looks for.
 fake = test_suite.fake
 world = test_suite.world
-provider = test_oidc.provider
+
+
+@pytest.fixture
+def provider() -> Any:
+    """The fake provider of the OIDC tests (``sso``) and, on the same network, nexsuite as the provider of the coupled
+    entry (``provider.suite``), with the client nexsuite hands out when pairing (``FakeSuite``)."""
+    for fake in oidc_helpers.fake_world():
+        fake.suite = fake.network.add(  # type: ignore[attr-defined]
+            oidc_helpers.FakeProvider(SUITE, client_id="nxs-client", client_secret="the-client-secret"))
+        yield fake
 
 
 def _row(name: str) -> Account:
@@ -236,7 +244,7 @@ def test_b21_a_connection_from_before_without_a_sync_lets_go_of_the_unblocked_on
 
 
 def _signs_in_as(client: TestClient, provider: Any, subject: str) -> str:
-    browser = test_oidc.fresh_browser(client)
+    browser = oidc_helpers.fresh_browser(client)
     landed = _sign_in_from(browser, provider, "/", sub=subject, email="someone@example.com")
     assert landed.status_code == 303, landed.text
     me = browser.get("/api/auth/me")
@@ -341,17 +349,18 @@ def _legacy(subjects: dict[str, str], mark: bool = False, **changes: Any) -> Non
 def test_linking_is_refused_while_connected(client: TestClient, operator: Account, world: dict, fake: FakeSuite,
                                             provider: Any) -> None:
     """The emergency account signs in with a password and could link itself to "999": refused on both legs."""
-    test_oidc.configure(client, auto_create=False)
-    started = client.post("/api/oidc/link/start", json={"password": PASSWORD})
+    oidc_helpers.configure(client, provider, auto_create=False)
+    started = client.post("/api/oidc/sso/link", json={"password": PASSWORD})
     assert started.status_code == 200, started.text
-    values = {k: v[0] for k, v in parse_qs(urlsplit(started.json()["url"]).query).items()}
+    url = started.json()["url"]
     connect(client, world, operator)
     _provider_is_nexsuite()
-    again = client.post("/api/oidc/link/start", json={"password": PASSWORD})
+    again = client.post("/api/oidc/sso/link", json={"password": PASSWORD})
     assert again.status_code == 409 and _code(again) == "managed_by_suite"
-    provider.challenge = values["code_challenge"]
-    provider.claims = {"nonce": values["nonce"], "sub": "999"}
-    back = test_oidc.come_back(client, values["state"])
+    again = client.post("/api/oidc/oidc/link", json={"password": PASSWORD})
+    assert again.status_code == 409 and _code(again) == "managed_by_suite"
+    provider.person = {"sub": "999"}
+    back = oidc_helpers.come_back(client, provider, url)
     assert back.headers["location"] == "/account?error=managed_by_suite"
     assert _row("tester").oidc_subject == "1"
 
@@ -663,13 +672,11 @@ def test_b21_a_new_person_takes_the_name_of_a_deleted_one(client: TestClient, op
 
 
 def _provider_is_nexsuite() -> None:
-    """Connected, nexsuite is the provider: here the fake provider of the OIDC tests stands in for it."""
-    from app.security import encrypt_secret
-
+    """Connected, nexsuite is the provider: the coupled entry ``oidc`` of the list (``provider.suite`` answers for
+    it in the tests)."""
     with SessionLocal() as db:
-        settings_service.save(db, {"oidc_issuer": test_oidc.ISSUER, "oidc_client_id": test_oidc.CLIENT_ID,
-                                   "oidc_client_secret_enc": encrypt_secret(test_oidc.CLIENT_SECRET)})
-        db.commit()
+        entry = db.query(OidcProvider).filter_by(slug="oidc").one()
+        assert (entry.managed, entry.issuer, entry.client_id, entry.enabled) == ("nexsuite", SUITE, "nxs-client", True)
 
 
 def test_b20_a_person_made_a_moment_ago_gets_in_at_once(client: TestClient, operator: Account, world: dict,
@@ -678,7 +685,7 @@ def test_b20_a_person_made_a_moment_ago_gets_in_at_once(client: TestClient, oper
     _provider_is_nexsuite()
     fake.people["90"] = {"id": "90", "name": "neu", "display_name": "Neu", "email": "neu@example.com",
                          "operator": False, "blocked": False}
-    browser = test_oidc.fresh_browser(client)
+    browser = oidc_helpers.fresh_browser(client)
     landed = _sign_in_from(browser, provider, "/b/12", sub="90", email="neu@example.com")
     assert landed.status_code == 303 and landed.headers["location"] == "/b/12", landed.headers["location"]
     assert browser.get("/api/auth/me").json()["name"] == "neu"
@@ -691,7 +698,7 @@ def test_b20_somebody_nexsuite_does_not_give_fetches_once_and_is_told_to_wait(
     suite._unknown_tried.clear()
     fetches = sum(1 for call in fake.calls if call == ("GET", "/directory"))
     for _round in range(3):
-        browser = test_oidc.fresh_browser(client)
+        browser = oidc_helpers.fresh_browser(client)
         landed = _sign_in_from(browser, provider, "/", sub="91", email="anna@example.com")
         assert landed.headers["location"] == "/login?error=suite_no_account", "no bridge by address while connected"
     assert sum(1 for call in fake.calls if call == ("GET", "/directory")) == fetches + 1, "one fetch per person"
@@ -728,17 +735,19 @@ def test_g3_everybody_connected_learns_where_nexsuite_opens(client: TestClient, 
 
 
 def _sign_in_from(browser: TestClient, fake_provider: Any, path: str, **claims: Any) -> Any:
-    started = browser.get("/api/oidc/start", params={"next": path}, follow_redirects=False)
-    assert started.status_code == 302, started.text
-    values = {k: v[0] for k, v in parse_qs(urlsplit(started.headers["location"]).query).items()}
-    fake_provider.challenge = values["code_challenge"]
-    fake_provider.claims = {"nonce": values["nonce"], **claims}
-    return test_oidc.come_back(browser, values["state"])
+    """Signing in for the page ``path``: through nexsuite (the coupled entry) while connected, else through ``sso``."""
+    connected = _setting("suite_state") == "connected"
+    fake = fake_provider.suite if connected else fake_provider
+    fake.person = {"sub": "person-1", "preferred_username": "alex", "email": "alex@example.com", **claims}
+    started = browser.get(f"/api/oidc/{'oidc' if connected else 'sso'}/start", params={"next": path},
+                          follow_redirects=False)
+    assert started.status_code == 303, started.text
+    return oidc_helpers.come_back(browser, fake, started.headers["location"])
 
 
 def test_b10_a_direct_link_survives_the_sign_in(client: TestClient, operator: Account, provider: Any) -> None:
-    test_oidc.configure(client)
-    browser = test_oidc.fresh_browser(client)
+    oidc_helpers.configure(client, provider)
+    browser = oidc_helpers.fresh_browser(client)
     landed = _sign_in_from(browser, provider, "/b/5?item=3")
     assert landed.status_code == 303 and landed.headers["location"] == "/b/5?item=3"
 
@@ -750,16 +759,16 @@ def test_b10_a_direct_link_survives_the_sign_in(client: TestClient, operator: Ac
                                   "/x/%252e%252e/API/suite"])
 def test_b10_only_a_page_of_nexcanvas_own_is_a_landing(client: TestClient, operator: Account, provider: Any,
                                                        path: str) -> None:
-    test_oidc.configure(client)
-    browser = test_oidc.fresh_browser(client)
+    oidc_helpers.configure(client, provider)
+    browser = oidc_helpers.fresh_browser(client)
     landed = _sign_in_from(browser, provider, path)
     assert landed.status_code == 303 and landed.headers["location"] == "/"
 
 
 def test_b10_a_refused_sign_in_keeps_the_page_for_the_next_try(client: TestClient, operator: Account,
                                                                provider: Any) -> None:
-    test_oidc.configure(client, auto_create=False)
-    browser = test_oidc.fresh_browser(client)
+    oidc_helpers.configure(client, provider, auto_create=False)
+    browser = oidc_helpers.fresh_browser(client)
     landed = _sign_in_from(browser, provider, "/b/7")
     assert landed.status_code == 303
     assert landed.headers["location"] == "/login?error=oidc_no_account&next=%2Fb%2F7"
@@ -1616,10 +1625,11 @@ def test_settled_an_oidc_account_without_a_password_keeps_its_own_link(client: T
                                                                      world: dict, fake: FakeSuite) -> None:
     """Connected under bf64550: dora came through authentik (no password of her own) and was left out, keeping her
     link. Her subject is no person of nexsuite's: she keeps it apart and gets it back on disconnecting."""
-    from app.services import accounts
-
-    with SessionLocal() as db:
-        dora_id = accounts.create_oidc(db, "dora", "authentik-hash-of-dora", "dora@example.com").id
+    with SessionLocal() as db:  # as nexcanvas 0.3.0 made an account through its one provider
+        dora = Account(name="dora", sign_in="oidc", oidc_subject="authentik-hash-of-dora", email="dora@example.com")
+        db.add(dora)
+        db.commit()
+        dora_id = dora.id
     chosen = _choices(client, world)
     chosen["accounts"][dora_id] = "skip"
     assert client.post("/api/suite/finish", json=chosen).status_code == 200
@@ -1796,3 +1806,15 @@ def test_after_sending_a_chosen_person_deleted_in_nexsuite_still_shows_by_its_na
     people = {person["id"]: person["name"] for person in found["people"]}
     assert people.get("2") == "anna" and people.get("3") == "erik", "the targets of then, by name"
     assert found["chosen"]["step"] == 3, "the assistant opens at the last step"
+
+
+def test_signing_in_through_nexsuite_leaves_the_address_to_the_directory(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any) -> None:
+    """The address of an account in nexsuite comes with the directory; what the token says at a sign-in through the
+    coupled entry is no provider address of its own (it would go with the account's last link)."""
+    connect(client, world, operator)
+    browser = oidc_helpers.fresh_browser(client)
+    landed = _sign_in_from(browser, provider, "/", sub="2", email="elsewhere@example.com")
+    assert landed.status_code == 303 and browser.get("/api/auth/me").json()["name"] == "anna"
+    anna = _row("anna")
+    assert (anna.email, anna.email_source, anna.provider_email) == ("anna@example.com", "", "")

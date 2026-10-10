@@ -544,12 +544,9 @@
   },
   "server": {
     "accounts": "Konten",
-    "accountsHint": "Konten kommen per Einladung, oder über den Anmeldeanbieter, wenn dort „Neue Personen bekommen ein Konto“ an ist.",
+    "accountsHint": "Konten kommen per Einladung, oder über einen Anmeldeanbieter, bei dem „Neue Personen bekommen ein Konto“ an ist.",
     "proxyUnknown": "Anfragen kommen über einen Proxy, aber NEXCANVAS_TRUSTED_PROXIES ist nicht gesetzt. Dann sieht nexcanvas alle als einen Absender: Wer oft falsch rät, bremst jeden aus, der sich in einem hier noch nie benutzten Browser anmeldet. Trag die Adresse des Proxys in NEXCANVAS_TRUSTED_PROXIES ein. Steht kein Proxy davor, kannst du das ignorieren.",
     "member": "Mitglied",
-    "signin": "Anmeldung",
-    "oidc": "OpenID Connect",
-    "oidcIssuer": "Aussteller (Issuer)",
     "twoFactor": "Zweiter Faktor",
     "twoFactorRequired": "Zweiten Faktor verlangen",
     "public": "Öffentliche Seiten",
@@ -597,17 +594,7 @@
     "send": "Senden",
     "mailSent": "Die Testmail ist raus.",
     "secretKept": "Bleibt; nur zum Ändern tippen.",
-    "passwordLogin": "Anmeldung mit Passwort",
-    "passwordLoginHint": "Aus: Mitglieder kommen nur über den Anbieter herein. Du als Betreiber kannst dein Passwort immer nutzen.",
     "twoFactorRequiredHint": "Jedes Konto, das sich mit Passwort anmeldet, muss ihn einrichten, bevor es weiterkommt. Konten vom Anbieter bringen dessen eigenen mit. Erst den eigenen einschalten.",
-    "oidcName": "Name auf dem Knopf",
-    "redirect": "Weiterleitungsadresse für den Anbieter",
-    "redirectHint": "Beim Anbieter eintragen.",
-    "oidcAutoCreate": "Neue Personen bekommen ein Konto",
-    "oidcAutoCreateHint": "Aus: nur eingeladene oder verknüpfte Konten kommen hinein.",
-    "oidcRemove": "Anbieter entfernen",
-    "publicUrl": "Öffentliche Adresse",
-    "publicUrlHint": "Für Links in Einladungen und öffentlichen Seiten, und den OIDC-Rücksprung.",
     "inSpaces_one": "in einem Bereich",
     "inSpaces_other": "in {{count}} Bereichen",
     "withTwoFactor": "zweiter Faktor",
@@ -680,6 +667,11 @@
         "title": "Sicherung hochladen?",
         "text": "Die Datei kommt in die Liste der Sicherungen. Wiederhergestellt wird erst, wenn du es dort bestätigst.",
         "button": "Hochladen"
+      },
+      "unlink": {
+        "title": "Verknüpfung von {{name}} mit {{provider}} lösen?",
+        "text": "Das Konto kann sich dann nicht mehr über {{provider}} anmelden, bis es sich unter Mein Konto, Sicherheit wieder verknüpft.",
+        "button": "Verknüpfung lösen"
       }
     },
     "backupMade": "Sicherung erstellt.",
@@ -707,7 +699,6 @@
     "logClear": "Log leeren",
     "logClearText": "Jede Zeile geht. Neue kommen wie bisher.",
     "logUntil": "Um {{time}} zurück auf normal.",
-    "signinText": "Wie man hereinkommt.",
     "signInBy": {
       "password": "Passwort",
       "oidc": "Anbieter",
@@ -725,26 +716,6 @@
       "membersNoManager_one": "eine Person mit Zugriff, niemand verwaltet den Bereich",
       "membersNoManager_other": "{{count}} Personen mit Zugriff, niemand verwaltet den Bereich",
       "show": "Ansehen"
-    },
-    "oidcOn": "Eingerichtet mit {{issuer}}.",
-    "oidcOff": "Nicht eingerichtet.",
-    "clientId": "Client-ID",
-    "clientSecret": "Client-Geheimnis",
-    "authentik": {
-      "title": "authentik in einem Schritt",
-      "text": "Mit einem API-Token, das Anwendungen anlegen darf, richtet nexcanvas Anbieter und Anwendung in authentik selbst ein. Das Token wird nur dafür benutzt und nicht gespeichert.",
-      "url": "Adresse von authentik",
-      "token": "API-Token",
-      "run": "Einrichten",
-      "blueprint": "Stattdessen Blueprint herunterladen",
-      "asking": "Einen Moment, authentik wird gefragt. Das kann bis zu 20 Sekunden dauern.",
-      "why": {
-        "unreachable": "authentik ist unter dieser Adresse nicht erreichbar. Prüf die Adresse und ob nexcanvas dieses Netz erreicht.",
-        "unusable": "Diese Adresse lässt sich nicht verwenden. Prüf, wie sie geschrieben ist.",
-        "token": "authentik hat das Token nicht angenommen (Antwort {{status}}). Prüf, ob es gilt und die nötigen Rechte hat.",
-        "answered": "Unter dieser Adresse antwortet etwas, aber nicht authentik wie erwartet (Antwort {{status}}). Prüf die Adresse; die ganze Antwort steht im Log.",
-        "slug": "In authentik gehören alle Slugs, die nexcanvas seiner Anwendung geben würde, schon anderen Anwendungen. Benenne den Anbieter von nexcanvas dort um und versuch es noch einmal."
-      }
     },
     "publicAllowedHint": "Verwalter eines Bereichs dürfen dann ein Board als Leseseite veröffentlichen. Abgeschaltet antwortet jeder Link, als hätte es ihn nie gegeben.",
     "files": "Dateien",
@@ -785,7 +756,15 @@
     "block": "Sperren",
     "smtpHostPort": "Server und Port",
     "everySpace": "sieht und verwaltet alle Bereiche",
-    "forAccount": "{{name}}: {{action}}"
+    "forAccount": "{{name}}: {{action}}",
+    "providers": {
+      "order": "{{name}} verschieben: ziehen oder die Pfeiltasten",
+      "coupled": "über die Kopplung",
+      "coupledText": "Solange nexcanvas gekoppelt ist, kommt die Anmeldung über die Kopplung. Die eigenen Anbieter warten ausgeschaltet, bis entkoppelt ist.",
+      "more": "Mehr"
+    },
+    "unlink": "Verknüpfung lösen",
+    "unlinkFrom": "Verknüpfung mit {{name}} lösen"
   },
   "errors": {
     "avatar_not_a_picture": "Das ist kein Bild, das nexcanvas annimmt (JPEG, PNG, WebP, GIF, HEIC oder AVIF).",
@@ -818,21 +797,6 @@
     "cannot_delete_self": "Das eigene Konto kannst du nicht löschen.",
     "cannot_demote_self": "Die Betreiberrolle kannst du dir nicht selbst nehmen.",
     "oidc_account": "Dieses Konto meldet sich über den Anbieter an.",
-    "oidc_only_account": "Dieses Konto meldet sich nur über den Anbieter an.",
-    "oidc_not_configured": "Es ist kein Anmeldeanbieter eingerichtet.",
-    "oidc_no_account": "Für dich gibt es hier kein Konto. Bitte um eine Einladung.",
-    "oidc_email_unverified": "Der Anbieter hat deine Mailadresse nicht bestätigt.",
-    "oidc_email_taken": "Deine Mailadresse gehört zu einem anderen Konto.",
-    "oidc_state_mismatch": "Die Anmeldung ist abgelaufen oder kam von woanders. Noch einmal versuchen.",
-    "oidc_token_invalid": "Die Antwort des Anbieters war ungültig.",
-    "oidc_denied": "Der Anbieter hat dich nicht hereingelassen.",
-    "oidc_link_mismatch": "Diese Verknüpfung gehört zu einem anderen Konto.",
-    "oidc_subject_taken": "Diese Identität ist schon mit einem anderen Konto verknüpft.",
-    "oidc_provider_unreachable": "Der Anbieter ist nicht erreichbar.",
-    "issuer_invalid": "Das ist kein OpenID-Connect-Anbieter.",
-    "issuer_unreachable": "Unter dieser Adresse ist der Anbieter nicht erreichbar.",
-    "secret_required": "Bitte das Client-Geheimnis eintragen.",
-    "url_invalid": "Die Adresse muss mit http:// oder https:// beginnen.",
     "backup_invalid": "Das ist keine nexcanvas-Sicherung.",
     "backup_damaged": "Die Sicherung ist beschädigt. Nichts wurde geändert.",
     "busy": "nexcanvas ist gerade beschäftigt. Versuch es gleich noch einmal.",
@@ -921,18 +885,16 @@
     "duration_not_allowed": "Diese Dauer gibt es hier nicht.",
     "log_level_from_environment": "Die Stufe des Logs ist mit NEXCANVAS_LOG_LEVEL fest eingestellt.",
     "notice_refused": "Das ist keine Nachricht von nexsuite.",
-    "oidc_exchange_failed": "Der Anbieter hat die Anmeldung nicht angenommen. Versuch es noch einmal.",
-    "oidc_issuer_mismatch": "Der Anbieter meldet eine andere Adresse als die eingerichtete. Bitte den Betreiber, sie zu prüfen.",
-    "oidc_provider_invalid": "Die Antwort des Anbieters ist nicht lesbar. Bitte den Betreiber, die Einrichtung zu prüfen.",
     "origin_refused": "Die API ist für Programme, nicht für Webseiten.",
     "slow_down": "Zu viele Anfragen mit diesem Token. Warte eine Minute.",
-    "token_invalid": "Kein gültiges API-Token."
+    "token_invalid": "Kein gültiges API-Token.",
+    "no_offer": "Es gibt keine Adresse zum Übernehmen.",
+    "email_taken": "Diese Adresse hat schon ein anderes Konto."
   },
   "auth": {
     "name": "Anmeldename",
     "password": "Passwort",
     "passwordHint": "Mindestens 12 Zeichen.",
-    "or": "oder",
     "setup": {
       "title": "nexcanvas einrichten",
       "text": "Das erste Konto betreibt diesen Server: Es lädt andere ein und darf jede Einstellung ändern.",
@@ -944,8 +906,6 @@
       "title": "Anmelden",
       "text": "Willkommen zurück bei deinen Boards.",
       "submit": "Anmelden",
-      "passwordOff": "Anmelden mit Passwort ist für Mitglieder abgeschaltet.",
-      "oidc": "Mit {{name}} anmelden",
       "ended": "Deine Sitzung wurde beendet, zum Beispiel weil dein Konto gesperrt oder überall abgemeldet wurde. Melde dich neu an.",
       "endedSuite": "Deine Sitzung wurde beendet, zum Beispiel weil dein Konto gesperrt oder überall abgemeldet oder dein Passwort in nexsuite geändert wurde. Melde dich neu an."
     },
@@ -964,7 +924,6 @@
       "join": "Als {{name}} beitreten",
       "invalidTitle": "Einladung nicht gültig",
       "invalidText": "Diese Einladung gilt nicht mehr: Sie ist benutzt, abgelaufen oder zurückgezogen. Frag nach einer neuen.",
-      "withProvider": "Mit {{name}} annehmen",
       "noWay": "Die Anmeldung mit Passwort ist abgeschaltet und kein Anmeldeanbieter eingerichtet. Frag den Betreiber.",
       "haveAccount": "Dieser Link ist für ein neues Konto. Du bist schon als {{name}} angemeldet und brauchst ihn nicht.",
       "toApp": "Zu nexcanvas",
@@ -1111,7 +1070,8 @@
     "section_other": "Neu für dich ({{count}})",
     "operator_added_self": "Der Betreiber {{actor}} hat dich in „{{space}}“ aufgenommen ({{role}}).",
     "operator_role_self": "Der Betreiber {{actor}} hat dein Recht in „{{space}}“ geändert ({{role}}).",
-    "operator_removed_self": "Der Betreiber {{actor}} hat dich aus „{{space}}“ genommen."
+    "operator_removed_self": "Der Betreiber {{actor}} hat dich aus „{{space}}“ genommen.",
+    "operator_unlinked": "Der Betreiber {{actor}} hat die Verknüpfung deines Kontos mit {{subject}} gelöst."
   },
   "background": {
     "title": "Hintergrund",
@@ -1248,15 +1208,6 @@
       "again": "Passwort noch einmal",
       "mismatch": "Die beiden Passwörter sind nicht gleich."
     },
-    "oidc": {
-      "title": "Anmeldeanbieter",
-      "only": "Dieses Konto meldet sich über den Anbieter an.",
-      "linked": "Verknüpft: Du kannst dich über den Anbieter und mit deinem Passwort anmelden.",
-      "unlink": "Verknüpfung lösen",
-      "unlinked": "Nicht mehr verknüpft.",
-      "text": "Verknüpfe dein Konto mit dem Anbieter, dann geht beides. Dein Passwort bestätigt, dass du es bist.",
-      "link": "Mit dem Anbieter verknüpfen"
-    },
     "sessions": {
       "title": "Andere Browser",
       "text": "Meldet dich überall ab außer hier, etwa nach einem verlorenen Handy.",
@@ -1267,8 +1218,14 @@
       "operator": "Betreiber",
       "member": "Mitglied"
     },
-    "linked": "Dein Konto ist mit dem Anbieter verknüpft.",
-    "setupFirst": "Der Betreiber verlangt einen zweiten Faktor. Richte ihn hier ein, dann geht es weiter."
+    "linked": "Dein Konto ist mit {{name}} verknüpft.",
+    "setupFirst": "Der Betreiber verlangt einen zweiten Faktor. Richte ihn hier ein, dann geht es weiter.",
+    "unlinked": "Nicht mehr mit {{name}} verknüpft.",
+    "emailOffer": "Ein Anmeldeanbieter kennt dich als {{address}}. Soll nexcanvas diese Adresse nehmen?",
+    "emailTake": "Übernehmen",
+    "emailTaken": "Adresse übernommen.",
+    "emailDecline": "Nicht mehr fragen",
+    "emailDeclined": "nexcanvas fragt nicht mehr nach dieser Adresse."
   },
   "twofactor": {
     "title": "Zweiter Faktor",
@@ -1493,16 +1450,6 @@
     "violet": "Violett",
     "grey": "Grau",
     "turquoise": "Türkis"
-  },
-  "authentik": {
-    "step": {
-      "reached": "Verbindung zu authentik",
-      "signingKey": "Schlüssel zum Signieren",
-      "mapping": "Zuordnung für die Adresse",
-      "provider": "Anbieter",
-      "application": "Anwendung",
-      "filled": "Einstellungen hier"
-    }
   },
   "notFound": {
     "space": "Diesen Bereich gibt es nicht, er liegt im Papierkorb, oder du darfst ihn nicht sehen.",

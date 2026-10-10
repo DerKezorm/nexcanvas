@@ -77,8 +77,9 @@ your own: save a board as a template, with its content or only the skeleton.*
   with a click. Boards and spaces go to the trash for 30 days.
 - **On the phone.** All tools with the finger: the tools sit at the bottom, one finger moves the board, two zoom,
   a long press opens the menu, a double tap starts a text.
-- **Around it, as in nexlore.** Accounts by invitation, second factor with recovery codes, sign-in through an OIDC
-  provider, a log in four levels, German and English plus languages the operator adds as JSON files, mails in the
+- **Around it, as in nexlore.** Accounts by invitation, second factor with recovery codes, sign-in through any
+  number of OpenID Connect providers (authentik, Microsoft Entra ID, Keycloak, Authelia, Pocket ID), each with a
+  button on the sign-in page, authentik set up in one step or by a blueprint, a log in four levels, German and English plus languages the operator adds as JSON files, mails in the
   language of whoever receives them, backups of the database together with every photo and file, with a check before
   going back.
 
@@ -132,7 +133,8 @@ nexcanvas is made to be reachable from outside, for yourself on the road or for 
    (the proxy's address or network; without it every sign-in seems to come from the proxy and the brake against
    guessing cannot tell people apart; Settings, Server says so while it is missing), and
    `NEXCANVAS_COOKIE_SECURE: "on"`.
-4. **A second factor**: set up your own under My account, Security. Or sign in through your OpenID Connect provider.
+4. **A second factor**: set up your own under My account, Security. Or sign in through an OpenID Connect provider
+   (Settings, Server, Sign-in); accounts are linked only by the provider's identity, never by a mail address.
 5. **Leave the switches closed you do not need**: public pages and API tokens are off until you open them.
 6. **Optionally keep the operator's settings at home**: `NEXCANVAS_OPERATOR_NETWORKS: "192.168.0.0/16"` refuses them
    from anywhere else (behind a proxy only together with `NEXCANVAS_TRUSTED_PROXIES`).
@@ -167,7 +169,7 @@ With an image: `docker compose pull && docker compose up -d`. Built from source:
 | `NEXCANVAS_MEDIA_DIR` | `<data>/media` | Photos and files of the boards |
 | `NEXCANVAS_LOCALES_DIR` | `<data>/locales` | Extra languages, one JSON file each |
 | `NEXCANVAS_SECRET_KEY` | created on first start | Protects server-side secrets; when set, it wins over `secret.key` |
-| `NEXCANVAS_PUBLIC_URL` | from the request | The address people use to reach nexcanvas, for invitation links, public pages and the OIDC redirect. The setting in the interface wins when set |
+| `NEXCANVAS_PUBLIC_URL` | from the request | The address people use to reach nexcanvas, for invitation links, public pages and the redirect addresses of the sign-in providers. The setting in the interface wins when set |
 | `NEXCANVAS_TRUSTED_PROXIES` | none | Addresses or networks of reverse proxies whose `X-Forwarded-For` is believed, comma separated |
 | `NEXCANVAS_SETUP_TOKEN` | made at start | The code the first account needs |
 | `NEXCANVAS_OPERATOR_NETWORKS` | none | Networks the operator's settings may be changed from, comma separated |

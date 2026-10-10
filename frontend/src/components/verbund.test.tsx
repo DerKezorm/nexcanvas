@@ -184,7 +184,7 @@ const row = (page: HTMLElement, name: string) => page.querySelector<HTMLElement>
 beforeEach(async () => {
   server.answers = {
     'GET /api/auth/me': { ...robin },
-    'GET /api/auth/methods': { password: true, oidc: false, oidc_name: '' },
+    'GET /api/auth/methods': { password: true, providers: [] },
     'GET /api/backups': [],
   }
   server.calls = []
@@ -480,7 +480,7 @@ describe('disconnecting (B17)', () => {
 describe('signing in and old links (B11, B12, B26)', () => {
   it('names a new password in nexsuite among the reasons a session ended', async () => {
     auth.status = 'signedOut'
-    server.answers['GET /api/auth/methods'] = { password: false, oidc: true, oidc_name: 'nexsuite', suite: true, suite_url: 'https://suite.example.com' }
+    server.answers['GET /api/auth/methods'] = { password: false, providers: [{ slug: 'oidc', label: 'nexsuite' }], suite: true, suite_url: 'https://suite.example.com' }
     const page = await mount(<LoginPage />, '/login?ended=1')
     expect(page.textContent).toContain('or your password was changed in nexsuite')
   })
@@ -494,7 +494,7 @@ describe('signing in and old links (B11, B12, B26)', () => {
 
   it('says that nexsuite may still be signed in and offers someone else through it (B11)', async () => {
     auth.status = 'signedOut'
-    server.answers['GET /api/auth/methods'] = { password: false, oidc: true, oidc_name: 'nexsuite', suite: true, suite_url: 'https://suite.example.com' }
+    server.answers['GET /api/auth/methods'] = { password: false, providers: [{ slug: 'oidc', label: 'nexsuite' }], suite: true, suite_url: 'https://suite.example.com' }
     const page = await mount(<LoginPage />, '/login?next=%2Fb%2F5')
     const box = page.querySelector('[data-testid="still-signed-in"]')!
     expect(box.textContent).toContain('If you are still signed in to nexsuite, the button takes you in as the same person without asking.')
@@ -504,7 +504,7 @@ describe('signing in and old links (B11, B12, B26)', () => {
     expect(box.textContent).toContain('Sign out there, then use “Sign in with nexsuite” here.')
     // The button keeps the page asked for (B10).
     const signIn = [...page.querySelectorAll('a')].find((a) => a.textContent === 'Sign in with nexsuite')!
-    expect(signIn.getAttribute('href')).toBe('/api/oidc/start?next=%2Fb%2F5')
+    expect(signIn.getAttribute('href')).toBe('/api/oidc/oidc/start?next=%2Fb%2F5')
   })
 
   it('says at once that an invitation from before connecting holds no more', async () => {
@@ -515,7 +515,7 @@ describe('signing in and old links (B11, B12, B26)', () => {
 
   it('tells a person nexsuite made a moment ago to try again (B20)', async () => {
     auth.status = 'signedOut'
-    server.answers['GET /api/auth/methods'] = { password: false, oidc: true, oidc_name: 'nexsuite', suite: true, suite_url: 'https://suite.example.com' }
+    server.answers['GET /api/auth/methods'] = { password: false, providers: [{ slug: 'oidc', label: 'nexsuite' }], suite: true, suite_url: 'https://suite.example.com' }
     const page = await mount(<LoginPage />, '/login?error=suite_no_account')
     expect(page.textContent).toContain('nexcanvas does not know you yet. Try again in a few seconds')
   })

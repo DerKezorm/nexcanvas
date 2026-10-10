@@ -209,7 +209,7 @@ describe('the invitation page (E18, G4)', () => {
     scene.me = null
     handler = (_m, path) => {
       if (path.startsWith('/api/invite/')) return answer
-      if (path === '/api/auth/methods') return { status: 200, body: { password: true, oidc: false, oidc_name: '' } }
+      if (path === '/api/auth/methods') return { status: 200, body: { password: true, providers: [] } }
       return undefined
     }
     // A fresh page each time: the same one would keep the answer it already has.
@@ -452,7 +452,7 @@ describe('limits said in the field (E21)', () => {
     const { AccountPage } = await import('./AccountPage')
     handler = (method, path) => {
       if (path === '/api/me/profile' && method === 'PUT') return { status: 422, body: { detail: { code: 'display_name_too_long', maximum: 80 } } }
-      if (path === '/api/auth/methods') return { status: 200, body: { password: true, oidc: false, oidc_name: '' } }
+      if (path === '/api/auth/methods') return { status: 200, body: { password: true, providers: [] } }
       return undefined
     }
     await render(<AccountPage />, '/account')
@@ -497,7 +497,7 @@ describe('the sign-in and invitation pages before the ways in are known (as next
     const { LoginPage } = await import('./AuthPages')
     scene.me = null
     scene.status = 'signedOut'
-    handler = (_m, path) => (path === '/api/auth/methods' ? { status: 200, body: { password: true, oidc: true, oidc_name: 'nexsuite', suite: true, suite_url: 'https://suite.example.com' } } : undefined)
+    handler = (_m, path) => (path === '/api/auth/methods' ? { status: 200, body: { password: true, providers: [{ slug: 'oidc', label: 'nexsuite' }], suite: true, suite_url: 'https://suite.example.com' } } : undefined)
     const release = hold()
     await render(<LoginPage />, '/login')
     expect(box.querySelector('input[type="password"]')).toBeNull()
@@ -505,7 +505,8 @@ describe('the sign-in and invitation pages before the ways in are known (as next
     release()
     await settle()
     expect(box.querySelector('input[type="password"]')).toBeNull()
-    expect(box.querySelector('a[href^="/api/oidc/start"]')).not.toBeNull()
+    // The coupled entry of the provider list (blueprint 06).
+    expect(box.querySelector('a[href^="/api/oidc/oidc/start"]')).not.toBeNull()
   })
 
   it('the invitation waits for them too, and then shows only the way that is there', async () => {
@@ -514,7 +515,7 @@ describe('the sign-in and invitation pages before the ways in are known (as next
     scene.status = 'signedOut'
     handler = (_m, path) => {
       if (path.startsWith('/api/invite/')) return { status: 200, body: { space: null, role: null, by: 'Robin', min_password: 12, signed_in_as: null } }
-      if (path === '/api/auth/methods') return { status: 200, body: { password: false, oidc: true, oidc_name: 'authentik' } }
+      if (path === '/api/auth/methods') return { status: 200, body: { password: false, providers: [{ slug: 'sso', label: 'authentik' }] } }
       return undefined
     }
     const release = hold()
@@ -530,7 +531,8 @@ describe('the sign-in and invitation pages before the ways in are known (as next
     release()
     await settle()
     expect(box.querySelector('input[type="password"]')).toBeNull()
-    expect(box.textContent).toContain('Accept with authentik')
+    // Blueprint 04: "Continue with …" per active provider, the invitation along.
+    expect(box.textContent).toContain('Continue with authentik')
   })
 })
 
@@ -608,7 +610,7 @@ describe('a refusal in the settings says the numbers it names (useAction)', () =
 describe('the second factor names the emergency codes only where there are any (H11)', () => {
   it('alone without the sentence about nexsuite, connected with it', async () => {
     const { AccountPage } = await import('./AccountPage')
-    handler = (_m, path) => (path === '/api/auth/methods' ? { status: 200, body: { password: true, oidc: false, oidc_name: '' } } : undefined)
+    handler = (_m, path) => (path === '/api/auth/methods' ? { status: 200, body: { password: true, providers: [] } } : undefined)
     await render(<AccountPage />, '/account?tab=security')
     const lead = () => box.querySelector('[data-testid="second-factor-lead"]')?.textContent
     expect(lead()).toBe(i18n.t('twofactor.lead'))

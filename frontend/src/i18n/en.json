@@ -544,12 +544,9 @@
   },
   "server": {
     "accounts": "Accounts",
-    "accountsHint": "Accounts come by invitation, or through the sign-in provider when “New people get an account” is on there.",
+    "accountsHint": "Accounts come by invitation, or through a sign-in provider when “New people get an account” is on for it.",
     "proxyUnknown": "Requests come through a proxy, but NEXCANVAS_TRUSTED_PROXIES is not set. nexcanvas then sees everybody as one sender: whoever guesses wrong often slows down everyone signing in from a browser not used here before. Put the proxy's address into NEXCANVAS_TRUSTED_PROXIES. If no proxy stands in front of nexcanvas, you can ignore this.",
     "member": "Member",
-    "signin": "Sign-in",
-    "oidc": "OpenID Connect",
-    "oidcIssuer": "Issuer",
     "twoFactor": "Second factor",
     "twoFactorRequired": "Require a second factor",
     "public": "Public pages",
@@ -597,17 +594,7 @@
     "send": "Send",
     "mailSent": "The test mail went out.",
     "secretKept": "Kept; type only to change it.",
-    "passwordLogin": "Sign-in with password",
-    "passwordLoginHint": "Off: members get in through the provider only. You as the operator can always use your password.",
     "twoFactorRequiredHint": "Every account that signs in with a password must set one up before it gets further. Accounts from the provider bring its own. Switch on your own first.",
-    "oidcName": "Name on the button",
-    "redirect": "Redirect address for the provider",
-    "redirectHint": "Enter it at the provider.",
-    "oidcAutoCreate": "New people get an account",
-    "oidcAutoCreateHint": "Off: only invited or linked accounts get in.",
-    "oidcRemove": "Remove provider",
-    "publicUrl": "Public address",
-    "publicUrlHint": "For links in invitations and public pages, and the OIDC return.",
     "inSpaces_one": "in one space",
     "inSpaces_other": "in {{count}} spaces",
     "withTwoFactor": "second factor",
@@ -680,6 +667,11 @@
         "title": "Upload a backup?",
         "text": "The file joins the list of backups. Nothing is restored until you confirm it there.",
         "button": "Upload"
+      },
+      "unlink": {
+        "title": "Unlink {{name}} from {{provider}}?",
+        "text": "The account can no longer sign in through {{provider}} until it links itself again under My account, Security.",
+        "button": "Unlink"
       }
     },
     "backupMade": "Backup created.",
@@ -707,7 +699,6 @@
     "logClear": "Clear log",
     "logClearText": "Every line is removed. New ones come as before.",
     "logUntil": "Back to normal at {{time}}.",
-    "signinText": "How people get in.",
     "signInBy": {
       "password": "password",
       "oidc": "provider",
@@ -725,26 +716,6 @@
       "membersNoManager_one": "one person with access, nobody manages the space",
       "membersNoManager_other": "{{count}} people with access, nobody manages the space",
       "show": "Show"
-    },
-    "oidcOn": "Set up with {{issuer}}.",
-    "oidcOff": "Not set up.",
-    "clientId": "Client ID",
-    "clientSecret": "Client secret",
-    "authentik": {
-      "title": "authentik in one step",
-      "text": "With an API token that may create applications, nexcanvas sets up provider and application in authentik itself. The token is used for that only and never stored.",
-      "url": "Address of authentik",
-      "token": "API token",
-      "run": "Set up",
-      "blueprint": "Download blueprint instead",
-      "asking": "One moment, authentik is being asked. This can take up to 20 seconds.",
-      "why": {
-        "unreachable": "authentik cannot be reached at this address. Check the address and whether nexcanvas reaches that network.",
-        "unusable": "This address cannot be used. Check how it is written.",
-        "token": "authentik did not accept the token (answer {{status}}). Check that it is valid and has the rights it needs.",
-        "answered": "Something answers at this address, but not authentik as expected (answer {{status}}). Check the address; the whole answer is in the log.",
-        "slug": "Every slug nexcanvas would give its application already belongs to another application in authentik. Rename the nexcanvas provider there and try again."
-      }
     },
     "publicAllowedHint": "Managers of a space may then publish a board as a reading page. Switched off, every link answers as if it never existed.",
     "files": "Files",
@@ -785,7 +756,15 @@
     "block": "Block",
     "smtpHostPort": "Server and port",
     "everySpace": "sees and manages every space",
-    "forAccount": "{{name}}: {{action}}"
+    "forAccount": "{{name}}: {{action}}",
+    "providers": {
+      "order": "Move {{name}}: drag, or the arrow keys",
+      "coupled": "through the coupling",
+      "coupledText": "While nexcanvas is coupled, sign-in comes through the coupling. The providers set up here wait, switched off, until it is uncoupled.",
+      "more": "More"
+    },
+    "unlink": "Unlink",
+    "unlinkFrom": "Unlink from {{name}}"
   },
   "errors": {
     "avatar_not_a_picture": "That is not a picture nexcanvas accepts (JPEG, PNG, WebP, GIF, HEIC or AVIF).",
@@ -818,21 +797,6 @@
     "cannot_delete_self": "You cannot delete your own account.",
     "cannot_demote_self": "You cannot take the operator role from yourself.",
     "oidc_account": "This account signs in through the provider.",
-    "oidc_only_account": "This account signs in through the provider only.",
-    "oidc_not_configured": "No sign-in provider is set up.",
-    "oidc_no_account": "There is no account for you here. Ask for an invitation.",
-    "oidc_email_unverified": "The provider did not confirm your mail address.",
-    "oidc_email_taken": "Your mail address belongs to another account.",
-    "oidc_state_mismatch": "The sign-in expired or came from elsewhere. Try again.",
-    "oidc_token_invalid": "The provider's answer was not valid.",
-    "oidc_denied": "The provider did not let you in.",
-    "oidc_link_mismatch": "This link belongs to another account.",
-    "oidc_subject_taken": "This identity is linked to another account already.",
-    "oidc_provider_unreachable": "The provider cannot be reached.",
-    "issuer_invalid": "This is not an OpenID Connect provider.",
-    "issuer_unreachable": "The provider cannot be reached at this address.",
-    "secret_required": "Enter the client secret.",
-    "url_invalid": "The address must start with http:// or https://.",
     "backup_invalid": "This is not a nexcanvas backup.",
     "backup_damaged": "The backup is damaged. Nothing was changed.",
     "busy": "nexcanvas is busy. Try again in a moment.",
@@ -921,18 +885,16 @@
     "duration_not_allowed": "This duration is not offered.",
     "log_level_from_environment": "The log level is fixed by NEXCANVAS_LOG_LEVEL.",
     "notice_refused": "This is not a notice from nexsuite.",
-    "oidc_exchange_failed": "The provider did not accept the sign-in. Try again.",
-    "oidc_issuer_mismatch": "The provider reports another address than the one set up. Ask the operator to check it.",
-    "oidc_provider_invalid": "The provider's answer cannot be read. Ask the operator to check the setup.",
     "origin_refused": "The API is for programs, not for web pages.",
     "slow_down": "Too many requests with this token. Wait a minute.",
-    "token_invalid": "No valid API token."
+    "token_invalid": "No valid API token.",
+    "no_offer": "There is no address to take.",
+    "email_taken": "Another account has this address already."
   },
   "auth": {
     "name": "Sign-in name",
     "password": "Password",
     "passwordHint": "At least 12 characters.",
-    "or": "or",
     "setup": {
       "title": "Set up nexcanvas",
       "text": "The first account runs this server: it may invite others and change every setting.",
@@ -944,8 +906,6 @@
       "title": "Sign in",
       "text": "Welcome back to your boards.",
       "submit": "Sign in",
-      "passwordOff": "Sign-in with a password is turned off for members.",
-      "oidc": "Sign in with {{name}}",
       "ended": "Your session was ended, for example because your account was blocked or signed out everywhere. Sign in again.",
       "endedSuite": "Your session was ended, for example because your account was blocked or signed out everywhere, or your password was changed in nexsuite. Sign in again."
     },
@@ -964,7 +924,6 @@
       "join": "Join as {{name}}",
       "invalidTitle": "Invitation not valid",
       "invalidText": "This invitation is not valid any more: it was used, expired or was withdrawn. Ask for a new one.",
-      "withProvider": "Accept with {{name}}",
       "noWay": "Sign-in with a password is off and no sign-in provider is set up. Ask the operator.",
       "haveAccount": "This link is for a new account. You are signed in as {{name}} already and do not need it.",
       "toApp": "To nexcanvas",
@@ -1111,7 +1070,8 @@
     "section_other": "New for you ({{count}})",
     "operator_added_self": "The operator {{actor}} added you to “{{space}}” ({{role}}).",
     "operator_role_self": "The operator {{actor}} changed your right in “{{space}}” ({{role}}).",
-    "operator_removed_self": "The operator {{actor}} took you out of “{{space}}”."
+    "operator_removed_self": "The operator {{actor}} took you out of “{{space}}”.",
+    "operator_unlinked": "The operator {{actor}} unlinked your account from {{subject}}."
   },
   "background": {
     "title": "Background",
@@ -1248,15 +1208,6 @@
       "again": "Password again",
       "mismatch": "The two passwords are not the same."
     },
-    "oidc": {
-      "title": "Sign-in provider",
-      "only": "This account signs in through the provider.",
-      "linked": "Linked: you can sign in with the provider as well as with your password.",
-      "unlink": "Unlink",
-      "unlinked": "No longer linked.",
-      "text": "Link your account to the provider, then you can sign in with either. Your password confirms it is you.",
-      "link": "Link with the provider"
-    },
     "sessions": {
       "title": "Other browsers",
       "text": "Signs you out everywhere except here, for example after losing a phone.",
@@ -1267,8 +1218,14 @@
       "operator": "Operator",
       "member": "Member"
     },
-    "linked": "Your account is linked to the provider.",
-    "setupFirst": "The operator requires a second factor. Set it up here, then you can go on."
+    "linked": "Your account is linked to {{name}}.",
+    "setupFirst": "The operator requires a second factor. Set it up here, then you can go on.",
+    "unlinked": "No longer linked to {{name}}.",
+    "emailOffer": "A sign-in provider knows you as {{address}}. Should nexcanvas take this address?",
+    "emailTake": "Take it",
+    "emailTaken": "Address taken.",
+    "emailDecline": "Don't ask again",
+    "emailDeclined": "nexcanvas no longer asks about this address."
   },
   "twofactor": {
     "title": "Second factor",
@@ -1493,16 +1450,6 @@
     "violet": "Violet",
     "grey": "Grey",
     "turquoise": "Turquoise"
-  },
-  "authentik": {
-    "step": {
-      "reached": "Connection to authentik",
-      "signingKey": "Signing key",
-      "mapping": "Mapping for the address",
-      "provider": "Provider",
-      "application": "Application",
-      "filled": "Settings here"
-    }
   },
   "notFound": {
     "space": "This space does not exist, is in the trash, or you may not see it.",

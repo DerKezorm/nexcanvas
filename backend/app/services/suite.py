@@ -48,6 +48,8 @@ from ..models import (
     Account,
     AuthSession,
     Membership,
+    OidcLink,
+    OidcProvider,
     Space,
     SpaceNotice,
     Team,
@@ -57,6 +59,7 @@ from ..models import (
     utcnow,
 )
 from ..security import decrypt_secret, encrypt_secret, end_all_sessions
+from ..vendor.nexoidc import MANAGED_NEXSUITE, coupling, providers
 from . import accounts, logs, settings_service
 
 logger = logging.getLogger("nexcanvas.suite")
@@ -71,6 +74,8 @@ TOKEN_CONTEXT = "suite-token"
 SECRET_CONTEXT = "oidc-client-secret"
 SMTP_KEYS = ("smtp_host", "smtp_port", "smtp_security", "smtp_user", "smtp_password_enc", "smtp_from")
 OIDC_KEYS = ("oidc_issuer", "oidc_client_id", "oidc_client_secret_enc", "oidc_provider_name", "oidc_auto_create")
+#: The name on the button of the coupled entry in the provider list (the app decides it, blueprint 06).
+ENTRY_LABEL = "nexsuite"
 
 _sync_lock = threading.RLock()
 #: Keeping the choices of a connection under way and finishing it do not cross (B23); two finishes neither.
@@ -665,16 +670,16 @@ def _confirm(db: Session, token: str, plan: dict[str, Any]) -> list[dict[str, st
             team.source, team.external_id = TEAM_ADMIN, external
     pending = settings_service.get(db, "suite_pending") or {}
     values = settings_service.get_all(db)
+    # nexsuite becomes the provider: the coupled entry ``oidc`` of the list, the own entries set aside until the
+    # disconnect (blueprint 06, ``nexoidc.coupling``). One transaction with everything above: the store only flushes.
+    joined = _couple(db, pending)
     settings_service.save(db, {
         # What it was before, for the way back; the roles too, so that an operator role only nexsuite gave goes with
-        # the connection (B17). An account made while connected was none before: a member.
+        # the connection (B17). An account made while connected was none before: a member. The settings of the one
+        # provider from before the list (``OIDC_KEYS``) are only kept as they are, for one version.
         "suite_saved": {**{key: values[key] for key in (*OIDC_KEYS, *SMTP_KEYS, "password_login")},
                         "roles": {str(row.id): row.role for row in accounts_here.values()}},
-        "oidc_issuer": str(pending.get("issuer", "")).rstrip("/"),
-        "oidc_client_id": str(pending.get("client_id", "")),
-        "oidc_client_secret_enc": encrypt_secret(decrypt_secret(str(pending.get("secret_enc", "")), SECRET_CONTEXT)),
-        "oidc_provider_name": "nexsuite",
-        "oidc_auto_create": False,
+        "suite_coupling": joined,
         "password_login": False,
         "suite_pending": None,
         "suite_state": "connected",
@@ -683,6 +688,77 @@ def _confirm(db: Session, token: str, plan: dict[str, Any]) -> list[dict[str, st
     logger.info("Connected to nexsuite: %s accounts, %s spaces", len(person_of), len(space_of))
     sync(db)
     return list(plan.get("new_people") or [])
+
+
+def _store(db: Session) -> Any:
+    from .oidc_store import SqlStore
+
+    return SqlStore(db, hold=True)
+
+
+def _couple(db: Session, pending: dict[str, Any]) -> dict[str, Any]:
+    """The coupled entry with the accounts' persons as links, the own entries set aside; what is needed to put them
+    back. A /finish that is applied again (its answer lost before, B23) finds the coupling made and keeps it."""
+    store = _store(db)
+    kept = settings_service.get(db, "suite_coupling")
+    if providers.coupled(store) and isinstance(kept, dict):
+        mirror_links(db)
+        return kept
+    joined = coupling.couple(
+        store,
+        issuer=str(pending.get("issuer", "")),
+        client_id=str(pending.get("client_id", "")),
+        client_secret=decrypt_secret(str(pending.get("secret_enc", "")), SECRET_CONTEXT),
+        label=ENTRY_LABEL,
+        people=[],
+        # nexcanvas never asked a code after nexsuite: nexsuite checks the second factor (blueprint 06).
+        trusts_second_factor=True,
+    )
+    mirror_links(db)
+    return joined.as_dict()
+
+
+def _coupled_entry(db: Session) -> OidcProvider | None:
+    return db.scalar(select(OidcProvider).where(OidcProvider.managed == MANAGED_NEXSUITE).limit(1))
+
+
+def mirror_links(db: Session) -> None:
+    """The links of the coupled entry are the persons the accounts belong to (``oidc_subject`` while connected, as
+    ``account_of_person`` finds them): who signs in through nexsuite as person "3" is the account nexsuite gave "3",
+    never one whose own link elsewhere only looks the same (those wait with their own, set-aside entry). Called
+    wherever the persons change: connecting, every sync. Flushes; the caller commits."""
+    entry = _coupled_entry(db)
+    if entry is None:
+        return
+    wanted: dict[str, int] = {}
+    rows = sorted((row for row in db.scalars(select(Account).where(Account.oidc_subject != "")) if known(row)),
+                  key=lambda row: (row.suite_person != row.oidc_subject, row.id))
+    for row in rows:
+        wanted.setdefault(row.oidc_subject, row.id)
+    current = {link.subject: link for link in db.scalars(select(OidcLink).where(OidcLink.provider_id == entry.id))}
+    for subject, link in current.items():
+        if wanted.get(subject) != link.account_id:
+            db.delete(link)
+    db.flush()
+    for subject, account_id in wanted.items():
+        if subject in current and current[subject].account_id == account_id:
+            continue
+        db.add(OidcLink(provider_id=entry.id, subject=subject, account_id=account_id, issuer=entry.issuer))
+    db.flush()
+
+
+def _uncouple(db: Session) -> None:
+    """The coupled entry goes with its links, the own entries come back as they were."""
+    store = _store(db)
+    kept = settings_service.get(db, "suite_coupling")
+    if isinstance(kept, dict):
+        coupling.uncouple(store, coupling.Coupling.from_dict(kept))
+    entry = _coupled_entry(db)
+    while entry is not None:
+        # Kept nothing to put back (a coupling from before it was kept): the entry goes all the same.
+        store.delete_provider(entry.id)
+        entry = _coupled_entry(db)
+    db.flush()
 
 
 def abort(db: Session) -> bool:
@@ -933,6 +1009,8 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
             db.flush()
         row.display_name = shown_name(person.get("display_name"))
         row.email = suite_email(person)
+        # nexsuite's address, not one a provider of its own gave (that one would go with the account's last link).
+        row.email_source = ""
         if person.get("email") and not row.email:
             logger.warning("An address from nexsuite refused, the account keeps none name=%s", row.name)
         if row.id != keeper:
@@ -1048,6 +1126,8 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
         # server is nexsuite's to set either way, never half here, half there.
         settings_service.save(db, {"smtp_host": "", "smtp_user": "", "smtp_password_enc": "", "smtp_from": "",
                                    "suite_mail": True})
+    # Who signs in as which person: the links of the coupled entry follow the accounts' persons.
+    mirror_links(db)
     settings_service.save(db, {"suite_emergency": list(seen.get("emergency") or [])})
     db.commit()
     for old, new in renamed:
@@ -1154,10 +1234,13 @@ def _disconnect(db: Session, *, tell: bool) -> tuple[list[str], list[str], list[
         row.role = MEMBER
         back.append(shown(row))
         logger.warning("Operator role from nexsuite ended name=%s", row.name)
+    # The own sign-in providers come back as they were before connecting (``nexoidc.coupling``); the settings of the
+    # one provider from before the list only as kept, for one version.
+    _uncouple(db)
     restore = {key: saved[key] for key in (*OIDC_KEYS, "password_login") if key in saved}
     if not restore:
-        restore = {"oidc_issuer": "", "oidc_client_id": "", "oidc_client_secret_enc": "", "oidc_provider_name": "",
-                   "oidc_auto_create": False, "password_login": True}
+        restore = {"password_login": True}
+    restore["suite_coupling"] = None
     if settings_service.get(db, "suite_mail"):
         restore.update({key: saved[key] for key in SMTP_KEYS if key in saved})
     settings_service.save(db, restore)

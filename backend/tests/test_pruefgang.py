@@ -49,7 +49,7 @@ def test_a9_connected_what_nexsuite_keeps_stays_shut(
     connect(client, world, operator)
     for answer in (
         client.put("/api/settings", json={"public_url": "https://other.example.com"}),
-        client.delete("/api/oidc/link"),
+        client.delete("/api/oidc/sso/link"),
         client.post("/api/backups/nexcanvas-2026-10-04-120000.zip/restore", json={"password": PASSWORD}),
     ):
         assert answer.status_code == 409 and answer.json()["detail"]["code"] == "managed_by_suite", answer.text

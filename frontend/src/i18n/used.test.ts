@@ -27,7 +27,8 @@ function flat(tree: Record<string, unknown>, prefix = ''): string[] {
 const source = files
   .readdirSync('src', { recursive: true })
   .map((name) => name.replaceAll('\\', '/'))
-  .filter((name) => /\.tsx?$/.test(name) && !name.includes('.test.') && !name.startsWith('i18n/'))
+  // The shared sign-in module (`vendor/nexoidc`) brings its own texts and is checked by its own test.
+  .filter((name) => /\.tsx?$/.test(name) && !name.includes('.test.') && !name.startsWith('i18n/') && !name.startsWith('vendor/'))
   .map((name) => files.readFileSync(`src/${name}`, 'utf-8'))
   .join('\n')
 

@@ -49,7 +49,7 @@ with an AGPL-3.0 work, and the source of every part is public.
 | pdfjs-dist | Apache-2.0 |
 | Fontsource packages | MIT (the font itself OFL-1.1, see above) |
 
-Build and test tools (Vite, TypeScript, Tailwind CSS, Vitest, ruff, pytest) are not part of the image.
+Build and test tools (Vite, TypeScript, Tailwind CSS, Vitest, Playwright, ruff, pytest) are not part of the image.
 
 ## Compatibility
 
