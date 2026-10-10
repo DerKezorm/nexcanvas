@@ -66,7 +66,8 @@
         "malformed": "Das Token enthält Zeichen, die kein Token hat. Kopier es noch einmal aus authentik.",
         "answered": "Unter dieser Adresse antwortet etwas, aber nicht authentik wie erwartet (Antwort {{status}}). Prüf die Adresse; die ganze Antwort steht im Log.",
         "slug": "In authentik gehören alle Slugs, die {{app}} seiner Anwendung geben würde, schon anderen Anwendungen. Benenne den Anbieter von {{app}} dort um und versuch es noch einmal.",
-        "coupled": "Solange {{app}} gekoppelt ist, kommt die Anmeldung über die Kopplung. Entkopple zuerst, dann richte authentik hier ein."
+        "coupled": "Solange {{app}} gekoppelt ist, kommt die Anmeldung über die Kopplung. Entkopple zuerst, dann richte authentik hier ein.",
+        "issuer_change": "Das ist ein anderes authentik als bisher, also ein anderer Aussteller. {{count}} Konten müssen sich danach neu verknüpfen."
       }
     },
     "account": {

@@ -28,6 +28,9 @@ class StandardAdapter:
     single_account = False
     #: nexsuite: only authentik, no second entry through the form (Bauplan 06). Entries are then made in the store.
     only_authentik = False
+    #: The app can be coupled to nexsuite (Bauplan 06). False for the apps with one account (nexcrate, nexsift): they
+    #: have no people to pair, and the coupling test checks instead that the list stays uncoupled.
+    supports_coupling = True
     #: The app has a second factor of its own.
     has_second_factor = True
     #: "single": the app kept one provider in its settings and migrates (Pflichttest 22); "list" or "none": not.
@@ -180,8 +183,11 @@ class StandardAdapter:
     def unlink(self, client: Any, slug: str) -> httpx.Response:
         return client.delete(self.path("link", slug=slug))
 
-    def setup_authentik(self, url: str, token: str) -> httpx.Response:
-        return self.operator().post(self.path("setup"), json={"url": url, "token": token})
+    def setup_authentik(self, url: str, token: str, *, confirm_issuer_change: bool = False) -> httpx.Response:
+        body: dict[str, Any] = {"url": url, "token": token}
+        if confirm_issuer_change:
+            body["confirm_issuer_change"] = True
+        return self.operator().post(self.path("setup"), json=body)
 
     def blueprint(self) -> httpx.Response:
         return self.operator().get(self.path("blueprint"))

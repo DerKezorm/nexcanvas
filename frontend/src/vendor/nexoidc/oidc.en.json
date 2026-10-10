@@ -66,7 +66,8 @@
         "malformed": "The token contains characters no token has. Copy it from authentik once more.",
         "answered": "Something answers at this address, but not authentik as expected (answer {{status}}). Check the address; the whole answer is in the log.",
         "slug": "Every slug {{app}} would give its application already belongs to another application in authentik. Rename the {{app}} provider there and try again.",
-        "coupled": "While {{app}} is coupled, sign-in comes through the coupling. Uncouple first, then set up authentik here."
+        "coupled": "While {{app}} is coupled, sign-in comes through the coupling. Uncouple first, then set up authentik here.",
+        "issuer_change": "This is another authentik than before, so another issuer. {{count}} accounts will have to link again afterwards."
       }
     },
     "account": {

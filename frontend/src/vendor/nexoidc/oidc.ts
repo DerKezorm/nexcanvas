@@ -46,8 +46,17 @@ export const OIDC_FORM_CODES = [
 /** The steps of the authentik button in their order; `binding` only in apps with one account. */
 export const AUTHENTIK_STEPS = ['reached', 'signingKey', 'mapping', 'provider', 'application', 'filled'] as const
 export const AUTHENTIK_STEP_BINDING = 'binding'
-/** Why a step failed, under `oidc.authentik.why.<reason>` (with `{{status}}`). */
-export const AUTHENTIK_REASONS = ['unreachable', 'unusable', 'token', 'malformed', 'answered', 'slug', 'coupled'] as const
+/** Why a step failed, under `oidc.authentik.why.<reason>` (with `{{status}}`; `issuer_change` with `{{count}}`). */
+export const AUTHENTIK_REASONS = [
+  'unreachable',
+  'unusable',
+  'token',
+  'malformed',
+  'answered',
+  'slug',
+  'coupled',
+  'issuer_change',
+] as const
 
 export type OidcErrorCode = (typeof OIDC_ERROR_CODES)[number]
 
@@ -70,6 +79,19 @@ export function authentikStepKey(step: string): string | null {
 /** The text key of a step's reason. */
 export function authentikReasonKey(reason: string | null | undefined): string | null {
   return reason && (AUTHENTIK_REASONS as readonly string[]).includes(reason) ? `oidc.authentik.why.${reason}` : null
+}
+
+/**
+ * The number of accounts the button asks about before it changes the issuer (`reason: issuer_change`, Bauplan 03), or
+ * null when the run did not stop for that. The page then asks with `oidc.admin.issuerChangeConfirm` and, on yes, runs
+ * the button again with `confirm_issuer_change: true`.
+ */
+export function authentikIssuerChange(result: {
+  steps: ReadonlyArray<{ ok: boolean; reason?: string }>
+  count?: number
+}): number | null {
+  const failed = result.steps.find((step) => !step.ok)
+  return failed?.reason === 'issuer_change' ? (result.count ?? 0) : null
 }
 
 const SPELLED_OUT: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss', Ä: 'Ae', Ö: 'Oe', Ü: 'Ue' }

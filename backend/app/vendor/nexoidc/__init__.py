@@ -42,7 +42,7 @@ from .model import (
 )
 from .tls import warm
 
-__version__ = "1.0.7"
+__version__ = "1.0.8"
 
 __all__ = [
     "CODES",
