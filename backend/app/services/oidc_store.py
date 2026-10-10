@@ -176,6 +176,11 @@ def _own_links(db: Session, account_id: int) -> bool:
     return found is not None
 
 
+def has_own_links(db: Session, account_id: int) -> bool:
+    """The account can sign in through a provider of its own (not the coupled nexsuite entry)."""
+    return _own_links(db, account_id)
+
+
 def links_gone(db: Session, account_id: int) -> None:
     """No provider of its own left for the account: an address that came from one goes too (also the offer), an own
     one stays. Not while another link holds."""
@@ -189,6 +194,22 @@ def links_gone(db: Session, account_id: int) -> None:
         account.email_source = ""
     account.provider_email = ""
     account.provider_email_off = ""
+
+
+def _is_old_entry(row: OidcProvider) -> bool:
+    """The entry the one provider of 0.3 became (``oidc``, not the coupled nexsuite entry that borrows the slug)."""
+    return row.slug == nexoidc.LEGACY_SLUG and row.managed != MANAGED_NEXSUITE
+
+
+def forget_the_way_back(db: Session) -> None:
+    """The settings and the column of 0.3 (its way back, one version) always describe the same issuer, or nothing:
+    once the entry they became is removed or gets another issuer, they go too, or a return to 0.3 would bring back a
+    provider the operator removed, with its subjects. Flushes; the caller commits."""
+    settings_service.save(db, {"oidc_issuer": "", "oidc_client_id": "", "oidc_client_secret_enc": "",
+                               "oidc_provider_name": "", "oidc_auto_create": False}, commit=False)
+    db.execute(update(Account).values(oidc_subject="", oidc_subject_local=""))
+    db.flush()
+    logger.info("The settings of the one provider of 0.3 went with the entry oidc")
 
 
 class SqlStore:
@@ -255,6 +276,8 @@ class SqlStore:
     def update_provider(self, provider_id: int, values: ProviderValues) -> Provider:
         row = self.db.get(OidcProvider, provider_id)
         assert row is not None
+        if _is_old_entry(row) and not protocol.same_issuer(row.issuer, values.issuer):
+            forget_the_way_back(self.db)
         self._apply(row, values)
         if values.client_secret is not None:
             row.client_secret_enc = encrypt_secret(values.client_secret, secret_context(row.id))
@@ -266,9 +289,22 @@ class SqlStore:
     def delete_provider(self, provider_id: int) -> None:
         # Foreign keys are on (db.py), the links would go anyway; said here so that nothing depends on a pragma, and
         # so that an address that came with the last of an account's links goes along.
+        row = self.db.get(OidcProvider, provider_id)
+        if row is not None and _is_old_entry(row):
+            forget_the_way_back(self.db)
         self.drop_links(provider_id)
         self.db.execute(delete(OidcProvider).where(OidcProvider.id == provider_id))
         self.db.flush()
+
+    def _forget_old_subjects(self, provider_id: int, account_ids: set[int]) -> None:
+        """A link of the entry ``oidc`` that goes takes the account's subject in the column of 0.3 along (its way
+        back): a person unlinked on purpose must not come in again on the older version."""
+        row = self.db.get(OidcProvider, provider_id)
+        if row is None or not _is_old_entry(row) or not account_ids:
+            return
+        self.db.execute(
+            update(Account).where(Account.id.in_(account_ids)).values(oidc_subject="", oidc_subject_local="")
+        )
 
     def _coupled_entry(self, provider_id: int) -> bool:
         row = self.db.get(OidcProvider, provider_id)
@@ -305,6 +341,7 @@ class SqlStore:
         )
         removed = bool(result.rowcount)  # type: ignore[attr-defined]
         if removed:
+            self._forget_old_subjects(provider_id, {account_id})
             self.db.flush()
             if not self._coupled_entry(provider_id):
                 links_gone(self.db, account_id)
@@ -313,6 +350,7 @@ class SqlStore:
     def drop_links(self, provider_id: int) -> int:
         holders = set(self.db.scalars(select(OidcLink.account_id).where(OidcLink.provider_id == provider_id)))
         coupled = self._coupled_entry(provider_id)
+        self._forget_old_subjects(provider_id, holders)
         result = self.db.execute(delete(OidcLink).where(OidcLink.provider_id == provider_id))
         self.db.flush()
         for account_id in holders if not coupled else ():
@@ -468,6 +506,14 @@ def migration_due(db: Session) -> bool:
     return legacy_plan(db) is not None
 
 
+def _person_of_0_3(row: Account) -> bool:
+    """How 0.3 told an account nexsuite knew by the person in its ``oidc_subject`` (its ``suite.known``): marked with
+    that person, or, connected before marks were kept, not blocked (one left out is always blocked). Read once, by the
+    migration of a coupled installation; afterwards the links decide."""
+    return bool(row.oidc_subject) and (row.suite_person == row.oidc_subject
+                                       or (not row.suite_person and row.blocked_at is None))
+
+
 def _apply_coupled(db: Session) -> coupling.Coupling | None:
     """An installation connected to nexsuite at the moment of the update: the own provider from before connecting
     (``suite_saved``) becomes the entry ``oidc`` with the own links (``oidc_subject_local``), set aside at once;
@@ -479,8 +525,8 @@ def _apply_coupled(db: Session) -> coupling.Coupling | None:
     own = _legacy(saved) if saved and saved.get("oidc_issuer") and saved.get("oidc_client_id") else None
     nexsuite = _legacy({**values, "oidc_provider_name": "nexsuite"})
     rows = sorted(
-        (row for row in db.scalars(select(Account).where(Account.oidc_subject != "")) if suite.known(row)),
-        # The account nexsuite matched the person to first (``account_of_person``).
+        (row for row in db.scalars(select(Account).where(Account.oidc_subject != "")) if _person_of_0_3(row)),
+        # The account 0.3 matched the person to first (its ``account_of_person``).
         key=lambda row: (row.suite_person != row.oidc_subject, row.id),
     )
     people = [(row.id, row.oidc_subject) for row in rows]

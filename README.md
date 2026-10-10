@@ -79,9 +79,9 @@ your own: save a board as a template, with its content or only the skeleton.*
   a long press opens the menu, a double tap starts a text.
 - **Around it, as in nexlore.** Accounts by invitation, second factor with recovery codes, sign-in through any
   number of OpenID Connect providers (authentik, Microsoft Entra ID, Keycloak, Authelia, Pocket ID), each with a
-  button on the sign-in page, authentik set up in one step or by a blueprint, a log in four levels, German and English plus languages the operator adds as JSON files, mails in the
-  language of whoever receives them, backups of the database together with every photo and file, with a check before
-  going back.
+  button on the sign-in page, authentik set up in one step or by a blueprint, a log in four levels, German and
+  English plus languages the operator adds as JSON files, mails in the language of whoever receives them, backups of
+  the database together with every photo and file, with a check before going back.
 
 ## Start
 

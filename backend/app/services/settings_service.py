@@ -95,7 +95,7 @@ def get_all(db: Session) -> dict[str, Any]:
     return values
 
 
-def save(db: Session, changes: dict[str, Any]) -> None:
+def save(db: Session, changes: dict[str, Any], *, commit: bool = True) -> None:
     for key, value in changes.items():
         if key not in DEFAULTS:
             raise KeyError(key)
@@ -104,7 +104,10 @@ def save(db: Session, changes: dict[str, Any]) -> None:
             db.add(Setting(key=key, value=value))
         else:
             row.value = value
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
 
 
 def normalize_public_url(value: str) -> str:

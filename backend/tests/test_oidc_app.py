@@ -117,6 +117,10 @@ def test_removing_every_entry_after_the_migration_brings_the_old_provider_back_n
     assert entry is not None
     assert client.delete(f"/api/oidc/admin/providers/{entry.id}").status_code == 200
     assert oidc_store.migrate_settings(backup=False) is None and _entries() == []
+    # Even with settings of 0.3 written again behind its back (a backup of 0.3 put in by hand): moved once is moved.
+    with SessionLocal() as db:
+        settings_service.save(db, {"oidc_issuer": provider.issuer, "oidc_client_id": provider.client_id})
+    assert oidc_store.migrate_settings(backup=False) is None and _entries() == []
 
 
 def test_the_button_of_0_3_becomes_an_entry_the_button_looks_after_without_the_slash(
@@ -394,3 +398,78 @@ def test_a_blocked_account_does_not_come_in_through_the_provider(client: TestCli
     browser = fresh_browser()
     back = sign_in_via_oidc(browser, provider, sub="p-1", preferred_username="neo")
     assert error_in(back) == "account_blocked" and browser.get("/api/auth/me").status_code == 401
+
+
+def _way_back() -> tuple[str, str, list[str]]:
+    with SessionLocal() as db:
+        subjects = sorted(subject for subject in db.scalars(select(Account.oidc_subject)) if subject)
+        return str(settings_service.get(db, "oidc_issuer")), str(settings_service.get(db, "oidc_client_id")), subjects
+
+
+def test_removing_the_entry_oidc_takes_the_way_back_of_0_3_along(client: TestClient, operator: Account,
+                                                                 provider: FakeProvider) -> None:
+    """The settings and the column of 0.3 describe the same issuer or nothing: removed here, a return to 0.3 must not
+    bring the provider back with its subjects."""
+    make_account("anna")
+    _legacy(provider, label="Company", subjects={"anna": "anna-1"})
+    entry = oidc_store.migrate_settings(backup=False)
+    assert entry is not None and _way_back() == (provider.issuer, provider.client_id, ["anna-1"])
+    assert client.delete(f"/api/oidc/admin/providers/{entry.id}").status_code == 200
+    assert _way_back() == ("", "", [])
+
+
+def test_another_issuer_for_the_entry_oidc_takes_the_way_back_of_0_3_along_the_same_one_not(
+    client: TestClient, operator: Account, provider: FakeProvider
+) -> None:
+    other = provider.network.add(FakeProvider("https://other.example.com"))  # type: ignore[attr-defined]
+    make_account("anna")
+    _legacy(provider, label="Company", subjects={"anna": "anna-1"})
+    entry = oidc_store.migrate_settings(backup=False)
+    assert entry is not None
+    body = {"label": "Company", "issuer": provider.issuer + "/", "client_id": provider.client_id}
+    assert client.put(f"/api/oidc/admin/providers/{entry.id}", json=body).status_code == 200
+    assert _way_back() == (provider.issuer, provider.client_id, ["anna-1"]), "the same issuer, written with a slash"
+    body = {"label": "Company", "issuer": other.issuer, "client_id": provider.client_id}
+    assert client.put(f"/api/oidc/admin/providers/{entry.id}", json=body).status_code == 200
+    assert _way_back() == ("", "", [])
+
+
+def test_another_entry_leaves_the_way_back_of_0_3_alone(client: TestClient, operator: Account,
+                                                        provider: FakeProvider) -> None:
+    second = provider.network.add(FakeProvider("https://second.example.com"))  # type: ignore[attr-defined]
+    make_account("anna")
+    _legacy(provider, label="Company", subjects={"anna": "anna-1"})
+    oidc_store.migrate_settings(backup=False)
+    made = add_provider(client, second, slug="second", label="Second")
+    assert client.delete(f"/api/oidc/admin/providers/{made['id']}").status_code == 200
+    assert _way_back() == (provider.issuer, provider.client_id, ["anna-1"])
+
+
+def test_a_start_without_a_page_forgets_the_page_of_an_earlier_start(client: TestClient, operator: Account,
+                                                                     provider: FakeProvider) -> None:
+    configure(client, provider)
+    browser = fresh_browser()
+    location(browser.get("/api/oidc/sso/start", params={"next": "/b/old"}))
+    assert (browser.cookies.get("nexcanvas_oidc_next") or "").strip('"') == "/b/old"
+    target = location(browser.get("/api/oidc/sso/start"))
+    assert browser.cookies.get("nexcanvas_oidc_next") is None
+    assert location(oidc_helpers.come_back(browser, provider, target)) == "/"
+
+
+def test_unlinking_from_the_entry_oidc_takes_the_subject_of_0_3_along(client: TestClient, operator: Account,
+                                                                     provider: FakeProvider) -> None:
+    """By the account itself and by the operator: unlinked on purpose, nobody comes in again on 0.3."""
+    anna = make_account("anna")
+    make_account("ben")
+    _legacy(provider, label="Company", subjects={"anna": "anna-1", "ben": "ben-1", "tester": "tester-1"})
+    entry = oidc_store.migrate_settings(backup=False)
+    assert entry is not None
+    member = TestClient(client.app, base_url="http://testserver", headers=client.headers, follow_redirects=False)
+    sign_in(member, anna)
+    assert member.delete("/api/oidc/oidc/link").status_code == 204
+    assert _way_back()[2] == ["ben-1", "tester-1"]
+    ben = _row("ben")
+    done = client.request("DELETE", f"/api/oidc/admin/accounts/{ben.id}/links/{entry.id}",
+                          json={"current_password": PASSWORD})
+    assert done.status_code == 204, done.text
+    assert _way_back() == (provider.issuer, provider.client_id, ["tester-1"])

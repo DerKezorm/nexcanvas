@@ -306,7 +306,7 @@ describe('an open page asks after its session (A8)', () => {
 
 describe('the sentences for the new refusals', () => {
   it.each([
-    ['account_blocked', 'Dieses Konto ist gesperrt. Bitte den Betreiber, es freizugeben.', 'This account is blocked. Ask the operator to unblock it.'],
+    ['account_blocked', 'Dieses Konto ist gesperrt. Wende dich an den Betreiber.', 'This account is blocked. Ask the operator.'],
     ['password_unchanged', 'Das neue Passwort ist dasselbe wie das bisherige. Nimm ein anderes.', 'The new password is the same as the current one. Choose another.'],
     ['invalid_characters', 'Der Text enthält Steuerzeichen, die man nicht sieht. Tipp ihn neu ein, statt ihn einzufügen.', 'The text contains control characters you cannot see. Type it anew instead of pasting it.'],
     ['team_leads_off', 'Der Betreiber hat Teamleitungen nicht erlaubt, ihre Teams zu ändern.', 'The operator has not let team leads change their teams.'],

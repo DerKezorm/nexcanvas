@@ -8,8 +8,12 @@
  * `backend/tests/test_texts.py`.
  */
 
+import sharedEn from '../vendor/nexoidc/oidc.en.json'
 import de from './de.json'
 import en from './en.json'
+
+/** The sentences the shared sign-in blueprint fixes word for word (Bauplan 04, `oidc.error.*`): not ours to change. */
+const sharedErrors: string[] = Object.values(sharedEn.oidc.error)
 
 type Files = {
   readFileSync: (file: string, encoding: string) => string
@@ -77,7 +81,7 @@ describe('the shipped texts', () => {
       /\bGive (a|an|the|your)\b|\bMake (a|an|one|them|new|it)\b|\bmakes? (a|an|new|its|their)\b|\b(runs?|ran) out\b|\bWhole:|\bhangs on\b|\bthe own\b|\bTake (the )?second factor\b/i.test(text(en, key)) ||
       // "holds" for "gilt" or "enthält"; a key one holds down while dragging stays ("Hold while dragging").
       /\bholds?\b|\bHolds\b/.test(text(en, key)),
-    )
+    ).filter((key) => !sharedErrors.includes(text(en, key)))
     expect(stiff.map((key) => `${key}: ${text(en, key)}`)).toEqual([])
     // Floor: the keys that hold a key down are read and let through.
     expect(text(en, 'keys.pan')).toMatch(/^Hold /)

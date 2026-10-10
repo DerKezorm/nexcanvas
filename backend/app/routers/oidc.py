@@ -266,10 +266,14 @@ async def start(
         except OidcError as exc:
             return _redirect(flow.refused(exc, None), request, landing=landing)
     response = _redirect(target, request)
+    cookie = target.cookie
     if landing:
-        cookie = target.cookie
         response.set_cookie(_next_cookie(), landing, max_age=cookie.max_age, path=cookie.path, httponly=True,
                             samesite="lax", secure=cookie.secure or secure_cookie(request))
+    else:
+        # A page an earlier, unfinished attempt asked for is not this sign-in's.
+        response.delete_cookie(_next_cookie(), path=cookie.path, secure=cookie.secure or secure_cookie(request),
+                               httponly=True, samesite="lax")
     return response
 
 
@@ -309,13 +313,10 @@ async def _returned(slug: str, request: Request) -> RedirectResponse:
                 brake.succeeded(key)
                 return _redirect(flow.arrived(arrival, flow.linked_page(arrival.provider.slug)), request)
             coupled_entry = arrival.provider.managed == MANAGED_NEXSUITE
-            if coupled_entry and suite.connected(s.db):
-                # The links of the coupled entry are the persons as the accounts hold them right now.
-                suite.mirror_links(s.db)
-                s.db.commit()
-                if s.find_link(arrival.provider.id, arrival.identity.subject) is None:
-                    await _directory_once(arrival.identity.subject)
-                    s.db.expire_all()
+            if coupled_entry and s.find_link(arrival.provider.id, arrival.identity.subject) is None:
+                # A person made in nexsuite a moment ago: the directory once, which links its new account.
+                await _directory_once(arrival.identity.subject)
+                s.db.expire_all()
             try:
                 signed = oidc_accounts.sign_in(s, arrival)
             except OidcError as exc:

@@ -253,7 +253,9 @@ def test_connecting_matches_accounts_and_spaces_and_brings_the_rest(client: Test
         assert sorted((link.subject, link.account_id) for link in db.query(OidcLink).filter_by(provider_id=entry.id)) == sorted(
             (row.oidc_subject, row.id) for row in db.query(Account).filter(Account.oidc_subject != "")
             if row.blocked_at is None)
-    assert _setting("oidc_issuer") == ""
+    # The settings of 0.3's one provider name nexsuite, as 0.3 wrote them: the way back finds the persons in
+    # ``oidc_subject`` beside their own issuer.
+    assert _setting("oidc_issuer") == SUITE and _setting("oidc_client_id") == "nxs-client"
     assert _setting("password_login") is False
     assert _row("anna").oidc_subject == "2" and _row("tester").oidc_subject == "1"
     ben_id = _row("ben").oidc_subject
