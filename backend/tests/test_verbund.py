@@ -1741,6 +1741,54 @@ def test_the_way_back_to_0_3_finds_settings_and_columns_of_one_issuer(client: Te
     assert {name: value for name, value in columns.items() if value != ("", "")} == {"cleo": ("own-cleo", "")}
 
 
+def _own_entry_of_0_3(provider: Any) -> OidcProvider:
+    """The one provider of 0.3 as the migration made it the entry ``oidc``, its persons in the column of 0.3."""
+    with SessionLocal() as db:
+        settings_service.save(db, {
+            "oidc_issuer": provider.issuer, "oidc_client_id": provider.client_id,
+            "oidc_client_secret_enc": "the-secret", "oidc_provider_name": "Own", "oidc_auto_create": True,
+            oidc_store.MIGRATED: False})
+    entry = oidc_store.migrate_settings(backup=False)
+    assert entry is not None
+    return entry
+
+
+def _own_settings() -> tuple[str, str, str, str]:
+    return tuple(str(_setting(key)) for key in oidc_store.WAY_BACK_KEYS)  # type: ignore[return-value]
+
+
+def _put_own(client: TestClient, entry: OidcProvider, provider: Any, **form: Any) -> None:
+    body = {"label": "Own", "issuer": provider.issuer, "client_id": provider.client_id, **form}
+    assert client.put(f"/api/oidc/admin/providers/{entry.id}", json=body).status_code == 200
+
+
+def test_coupling_and_uncoupling_bring_back_no_wrong_way_back_to_0_3(client: TestClient, operator: Account,
+                                                                      world: dict, fake: FakeSuite,
+                                                                      provider: Any) -> None:
+    """The own entry ``oidc`` parked by the coupling is not held (the settings of the coupling and ``suite_saved``
+    are its way back), so no stale copy of the settings is left behind to be put back later; one held before
+    coupling stays held across it, with what it held."""
+    entry = _own_entry_of_0_3(provider)
+    own = _own_settings()
+    assert own[0] == provider.issuer
+    connect(client, world, operator)
+    assert _setting("oidc_way_back_held") is None, "parking the own entry holds nothing"
+    assert _setting("oidc_issuer") == SUITE
+    _disconnect(client, fake)
+    assert _own_settings() == own and _setting("oidc_way_back_held") is None and _setting("oidc_auto_create") is True
+    # Held before coupling (the entry is off for 0.3): held after uncoupling, and what it held comes back on.
+    _put_own(client, entry, provider, enabled=False, auto_create=True)
+    held = _setting("oidc_way_back_held")
+    assert isinstance(held, dict) and _own_settings() == ("", "", "", "")
+    connect(client, world, operator)
+    assert _setting("oidc_issuer") == SUITE and _setting("oidc_way_back_held") == held
+    _disconnect(client, fake)
+    assert _own_settings() == ("", "", "", "") and _setting("oidc_way_back_held") == held
+    assert _setting("oidc_auto_create") is False
+    _put_own(client, entry, provider, enabled=True, auto_create=True)
+    assert _own_settings() == own and _setting("oidc_way_back_held") is None and _setting("oidc_auto_create") is True
+
+
 def test_a_sign_in_under_way_while_the_directory_or_the_connection_changes_ends_cleanly(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any) -> None:
     """Started at nexsuite before a sync blocked the person, or before the operator disconnected: the way back is a

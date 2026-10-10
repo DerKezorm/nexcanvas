@@ -448,13 +448,15 @@ def test_another_issuer_for_the_entry_oidc_takes_the_way_back_of_0_3_along_the_s
     assert _way_back() == ("", "", [])
 
 
-@pytest.mark.parametrize(("enabled", "auto_create", "old"), [(True, True, True), (False, True, False),
-                                                           (True, False, False), (False, False, False)])
-def test_the_way_back_of_0_3_lets_nobody_new_in_through_an_entry_that_is_off_or_makes_no_accounts(
-    client: TestClient, operator: Account, provider: FakeProvider, enabled: bool, auto_create: bool, old: bool
+@pytest.mark.parametrize(("enabled", "auto_create", "old", "found"), [
+    (True, True, True, True), (False, True, False, False), (True, False, False, True), (False, False, False, False)])
+def test_the_way_back_of_0_3_lets_nobody_in_through_an_entry_that_is_off_and_nobody_new_through_one_without_accounts(
+    client: TestClient, operator: Account, provider: FakeProvider, enabled: bool, auto_create: bool, old: bool,
+    found: bool
 ) -> None:
-    """0.3 knows one provider and one switch "make new accounts": the entry switched off or without new accounts
-    here is a 0.3 that lets nobody new in through it."""
+    """0.3 knows one provider and one switch "make new accounts": the entry without new accounts here is a 0.3 that
+    lets nobody new in through it. The entry switched off is a 0.3 without the provider: it would let the linked
+    persons in (0.3.0 knows no switch to turn the provider off)."""
     _legacy(provider, label="Company", auto_create=not old)
     entry = oidc_store.migrate_settings(backup=False)
     assert entry is not None
@@ -463,7 +465,7 @@ def test_the_way_back_of_0_3_lets_nobody_new_in_through_an_entry_that_is_off_or_
     assert client.put(f"/api/oidc/admin/providers/{entry.id}", json=body).status_code == 200
     with SessionLocal() as db:
         assert settings_service.get(db, "oidc_auto_create") is old
-        assert settings_service.get(db, "oidc_issuer") == provider.issuer, "the provider itself stays the way back"
+        assert (settings_service.get(db, "oidc_issuer") == provider.issuer) is found
 
 
 def test_another_entry_leaves_the_way_back_of_0_3_alone(client: TestClient, operator: Account,
@@ -605,10 +607,32 @@ def test_the_way_back_stays_empty_across_saves_while_the_switch_is_off_and_comes
     _put_entry(client, entry, provider, trusts_second_factor=False, label="Company A")
     _put_entry(client, entry, provider, trusts_second_factor=False, label="Company B")
     assert _held_way_back()[:5] == ("", "", "", "", False)
-    # Back on, but the entry itself off: the provider is back for 0.3 and makes no accounts (the rule of before).
+    # Back on, but the entry itself off: still held, for the second reason.
     _put_entry(client, entry, provider, trusts_second_factor=True, enabled=False, auto_create=True)
+    assert _held_way_back()[:5] == ("", "", "", "", False) and _held_way_back()[5] is not None
+    # Both reasons gone: the provider is back for 0.3, and it makes accounts as the entry says.
+    _put_entry(client, entry, provider, trusts_second_factor=True, enabled=True, auto_create=True)
     after = _held_way_back()
-    assert after[:4] == before[:4] and after[4:] == (False, None)
+    assert after[:4] == before[:4] and after[4:] == (True, None)
+
+
+def test_the_way_back_of_0_3_finds_no_provider_while_the_entry_is_off_the_persons_stay_and_it_is_back_when_it_is_on(
+    client: TestClient, operator: Account, provider: FakeProvider
+) -> None:
+    """The persons linked at the entry would come in on 0.3.0 through an entry that is off: no provider there, and the
+    persons stay as the way back of the entry switched on again. With either reason left it stays off."""
+    make_account("anna")
+    _legacy(provider, label="Company", auto_create=True, subjects={"anna": "anna-1"})
+    entry = oidc_store.migrate_settings(backup=False)
+    assert entry is not None
+    before = _held_way_back()
+    _put_entry(client, entry, provider, auto_create=True, enabled=False)
+    assert _held_way_back()[:5] == ("", "", "", "", False) and _way_back() == ("", "", ["anna-1"])
+    _put_entry(client, entry, provider, auto_create=True, enabled=False, trusts_second_factor=False)
+    _put_entry(client, entry, provider, auto_create=True, enabled=True, trusts_second_factor=False)
+    assert _held_way_back()[:5] == ("", "", "", "", False), "the second factor is still no reason to come back"
+    _put_entry(client, entry, provider, auto_create=True, enabled=True)
+    assert _held_way_back() == before and _way_back()[2] == ["anna-1"]
 
 
 def test_removing_the_entry_or_another_issuer_forgets_what_the_switch_held_back(

@@ -205,9 +205,10 @@ WAY_BACK_KEYS = ("oidc_issuer", "oidc_client_id", "oidc_client_secret_enc", "oid
 
 
 def _hold_the_way_back(db: Session, held: bool) -> None:
-    """The entry ``oidc`` without "the provider checks the second factor itself" is an entry that is off for 0.3: it
-    does not know the switch and would let people in without a code. So the provider of 0.3 is emptied while the
-    switch is off and put back when it is on again, at once, in both directions. Flushes; the caller commits."""
+    """The entry ``oidc`` that is off, or without "the provider checks the second factor itself", is an entry that is
+    off for 0.3: it knows neither the entry's switch (it would let the linked persons in) nor the second factor switch
+    (it would ask for no code). So the provider of 0.3 is emptied while either reason holds and put back when neither
+    does, at once, in both directions. Flushes; the caller commits."""
     if held:
         if settings_service.get(db, "oidc_issuer"):
             kept = {key: settings_service.get(db, key) for key in WAY_BACK_KEYS}
@@ -296,14 +297,18 @@ class SqlStore:
     def update_provider(self, provider_id: int, values: ProviderValues) -> Provider:
         row = self.db.get(OidcProvider, provider_id)
         assert row is not None
-        if _is_old_entry(row) and not protocol.same_issuer(row.issuer, values.issuer):
+        if _is_old_entry(row) and values.slug != row.slug:
+            # Parked by the coupling: ``suite_saved`` and the settings of the coupling hold the way back for it, and
+            # the settings are put back from there on uncoupling. Holding it here would leave a stale copy behind.
+            pass
+        elif _is_old_entry(row) and not protocol.same_issuer(row.issuer, values.issuer):
             forget_the_way_back(self.db)
         elif _is_old_entry(row):
-            _hold_the_way_back(self.db, not values.trusts_second_factor)
-            if values.trusts_second_factor and settings_service.get(self.db, "oidc_issuer"):
-                # The way back lets nobody new in through an entry that is off or makes no accounts.
-                settings_service.save(self.db, {"oidc_auto_create": bool(values.auto_create and values.enabled)},
-                                      commit=False)
+            # Off for 0.3 is both: the entry switched off, and the provider not checking the second factor itself.
+            _hold_the_way_back(self.db, not values.enabled or not values.trusts_second_factor)
+            if not self._held() and settings_service.get(self.db, "oidc_issuer"):
+                # The way back lets nobody new in through an entry that makes no accounts.
+                settings_service.save(self.db, {"oidc_auto_create": bool(values.auto_create)}, commit=False)
         self._apply(row, values)
         if values.client_secret is not None:
             row.client_secret_enc = encrypt_secret(values.client_secret, secret_context(row.id))
@@ -311,6 +316,9 @@ class SqlStore:
         provider = self._provider(row)
         assert provider is not None
         return provider
+
+    def _held(self) -> bool:
+        return isinstance(settings_service.get(self.db, "oidc_way_back_held"), dict)
 
     def delete_provider(self, provider_id: int) -> None:
         # Foreign keys are on (db.py), the links would go anyway; said here so that nothing depends on a pragma, and
