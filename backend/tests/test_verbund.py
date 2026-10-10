@@ -22,8 +22,9 @@ from fastapi.testclient import TestClient
 
 from app.db import SessionLocal
 from app.main import app
-from app.models import OPERATOR, Account, Board, OidcLink, OidcProvider, Space, SpaceNotice, Team, utcnow
+from app.models import OPERATOR, Account, Board, OidcLink, OidcProvider, Setting, Space, SpaceNotice, Team, utcnow
 from app.services import logs, oidc_store, settings_service, suite
+from app.vendor.nexoidc import migrate
 
 from . import oidc_helpers, test_suite
 from .conftest import PASSWORD, make_account, new_client
@@ -1909,3 +1910,22 @@ def test_a_start_while_coupled_takes_over_nothing_of_0_3_and_leaves_the_coupling
     assert said and all(record.levelno == logging.INFO for record in said), caplog.messages
     assert not [r for r in caplog.records if r.levelno >= logging.WARNING and "sign-in settings" in r.getMessage()]
     assert _setting(oidc_store.ANCHOR) == anchor and anchor, "the anchor outlives the coupling"
+
+
+def test_a_coupled_start_on_a_database_of_1_0_9_closes_the_anchor_it_has_not_got(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any) -> None:
+    """Migrated by module 1.0.9 and coupled since: the database has no anchor, and a start closes it (README "Der Anker
+    beim Start"), so that 0.3 finds nothing to open when the coupling ends. An anchor that is there stays."""
+    _own_entry_of_0_3(provider)
+    connect(client, world, operator)
+    with SessionLocal() as db:
+        db.query(Setting).filter_by(key=oidc_store.ANCHOR).delete()
+        db.commit()
+    assert not _setting(oidc_store.ANCHOR)
+    assert oidc_store.migrate_settings(backup=False) is None
+    assert _setting(oidc_store.ANCHOR) == migrate.CLOSED
+    # And once there, a start leaves it alone.
+    with SessionLocal() as db:
+        settings_service.save(db, {oidc_store.ANCHOR: provider.issuer})
+    assert oidc_store.migrate_settings(backup=False) is None
+    assert _setting(oidc_store.ANCHOR) == provider.issuer

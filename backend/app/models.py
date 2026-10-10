@@ -116,13 +116,14 @@ class Account(Base):
     email: Mapped[str] = mapped_column(String(255), default="")
     #: Where ``email`` came from: "" (an invitation, nexsuite, or from before this was kept) or ``provider`` (a sign-in
     #: provider's address). An address from a provider goes with the account's last link (the shared sign-in
-    #: blueprint 01).
-    email_source: Mapped[str] = mapped_column(String(16), default="")
+    #: blueprint 01). ``server_default`` on this and the next two: 0.3 does not know the columns and still
+    #: writes accounts on a database this version made.
+    email_source: Mapped[str] = mapped_column(String(16), default="", server_default="")
     #: The address a provider knows the account by, offered on the account page to an account with a password (it
     #: takes it only when it says so); empty when there is nothing to offer. ``provider_email_off``: the address the
     #: account said "don't ask again" to.
-    provider_email: Mapped[str] = mapped_column(String(255), default="")
-    provider_email_off: Mapped[str] = mapped_column(String(255), default="")
+    provider_email: Mapped[str] = mapped_column(String(255), default="", server_default="")
+    provider_email_off: Mapped[str] = mapped_column(String(255), default="", server_default="")
     #: Before the sign-in provider list: the subject of the one provider of the settings, which became a link of the
     #: entry ``oidc`` (``oidc_links``) and stays readable for one version as the way back. While connected to nexsuite
     #: it holds the account's person there (``services/suite.py``), mirrored into the links of the coupled entry.

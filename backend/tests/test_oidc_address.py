@@ -5,16 +5,20 @@ leaves out, and the hint on an API token that waits for a second factor.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
 
 import pytest
+from fastapi import Request
 from fastapi.testclient import TestClient
 from sqlalchemy import select, text
 
 from app.config import get_settings
 from app.db import SessionLocal
 from app.main import app
+from app.middleware import ForwardedProtoMiddleware
 from app.models import Account, OidcProvider, utcnow
+from app.routers.auth import secure_cookie
 from app.services import settings_service
 from app.vendor.nexoidc import MANAGED_AUTHENTIK, MANAGED_HAND
 
@@ -142,13 +146,58 @@ def test_a_trusted_proxy_says_the_request_came_over_https_and_the_app_believes_i
     behind = _operator_from("10.9.0.5", operator)
     seen = _seen(behind, **{"X-Forwarded-Proto": "https"})
     assert str(seen["seen"]).startswith("https://") and seen["proxy_ignored"] is False
-    # The first of a list, as proxies chain them.
-    assert str(_seen(behind, **{"X-Forwarded-Proto": "https, http"})["seen"]).startswith("https://")
+    # Of a list the rightmost counts: it is the one the proxy nearest to the app appended, while the first can be
+    # sent by the visitor himself.
+    assert str(_seen(behind, **{"X-Forwarded-Proto": "http, https"})["seen"]).startswith("https://")
+    assert str(_seen(behind, **{"X-Forwarded-Proto": "https, http"})["seen"]).startswith("http://")
+    # Case does not matter.
+    assert str(_seen(behind, **{"X-Forwarded-Proto": "HTTPS"})["seen"]).startswith("https://")
+    assert str(_seen(behind, **{"X-Forwarded-Proto": "http, HTTPS"})["seen"]).startswith("https://")
     # Not a scheme at all: the connection's own.
     assert str(_seen(behind, **{"X-Forwarded-Proto": "javascript"})["seen"]).startswith("http://")
     # Only the scheme: another host in the header changes nothing.
     assert str(_seen(behind, **{"X-Forwarded-Proto": "https", "X-Forwarded-Host": "evil.example"})["seen"]) == (
         "https://testserver")
+
+
+def _scheme_of(scope: dict) -> str:
+    """The scheme the app is given for ``scope`` after ``ForwardedProtoMiddleware`` (an ASGI call of its own)."""
+    seen: dict = {}
+
+    async def downstream(scope: dict, receive: object, send: object) -> None:
+        seen.update(scope)
+
+    asyncio.run(ForwardedProtoMiddleware(downstream)(scope, None, None))  # type: ignore[arg-type]
+    return str(seen["scheme"])
+
+
+def test_a_websocket_from_a_trusted_proxy_gets_ws_or_wss_by_the_same_rule(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(get_settings(), "trusted_proxies", "10.9.0.0/16")
+
+    def scope(kind: str, value: bytes, peer: str = "10.9.0.5") -> dict:
+        return {"type": kind, "scheme": "ws" if kind == "websocket" else "http", "client": (peer, 1),
+                "headers": [(b"x-forwarded-proto", value)]}
+
+    assert _scheme_of(scope("websocket", b"https")) == "wss"
+    assert _scheme_of(scope("websocket", b"HTTPS")) == "wss"
+    assert _scheme_of(scope("websocket", b"http, https")) == "wss"
+    assert _scheme_of(scope("websocket", b"https, http")) == "ws"
+    assert _scheme_of(scope("websocket", b"javascript")) == "ws", "not a scheme: the connection's own"
+    assert _scheme_of(scope("websocket", b"https", peer="10.8.0.5")) == "ws", "no trusted proxy: believed by nobody"
+    # The same header on a plain request, for the other side of the branch.
+    assert _scheme_of(scope("http", b"http, https")) == "https"
+
+
+def test_the_cookie_flag_follows_the_same_rule_of_the_header(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(get_settings(), "cookie_secure", "auto")
+
+    def secure(value: bytes) -> bool:
+        scope = {"type": "http", "scheme": "http", "server": ("testserver", 80), "path": "/", "query_string": b"",
+                 "headers": [(b"host", b"testserver"), (b"x-forwarded-proto", value)]}
+        return secure_cookie(Request(scope))
+
+    assert secure(b"http, https") and secure(b"HTTPS")
+    assert not secure(b"https, http") and not secure(b"javascript")
 
 
 def test_a_sender_that_is_no_trusted_proxy_cannot_make_the_app_see_another_scheme(
@@ -185,6 +234,34 @@ def test_the_columns_added_for_the_way_back_and_the_second_factor_have_a_default
         db.commit()
         assert db.execute(text("SELECT provider_checked FROM auth_sessions WHERE token_hash = 'raw-0-3'")).scalar() == 0
         assert db.execute(text("SELECT registered_redirect FROM oidc_providers WHERE slug = 'raw'")).scalar() == ""
+
+
+#: What 0.3.0 writes into ``accounts`` (every NOT NULL column of its model); it does not know the three of the sign-in
+#: provider list.
+ACCOUNT_COLUMNS_OF_0_3 = (
+    "name", "display_name", "whats_new_seen", "role", "sign_in", "password_hash", "email", "oidc_subject",
+    "language", "suite_person", "oidc_subject_local", "browser_language", "created_at", "failed_logins",
+    "totp_secret_enc", "totp_recovery", "totp_last_step", "device_key", "suite_signed_out",
+)
+
+
+def test_an_account_inserted_by_0_3_without_the_columns_of_the_provider_list_is_made(
+    client: TestClient, operator: Account
+) -> None:
+    """A database made by this version (``create_all``), written by 0.3.0: its insert of an account names no
+    ``email_source``, ``provider_email`` or ``provider_email_off`` and must not fail on a NOT NULL."""
+    with SessionLocal() as db:
+        have = {row[1] for row in db.execute(text("PRAGMA table_info(accounts)"))}
+        assert set(ACCOUNT_COLUMNS_OF_0_3) <= have
+        values = {column: 0 if column in ("failed_logins", "totp_last_step") else "" for column in ACCOUNT_COLUMNS_OF_0_3}
+        values.update(name="raw-0-3", created_at=utcnow(), role="member", sign_in="password")
+        names, marks = ", ".join(values), ", ".join(":" + column for column in values)
+        db.execute(text(f"INSERT INTO accounts ({names}) VALUES ({marks})"), values)  # noqa: S608 - constant names
+        db.commit()
+        row = db.execute(text(
+            "SELECT email_source, provider_email, provider_email_off FROM accounts WHERE name = 'raw-0-3'"
+        )).one()
+        assert tuple(row) == ("", "", "")
 
 
 # --- A token waits for a second factor the account has not set up -----------------------------------------------------

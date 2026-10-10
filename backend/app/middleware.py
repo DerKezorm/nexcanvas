@@ -53,6 +53,17 @@ SECURITY_HEADERS: tuple[tuple[bytes, bytes], ...] = (
 )
 
 
+def forwarded_proto(headers: Any) -> str:
+    """``http`` or ``https`` as ``X-Forwarded-Proto`` says it, else an empty text. Of a list the RIGHTMOST value counts:
+    it is the one the proxy nearest to the app appended, while the first can be sent by the visitor himself. With
+    several header lines the last one counts. Case does not matter."""
+    said = ""
+    for name, value in headers:
+        if name == b"x-forwarded-proto":
+            said = value.decode("latin-1").rsplit(",", 1)[-1].strip().lower()
+    return said if said in ("http", "https") else ""
+
+
 class ForwardedProtoMiddleware:
     """The scheme a TLS-ending proxy says it received the request with (``X-Forwarded-Proto``), believed only when the
     connection comes from a proxy named in ``NEXCANVAS_TRUSTED_PROXIES``: the list the sign-in brake already trusts
@@ -80,12 +91,8 @@ class ForwardedProtoMiddleware:
         peer = scope.get("client")
         if not peer or not is_trusted_proxy(str(peer[0])):
             return ""
-        said = ""
-        for name, value in scope.get("headers", []):
-            if name == b"x-forwarded-proto":
-                said = value.decode("latin-1").split(",")[0].strip().lower()
-                break
-        if said not in ("http", "https"):
+        said = forwarded_proto(scope.get("headers", []))
+        if not said:
             return ""
         if scope["type"] == "websocket":
             return "wss" if said == "https" else "ws"

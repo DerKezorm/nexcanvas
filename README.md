@@ -132,9 +132,9 @@ nexcanvas is made to be reachable from outside, for yourself on the road or for 
 3. **Tell nexcanvas about the proxy**: `NEXCANVAS_PUBLIC_URL` (the address people use), `NEXCANVAS_TRUSTED_PROXIES`
    (the proxy's address or network; without it every sign-in seems to come from the proxy and the brake against
    guessing cannot tell people apart; Settings, Server says so while it is missing), and
-   `NEXCANVAS_COOKIE_SECURE: "on"`. The same setting makes nexcanvas believe the proxy's `X-Forwarded-Proto`: without
-   it the sign-in setup (the authentik button) sees the address as `http://` and warns that the redirect address
-   would not match; that warning points here.
+   `NEXCANVAS_COOKIE_SECURE: "on"`. `NEXCANVAS_TRUSTED_PROXIES` also makes nexcanvas believe the proxy's
+   `X-Forwarded-Proto` (the rightmost value of the header): without it the sign-in setup (the authentik button) sees
+   the address as `http://` and warns that the redirect address would not match; that warning points here.
 4. **A second factor**: set up your own under My account, Security. Or sign in through an OpenID Connect provider
    (Settings, Server, Sign-in); accounts are linked only by the provider's identity, never by a mail address.
 5. **Leave the switches closed you do not need**: public pages and API tokens are off until you open them.

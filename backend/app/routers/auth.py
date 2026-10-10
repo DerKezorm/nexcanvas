@@ -29,6 +29,7 @@ from ..deps import (
     reauth_succeeded,
 )
 from ..errors import detail, error
+from ..middleware import forwarded_proto
 from ..models import OPERATOR, ROLES, SIGN_IN_PASSWORD, Membership, utcnow
 from ..models import Account as AccountRow
 from ..security import (
@@ -112,8 +113,7 @@ def secure_cookie(request: Request) -> bool:
         return True
     if mode == "off":
         return False
-    forwarded = request.headers.get("x-forwarded-proto", "")
-    return request.url.scheme == "https" or forwarded.split(",")[0].strip() == "https"
+    return request.url.scheme == "https" or forwarded_proto(request.scope.get("headers", [])) == "https"
 
 
 def _set_cookie(response: Response, request: Request, token: str) -> None:
