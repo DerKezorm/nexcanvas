@@ -82,8 +82,9 @@ def new_token() -> str:
     return secrets.token_urlsafe(32)
 
 
-def start_session(db: Session, account: Account, ip: str, user_agent: str) -> str:
-    """Creates a browser session and returns the token for the cookie."""
+def start_session(db: Session, account: Account, ip: str, user_agent: str, *, provider_checked: bool = False) -> str:
+    """Creates a browser session and returns the token for the cookie. ``provider_checked``: the sign-in came through
+    a provider that checks the second factor itself."""
     token = new_token()
     db.add(
         AuthSession(
@@ -92,6 +93,7 @@ def start_session(db: Session, account: Account, ip: str, user_agent: str) -> st
             expires_at=utcnow() + timedelta(days=get_settings().session_days),
             ip=ip[:64],
             user_agent=user_agent[:255],
+            provider_checked=provider_checked,
         )
     )
     account.last_seen_at = utcnow()
@@ -118,6 +120,7 @@ def session_account(db: Session, token: str | None) -> Account | None:
         session.last_seen_at = now
         account.last_seen_at = now
         db.commit()
+    account.provider_checked = bool(session.provider_checked)
     return account
 
 

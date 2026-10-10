@@ -36,10 +36,9 @@ DEFAULTS: dict[str, Any] = {
     "oidc_client_secret_enc": "",
     "oidc_provider_name": "",
     "oidc_auto_create": False,
-    #: The four settings of the provider above (not ``oidc_auto_create``) while the entry ``oidc`` has "The provider
-    #: checks the second factor itself" off: 0.3 does not know that switch and would not ask for a code, so it finds
-    #: no provider then. Turning the switch on puts them back from here.
-    "oidc_way_back_held": None,
+    #: What the way back to 0.3 said when this version last wrote it (``services/oidc_store.mirror_way_back``): sums
+    #: only. At the next start the difference to what stands there now is what 0.3 changed.
+    "oidc_legacy_fingerprint": None,
     #: The settings above were looked at once and, where there was a provider, became the entry ``oidc``.
     "oidc_list_migrated": False,
     #: Public read-only pages of boards: a way out, closed until the operator opens it.

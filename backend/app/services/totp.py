@@ -158,11 +158,14 @@ def use_recovery(stored: str, code: str) -> str | None:
 
 def setup_required(db: Session, account: Account) -> bool:
     """The operator requires a second factor, and this password account has none yet. Such an account reaches its
-    own account page and nothing else until it enrols. Accounts from OIDC bring their provider's."""
+    own account page and nothing else until it enrols. Accounts from OIDC bring their provider's, and so does a
+    session of a password account that signed in through a provider which checks the second factor itself (decided
+    2026-10-10: the same account signing in with its password is asked as before)."""
     return (
         bool(settings_service.get(db, "two_factor_required"))
         and account.sign_in == SIGN_IN_PASSWORD
         and not account.totp_secret_enc
+        and not account.provider_checked
     )
 
 

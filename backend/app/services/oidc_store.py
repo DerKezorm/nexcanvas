@@ -19,7 +19,7 @@ import logging
 import re
 import unicodedata
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, event, func, select, update
 from sqlalchemy.orm import Session
 
 from .. import __version__
@@ -196,41 +196,12 @@ def links_gone(db: Session, account_id: int) -> None:
     account.provider_email_off = ""
 
 
-def _is_old_entry(row: OidcProvider) -> bool:
-    """The entry the one provider of 0.3 became (``oidc``, not the coupled nexsuite entry that borrows the slug)."""
-    return row.slug == nexoidc.LEGACY_SLUG and row.managed != MANAGED_NEXSUITE
+#: Set on a session when the entry ``oidc`` or a link changed: the way back to 0.3 is written before its commit.
+TOUCHED = "nexoidc_touched"
 
 
-WAY_BACK_KEYS = ("oidc_issuer", "oidc_client_id", "oidc_client_secret_enc", "oidc_provider_name")
-
-
-def _hold_the_way_back(db: Session, held: bool) -> None:
-    """The entry ``oidc`` that is off, or without "the provider checks the second factor itself", is an entry that is
-    off for 0.3: it knows neither the entry's switch (it would let the linked persons in) nor the second factor switch
-    (it would ask for no code). So the provider of 0.3 is emptied while either reason holds and put back when neither
-    does, at once, in both directions. Flushes; the caller commits."""
-    if held:
-        if settings_service.get(db, "oidc_issuer"):
-            kept = {key: settings_service.get(db, key) for key in WAY_BACK_KEYS}
-            settings_service.save(db, {"oidc_way_back_held": kept, **{key: "" for key in WAY_BACK_KEYS}}, commit=False)
-        settings_service.save(db, {"oidc_auto_create": False}, commit=False)
-        return
-    kept = settings_service.get(db, "oidc_way_back_held")
-    if isinstance(kept, dict):
-        back = {key: str(kept.get(key) or "") for key in WAY_BACK_KEYS}
-        settings_service.save(db, {"oidc_way_back_held": None, **back}, commit=False)
-
-
-def forget_the_way_back(db: Session) -> None:
-    """The settings and the column of 0.3 (its way back, one version) always describe the same issuer, or nothing:
-    once the entry they became is removed or gets another issuer, they go too, or a return to 0.3 would bring back a
-    provider the operator removed, with its subjects. Flushes; the caller commits."""
-    settings_service.save(db, {"oidc_issuer": "", "oidc_client_id": "", "oidc_client_secret_enc": "",
-                               "oidc_provider_name": "", "oidc_auto_create": False, "oidc_way_back_held": None},
-                          commit=False)
-    db.execute(update(Account).values(oidc_subject="", oidc_subject_local=""))
-    db.flush()
-    logger.info("The settings of the one provider of 0.3 went with the entry oidc")
+def touched(db: Session) -> None:
+    db.info[TOUCHED] = True
 
 
 class SqlStore:
@@ -284,6 +255,7 @@ class SqlStore:
         row.redirect_path = values.redirect_path
 
     def insert_provider(self, values: ProviderValues) -> Provider:
+        touched(self.db)
         row = OidcProvider()
         self._apply(row, values)
         self.db.add(row)
@@ -295,20 +267,9 @@ class SqlStore:
         return provider
 
     def update_provider(self, provider_id: int, values: ProviderValues) -> Provider:
+        touched(self.db)
         row = self.db.get(OidcProvider, provider_id)
         assert row is not None
-        if _is_old_entry(row) and values.slug != row.slug:
-            # Parked by the coupling: ``suite_saved`` and the settings of the coupling hold the way back for it, and
-            # the settings are put back from there on uncoupling. Holding it here would leave a stale copy behind.
-            pass
-        elif _is_old_entry(row) and not protocol.same_issuer(row.issuer, values.issuer):
-            forget_the_way_back(self.db)
-        elif _is_old_entry(row):
-            # Off for 0.3 is both: the entry switched off, and the provider not checking the second factor itself.
-            _hold_the_way_back(self.db, not values.enabled or not values.trusts_second_factor)
-            if not self._held() and settings_service.get(self.db, "oidc_issuer"):
-                # The way back lets nobody new in through an entry that makes no accounts.
-                settings_service.save(self.db, {"oidc_auto_create": bool(values.auto_create)}, commit=False)
         self._apply(row, values)
         if values.client_secret is not None:
             row.client_secret_enc = encrypt_secret(values.client_secret, secret_context(row.id))
@@ -317,28 +278,13 @@ class SqlStore:
         assert provider is not None
         return provider
 
-    def _held(self) -> bool:
-        return isinstance(settings_service.get(self.db, "oidc_way_back_held"), dict)
-
     def delete_provider(self, provider_id: int) -> None:
         # Foreign keys are on (db.py), the links would go anyway; said here so that nothing depends on a pragma, and
         # so that an address that came with the last of an account's links goes along.
-        row = self.db.get(OidcProvider, provider_id)
-        if row is not None and _is_old_entry(row):
-            forget_the_way_back(self.db)
+        touched(self.db)
         self.drop_links(provider_id)
         self.db.execute(delete(OidcProvider).where(OidcProvider.id == provider_id))
         self.db.flush()
-
-    def _forget_old_subjects(self, provider_id: int, account_ids: set[int]) -> None:
-        """A link of the entry ``oidc`` that goes takes the account's subject in the column of 0.3 along (its way
-        back): a person unlinked on purpose must not come in again on the older version."""
-        row = self.db.get(OidcProvider, provider_id)
-        if row is None or not _is_old_entry(row) or not account_ids:
-            return
-        self.db.execute(
-            update(Account).where(Account.id.in_(account_ids)).values(oidc_subject="", oidc_subject_local="")
-        )
 
     def _coupled_entry(self, provider_id: int) -> bool:
         row = self.db.get(OidcProvider, provider_id)
@@ -364,27 +310,28 @@ class SqlStore:
         return [self._link(row) for row in rows]
 
     def add_link(self, link: Link) -> None:
+        touched(self.db)
         self.db.add(OidcLink(provider_id=link.provider_id, subject=link.subject, account_id=link.account_id,
                              issuer=link.issuer, email=link.email))
         self.db.flush()
         self._address(link.provider_id, link.account_id, link.email)
 
     def remove_link(self, provider_id: int, account_id: int) -> bool:
+        touched(self.db)
         result = self.db.execute(
             delete(OidcLink).where(OidcLink.provider_id == provider_id, OidcLink.account_id == account_id)
         )
         removed = bool(result.rowcount)  # type: ignore[attr-defined]
         if removed:
-            self._forget_old_subjects(provider_id, {account_id})
             self.db.flush()
             if not self._coupled_entry(provider_id):
                 links_gone(self.db, account_id)
         return removed
 
     def drop_links(self, provider_id: int) -> int:
+        touched(self.db)
         holders = set(self.db.scalars(select(OidcLink.account_id).where(OidcLink.provider_id == provider_id)))
         coupled = self._coupled_entry(provider_id)
-        self._forget_old_subjects(provider_id, holders)
         result = self.db.execute(delete(OidcLink).where(OidcLink.provider_id == provider_id))
         self.db.flush()
         for account_id in holders if not coupled else ():
@@ -506,6 +453,8 @@ LEGACY_KEYS = ("oidc_issuer", "oidc_client_id", "oidc_client_secret_enc", "oidc_
 #: Set once the settings were looked at: an operator who later removes every entry must not get the old provider
 #: back at the next start.
 MIGRATED = "oidc_list_migrated"
+#: What the way back said when the app last wrote it (``migrate.fingerprint``): only sums, no secret, no subject.
+FINGERPRINT = "oidc_legacy_fingerprint"
 #: nexcanvas asked no code after the provider before the list: the migrated entries keep that (blueprint 06).
 TRUSTED_BEFORE = True
 
@@ -610,22 +559,33 @@ def _apply_coupled(db: Session) -> coupling.Coupling | None:
 
 
 def migrate_settings(*, backup: bool = True) -> Provider | None:
-    """Once, at the first start with the list: the provider of the settings becomes the entry ``oidc`` with a link
-    per stored subject; ``/api/oidc/callback`` keeps signing in. Connected to nexsuite, nexsuite becomes the coupled
-    entry and the own provider waits set aside. A backup goes first (the way back). Nothing happens when there was
-    no provider or the list has entries already. The entry ``oidc`` is returned (the coupled one while connected)."""
+    """The whole start-up of the sign-in: once, at the first start with the list, the provider of the settings becomes
+    the entry ``oidc`` with a link per stored subject (``/api/oidc/callback`` keeps signing in; connected to nexsuite,
+    nexsuite becomes the coupled entry and the own provider waits set aside; a backup goes first, the way back). At
+    every start, what 0.3 changed in its settings and its column while the app ran there is taken over
+    (``migrate.resync``); then the way back is written again and its fingerprint stored. The entry ``oidc`` is
+    returned when this start made it (the coupled one while connected), else None."""
+    migrated = _migrate_once(backup)
+    up_again()
+    if not migrated:
+        return None
+    with SessionLocal() as db:
+        return SqlStore(db).provider_by_slug(nexoidc.LEGACY_SLUG)
+
+
+def _migrate_once(backup: bool) -> bool:
     with SessionLocal() as db:
         if not migration_due(db):
             if not settings_service.get(db, MIGRATED):
                 settings_service.save(db, {MIGRATED: True})
-            return None
+            return False
     if backup:
         from . import backups
 
         backups.create(kind=backups.UPDATE, note="before the sign-in provider list")
     with SessionLocal() as db:
         if not migration_due(db):
-            return None
+            return False
         if _coupled_now(db):
             joined = _apply_coupled(db)
             # One transaction with the list: the coupling is kept for uncoupling, or nothing is.
@@ -634,4 +594,98 @@ def migrate_settings(*, backup: bool = True) -> Provider | None:
         else:
             migrate.apply(SqlStore(db, hold=True), legacy_plan(db))
             settings_service.save(db, {MIGRATED: True})
-        return SqlStore(db).provider_by_slug(nexoidc.LEGACY_SLUG)
+    return True
+
+
+# --- The way back to 0.3 and up again (module README "Rückweg und wieder hoch") ---------------------------------------
+
+
+def read_legacy(db: Session) -> tuple[migrate.Legacy, list[tuple[int, str]]]:
+    """The old settings and the old column, read the one way the migration, the fingerprint and ``resync`` read them
+    (the secret decrypted)."""
+    subjects = [
+        (account_id, subject)
+        for account_id, subject in db.execute(
+            select(Account.id, Account.oidc_subject).where(Account.oidc_subject != "").order_by(Account.id)
+        )
+    ]
+    return _legacy(settings_service.get_all(db)), subjects
+
+
+def _coupled_entries(db: Session) -> bool:
+    return db.scalar(select(OidcProvider.id).where(OidcProvider.managed == MANAGED_NEXSUITE).limit(1)) is not None
+
+
+def mirror_way_back(db: Session) -> None:
+    """The entry ``oidc`` written into the settings and the column of 0.3 (its way back), and the fingerprint of what
+    stands there. The settings describe the entry exactly while it is on and the provider checks the second factor
+    itself, and are empty otherwise (0.3 knows neither switch and would let a person in without the code the entry
+    asks); an account's old subject is its link at the entry, or nothing. Coupled to nexsuite the settings and the
+    column say what 0.3 would have written (``services/suite.py``) and are left alone, as before the migration. Flushes;
+    the caller commits."""
+    db.flush()
+    if not settings_service.get(db, MIGRATED) or _coupled_entries(db):
+        # Before the migration the settings and the column are 0.3's own and still wait to be read.
+        return
+    entry = db.scalar(select(OidcProvider).where(OidcProvider.slug == nexoidc.LEGACY_SLUG))
+    if entry is not None and entry.enabled and entry.trusts_second_factor:
+        secret = decrypt_secret(entry.client_secret_enc, secret_context(entry.id))
+        kept = str(settings_service.get(db, "oidc_client_secret_enc") or "")
+        values: dict[str, object] = {
+            "oidc_issuer": entry.issuer,
+            "oidc_client_id": entry.client_id,
+            # Sealed afresh only when it changed: the same secret would give another text each time.
+            "oidc_client_secret_enc": kept if kept and decrypt_secret(kept) == secret else encrypt_secret(secret),
+            "oidc_provider_name": entry.label,
+            "oidc_auto_create": bool(entry.auto_create),
+        }
+    else:
+        values = {"oidc_issuer": "", "oidc_client_id": "", "oidc_client_secret_enc": "", "oidc_provider_name": "",
+                  "oidc_auto_create": False}
+    settings_service.save(db, values, commit=False)
+    linked: dict[int, str] = {}
+    if entry is not None:
+        rows = db.execute(select(OidcLink.account_id, OidcLink.subject).where(OidcLink.provider_id == entry.id))
+        linked = {account_id: subject for account_id, subject in rows}
+    for account in db.scalars(select(Account).where((Account.oidc_subject != "") | Account.id.in_(list(linked)))):
+        wanted = linked.get(account.id, "")
+        if account.oidc_subject != wanted:
+            account.oidc_subject = wanted
+    db.flush()
+    legacy, subjects = read_legacy(db)
+    settings_service.save(db, {FINGERPRINT: migrate.fingerprint(legacy, subjects)}, commit=False)
+
+
+def up_again() -> None:
+    """At every start after the migration: take over what 0.3 changed since the fingerprint of the last time (and
+    nothing else), then write the way back again and store the new fingerprint. Without a stored fingerprint (the
+    first start of this version) nothing is taken over."""
+    with SessionLocal() as db:
+        legacy, subjects = read_legacy(db)
+        previous = settings_service.get(db, FINGERPRINT)
+        migrate.resync(
+            SqlStore(db, hold=True), legacy, subjects, previous=str(previous) if previous else None,
+            trusts_second_factor=TRUSTED_BEFORE,
+        )
+        mirror_way_back(db)
+        db.commit()
+
+
+@event.listens_for(Session, "before_flush")
+def _note_changes(session: Session, _context: object, _instances: object) -> None:
+    """A change the store does not make itself: an entry or a link changed by the ORM, an account deleted (its links
+    go with it). The column of 0.3 is not watched: nothing here writes it but the mirror; a change there is 0.3's."""
+    for item in (*session.new, *session.dirty, *session.deleted):
+        if isinstance(item, OidcProvider | OidcLink) or (isinstance(item, Account) and item in session.deleted):
+            session.info[TOUCHED] = True
+            return
+
+
+@event.listens_for(Session, "before_commit")
+def _write_the_way_back(session: Session) -> None:
+    # What is still waiting is flushed first: the changes are seen at the flush, which comes after this event.
+    session.flush()
+    if session.info.pop(TOUCHED, False):
+        mirror_way_back(session)
+        # Its own writes are no change of the entry.
+        session.info.pop(TOUCHED, None)

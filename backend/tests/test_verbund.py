@@ -55,6 +55,19 @@ def _setting(key: str) -> Any:
         return settings_service.get(db, key)
 
 
+def _own_link(account_id: int, subject: str) -> None:
+    """The account linked to the own provider before connecting, as the migration of 0.3 left it: a link at the entry
+    ``oidc``, the column of 0.3 follows it."""
+    with SessionLocal() as db:
+        entry = db.query(OidcProvider).filter_by(slug="oidc").first()
+        if entry is None:
+            entry = OidcProvider(slug="oidc", label="Own", issuer="https://own.example.com", client_id="own-client")
+            db.add(entry)
+            db.flush()
+        db.add(OidcLink(provider_id=entry.id, subject=subject, account_id=account_id, issuer=entry.issuer))
+        db.commit()
+
+
 def _code(answer: Any) -> str:
     return str(answer.json()["detail"]["code"])
 
@@ -165,11 +178,7 @@ def test_b8_an_account_nexsuite_brought_gets_its_own_person_again(client: TestCl
 
 def test_b8_an_account_linked_to_authentik_and_left_out_is_no_person_nexsuite_knew(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite) -> None:
-    with SessionLocal() as db:  # cleo signed in through authentik before connecting
-        cleo = db.get(Account, world["cleo"].id)
-        assert cleo is not None
-        cleo.oidc_subject = "authentik-hash-of-cleo"
-        db.commit()
+    _own_link(world["cleo"].id, "authentik-hash-of-cleo")  # cleo signed in through authentik before connecting
     connect(client, world, operator)
     assert _row("cleo").suite_person == "" and _row("cleo").oidc_subject == ""
     assert _row("cleo").oidc_subject_local == "authentik-hash-of-cleo", "its own link waits apart"
@@ -187,11 +196,7 @@ def test_b21_a_connection_from_before_renames_only_accounts_nexsuite_knew(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite) -> None:
     """Connected under bf64550: nothing kept ``suite_person``, and cleo, left out, kept its authentik link. A new
     person "cleo" in nexsuite does not rename it, and after a disconnect it is no account that came from nexsuite."""
-    with SessionLocal() as db:
-        cleo = db.get(Account, world["cleo"].id)
-        assert cleo is not None
-        cleo.oidc_subject = "authentik-hash-of-cleo"
-        db.commit()
+    _own_link(world["cleo"].id, "authentik-hash-of-cleo")
     connect(client, world, operator)
     with SessionLocal() as db:  # as the commit before left it
         for row in db.query(Account):
@@ -230,9 +235,7 @@ def test_b21_a_connection_from_before_learns_its_people_with_the_next_sync(
 
 def test_b21_a_connection_from_before_without_a_sync_lets_go_of_the_unblocked_only(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite) -> None:
-    with SessionLocal() as db:
-        db.get(Account, world["cleo"].id).oidc_subject = "authentik-hash-of-cleo"  # type: ignore[union-attr]
-        db.commit()
+    _own_link(world["cleo"].id, "authentik-hash-of-cleo")
     connect(client, world, operator)
     with SessionLocal() as db:
         for row in db.query(Account):
@@ -254,9 +257,7 @@ def _signs_in_as(client: TestClient, provider: Any, subject: str) -> str:
 def test_collision_a_left_out_link_that_looks_like_a_person_is_not_that_person(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any) -> None:
     """(A) cleo signed in through Forgejo as "3" before connecting and is left out; person 3 in nexsuite is erik."""
-    with SessionLocal() as db:
-        db.get(Account, world["cleo"].id).oidc_subject = "3"  # type: ignore[union-attr]
-        db.commit()
+    _own_link(world["cleo"].id, "3")
     connect(client, world, operator)
     _provider_is_nexsuite()
     assert _row("cleo").oidc_subject == "" and _row("cleo").oidc_subject_local == "3"
@@ -277,9 +278,7 @@ def test_collision_finishing_puts_a_link_of_its_own_apart_at_once(client: TestCl
                                                                     world: dict, fake: FakeSuite,
                                                                     monkeypatch: pytest.MonkeyPatch) -> None:
     """Not left for the next sync to sort out: finishing itself takes cleo's "3" out of ``oidc_subject``."""
-    with SessionLocal() as db:
-        db.get(Account, world["cleo"].id).oidc_subject = "3"  # type: ignore[union-attr]
-        db.commit()
+    _own_link(world["cleo"].id, "3")
     monkeypatch.setattr(suite, "sync", lambda _db: False)
     connect(client, world, operator)
     assert _row("cleo").oidc_subject == "" and _row("cleo").oidc_subject_local == "3"
@@ -1418,10 +1417,10 @@ def test_finish_whose_local_commit_failed_finishes_with_the_next_try(client: Tes
     real = settings_service.save
     broken = {"once": True}
 
-    def failing(db: Any, changes: dict[str, Any]) -> None:
+    def failing(db: Any, changes: dict[str, Any], **kept: Any) -> None:
         if changes.get("suite_state") == "connected" and broken.pop("once", False):
             raise RuntimeError("the disk is full")
-        real(db, changes)
+        real(db, changes, **kept)
 
     monkeypatch.setattr(settings_service, "save", failing)
     with TestClient(client.app, base_url="http://testserver", headers=dict(client.headers),
@@ -1725,6 +1724,7 @@ def test_the_way_back_to_0_3_finds_settings_and_columns_of_one_issuer(client: Te
                                    "oidc_provider_name": "Own"})
         db.get(Account, world["cleo"].id).oidc_subject = "own-cleo"  # type: ignore[union-attr]
         db.commit()
+    oidc_store.migrate_settings(backup=False)  # the provider of 0.3 became the entry oidc, cleo its link
     connect(client, world, operator)
     assert (_setting("oidc_issuer"), _setting("oidc_client_id"), _setting("oidc_provider_name")) == (
         SUITE, "nxs-client", "nexsuite")
@@ -1754,7 +1754,8 @@ def _own_entry_of_0_3(provider: Any) -> OidcProvider:
 
 
 def _own_settings() -> tuple[str, str, str, str]:
-    return tuple(str(_setting(key)) for key in oidc_store.WAY_BACK_KEYS)  # type: ignore[return-value]
+    return (str(_setting("oidc_issuer")), str(_setting("oidc_client_id")), oidc_store.decrypt_secret(
+        str(_setting("oidc_client_secret_enc") or "")), str(_setting("oidc_provider_name")))
 
 
 def _put_own(client: TestClient, entry: OidcProvider, provider: Any, **form: Any) -> None:
@@ -1762,31 +1763,26 @@ def _put_own(client: TestClient, entry: OidcProvider, provider: Any, **form: Any
     assert client.put(f"/api/oidc/admin/providers/{entry.id}", json=body).status_code == 200
 
 
-def test_coupling_and_uncoupling_bring_back_no_wrong_way_back_to_0_3(client: TestClient, operator: Account,
-                                                                      world: dict, fake: FakeSuite,
-                                                                      provider: Any) -> None:
-    """The own entry ``oidc`` parked by the coupling is not held (the settings of the coupling and ``suite_saved``
-    are its way back), so no stale copy of the settings is left behind to be put back later; one held before
-    coupling stays held across it, with what it held."""
+def test_coupling_and_uncoupling_bring_back_the_way_back_to_0_3_as_the_entry_says(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any) -> None:
+    """Coupled, the settings of 0.3 name nexsuite (the entry parked by the coupling is not written there); uncoupled,
+    they say what the own entry ``oidc`` says again: on, or empty while it is off."""
     entry = _own_entry_of_0_3(provider)
     own = _own_settings()
     assert own[0] == provider.issuer
     connect(client, world, operator)
-    assert _setting("oidc_way_back_held") is None, "parking the own entry holds nothing"
     assert _setting("oidc_issuer") == SUITE
     _disconnect(client, fake)
-    assert _own_settings() == own and _setting("oidc_way_back_held") is None and _setting("oidc_auto_create") is True
-    # Held before coupling (the entry is off for 0.3): held after uncoupling, and what it held comes back on.
+    assert _own_settings() == own and _setting("oidc_auto_create") is True
+    # Off before coupling: empty for 0.3 after uncoupling, and back when the entry is on again.
     _put_own(client, entry, provider, enabled=False, auto_create=True)
-    held = _setting("oidc_way_back_held")
-    assert isinstance(held, dict) and _own_settings() == ("", "", "", "")
+    assert _own_settings() == ("", "", "", "")
     connect(client, world, operator)
-    assert _setting("oidc_issuer") == SUITE and _setting("oidc_way_back_held") == held
+    assert _setting("oidc_issuer") == SUITE
     _disconnect(client, fake)
-    assert _own_settings() == ("", "", "", "") and _setting("oidc_way_back_held") == held
-    assert _setting("oidc_auto_create") is False
+    assert _own_settings() == ("", "", "", "") and _setting("oidc_auto_create") is False
     _put_own(client, entry, provider, enabled=True, auto_create=True)
-    assert _own_settings() == own and _setting("oidc_way_back_held") is None and _setting("oidc_auto_create") is True
+    assert _own_settings() == own and _setting("oidc_auto_create") is True
 
 
 def test_a_sign_in_under_way_while_the_directory_or_the_connection_changes_ends_cleanly(
@@ -1853,3 +1849,35 @@ def test_a_person_held_by_several_accounts_none_named_like_it_gets_an_account_of
     assert client.post("/api/suite/sync").status_code == 200
     assert [link[3] for link in _links() if link[2] == "2"] == ["annabel"]
     assert _through(provider.suite, "oidc", "2") == "annabel"
+
+
+def _list_state() -> Any:
+    """Everything a start must leave alone while coupled: the entries, the links (who is which person), what the
+    coupling keeps for uncoupling, and what was set aside when connecting."""
+    with SessionLocal() as db:
+        entries = [(row.id, row.slug, row.managed, row.issuer, row.client_id, row.client_secret_enc, row.enabled,
+                    row.trusts_second_factor, row.redirect_path) for row in db.query(OidcProvider).order_by(OidcProvider.id)]
+    return entries, _links(), _setting("suite_coupling"), _setting("suite_saved"), _setting("suite_state")
+
+
+def test_a_start_while_coupled_takes_over_nothing_of_0_3_and_leaves_the_coupling_alone(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any,
+        caplog: pytest.LogCaptureFixture) -> None:
+    """Coupled, the list changes through the coupling only: whatever 0.3 wrote into its settings and its column
+    meanwhile is no change of an entry, no link and no person; the coupling and what was set aside stay as they are."""
+    _own_entry_of_0_3(provider)
+    connect(client, world, operator)
+    state = _list_state()
+    stored = _setting(oidc_store.FINGERPRINT)
+    with SessionLocal() as db:
+        # 0.3 at work meanwhile: another client, and a subject at an account that is somebody else's person here.
+        settings_service.save(db, {"oidc_client_id": "set-by-0-3", "oidc_issuer": "https://other.example.com"})
+        db.get(Account, world["cleo"].id).oidc_subject = "set-by-0-3"  # type: ignore[union-attr]
+        db.commit()
+    caplog.clear()
+    for _ in range(2):
+        assert oidc_store.migrate_settings(backup=False) is None
+    assert _list_state() == state
+    assert _setting(oidc_store.FINGERPRINT) == stored, "nothing was written as the way back"
+    assert _setting("oidc_client_id") == "set-by-0-3", "the settings of 0.3 are left as 0.3 wrote them"
+    assert any("nothing taken over" in line for line in caplog.messages), caplog.messages

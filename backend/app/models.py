@@ -167,6 +167,8 @@ class Account(Base):
     #: Not stored. True on the account a token acts as: a program never has the operator's powers over other
     #: people's spaces, even when its account is the operator's.
     via_key: ClassVar[bool] = False
+    #: Not stored. True on the account of a session that came through a provider which checks the second factor.
+    provider_checked: ClassVar[bool] = False
 
 
 def new_device_key() -> str:
@@ -201,6 +203,9 @@ class AuthSession(Base):
     last_seen_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
     ip: Mapped[str] = mapped_column(String(64), default="")
     user_agent: Mapped[str] = mapped_column(String(255), default="")
+    #: This sign-in came through a provider that checks the second factor itself (the entry's switch was on): the
+    #: operator's "second factor required" does not force a setup for this session, whatever the account is.
+    provider_checked: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class OidcProvider(Base):

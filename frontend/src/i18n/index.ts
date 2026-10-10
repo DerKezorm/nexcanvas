@@ -16,6 +16,7 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 
+import { oidcWording } from '../vendor/nexoidc/oidc'
 import oidcDe from '../vendor/nexoidc/oidc.de.json'
 import oidcEn from '../vendor/nexoidc/oidc.en.json'
 import ownDe from './de.json'
@@ -24,8 +25,8 @@ import ownEn from './en.json'
 type Texts = Record<string, unknown>
 
 /** nexcanvas' own texts with the shared sign-in texts. */
-const en: Texts = { ...ownEn, ...oidcEn }
-const de: Texts = { ...ownDe, ...oidcDe }
+const en: Texts = { ...ownEn, ...oidcWording(oidcEn, { singleAccount: false }) }
+const de: Texts = { ...ownDe, ...oidcWording(oidcDe, { singleAccount: false }) }
 /** What `{{app}}` stands for in the shared texts. */
 export const APP_NAME = 'nexcanvas'
 

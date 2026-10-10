@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
+import { oidcWording, type OidcWording } from './vendor/nexoidc/oidc'
 import de from './vendor/nexoidc/oidc.de.json'
 import en from './vendor/nexoidc/oidc.en.json'
 // The app's i18n instance after its set-up (with the module's files merged into the resources).
@@ -15,8 +16,10 @@ import i18n from './i18n'
 
 // The name of the app as it appears in the texts.
 const APP_NAME = 'nexcanvas'
+// nexcanvas has many accounts; i18n/index.ts merges the files through oidcWording.
+const SINGLE_ACCOUNT = false
 
-type Tree = { [key: string]: string | Tree }
+type Tree = OidcWording
 
 function leaves(tree: Tree, prefix = ''): [string, string][] {
   return Object.entries(tree).flatMap(([name, value]) => {
@@ -31,11 +34,15 @@ describe('the oidc texts', () => {
   for (const [language, tree] of [['de', de], ['en', en]] as const) {
     it(`are all in the app in ${language}, word for word, with the app's name`, async () => {
       await i18n.changeLanguage(language)
-      for (const [key, text] of leaves(tree as Tree)) {
+      for (const [key, text] of leaves(oidcWording(tree, { singleAccount: SINGLE_ACCOUNT }))) {
+        // Plural forms are asked for without their suffix, with a count that picks them (since 1.0.9).
+        const plural = /_(one|other)$/.exec(key)
+        const given = plural ? { ...values, count: plural[1] === 'one' ? 1 : 2 } : values
+        const asked = plural ? key.slice(0, plural.index) : key
         const expected = text.replace(/\{\{(\w+)\}\}/g, (_, name: string) =>
-          name === 'app' ? APP_NAME : String(values[name as keyof typeof values]),
+          name === 'app' ? APP_NAME : String(given[name as keyof typeof given]),
         )
-        expect(i18n.t(key, values), key).toBe(expected)
+        expect(i18n.t(asked, given), key).toBe(expected)
       }
     })
   }

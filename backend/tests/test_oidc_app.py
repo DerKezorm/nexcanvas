@@ -27,7 +27,7 @@ from app.models import (
     Space,
     SpaceNotice,
 )
-from app.security import encrypt_secret
+from app.security import decrypt_secret, encrypt_secret
 from app.services import accounts, backups, oidc_store, settings_service, suite
 
 from . import oidc_helpers
@@ -123,18 +123,21 @@ def test_the_migration_makes_a_backup_first_and_keeps_name_auto_create_and_every
     assert browser.get("/api/auth/me").json()["name"] == "anna"
 
 
-def test_removing_every_entry_after_the_migration_brings_the_old_provider_back_never(
+def test_removing_every_entry_after_the_migration_brings_the_old_provider_back_never_by_itself(
     client: TestClient, operator: Account, provider: FakeProvider
 ) -> None:
     _legacy(provider, label="Company")
     entry = oidc_store.migrate_settings(backup=False)
     assert entry is not None
     assert client.delete(f"/api/oidc/admin/providers/{entry.id}").status_code == 200
+    # The way back is empty with it: a start finds nothing 0.3 could have set up, and makes nothing.
     assert oidc_store.migrate_settings(backup=False) is None and _entries() == []
-    # Even with settings of 0.3 written again behind its back (a backup of 0.3 put in by hand): moved once is moved.
+    assert _way_back() == ("", "", [])
+    # Set up in 0.3 after all (the settings written by that older version): that is a change of 0.3 and is taken over.
     with SessionLocal() as db:
         settings_service.save(db, {"oidc_issuer": provider.issuer, "oidc_client_id": provider.client_id})
-    assert oidc_store.migrate_settings(backup=False) is None and _entries() == []
+    assert oidc_store.migrate_settings(backup=False) is None
+    assert [row.slug for row in _entries()] == ["oidc"]
 
 
 def test_the_button_of_0_3_becomes_an_entry_the_button_looks_after_without_the_slash(
@@ -432,7 +435,7 @@ def test_removing_the_entry_oidc_takes_the_way_back_of_0_3_along(client: TestCli
     assert _way_back() == ("", "", [])
 
 
-def test_another_issuer_for_the_entry_oidc_takes_the_way_back_of_0_3_along_the_same_one_not(
+def test_another_issuer_for_the_entry_oidc_gives_the_way_back_of_0_3_the_new_issuer_without_the_persons(
     client: TestClient, operator: Account, provider: FakeProvider
 ) -> None:
     other = provider.network.add(FakeProvider("https://other.example.com"))  # type: ignore[attr-defined]
@@ -445,7 +448,7 @@ def test_another_issuer_for_the_entry_oidc_takes_the_way_back_of_0_3_along_the_s
     assert _way_back() == (provider.issuer, provider.client_id, ["anna-1"]), "the same issuer, written with a slash"
     body = {"label": "Company", "issuer": other.issuer, "client_id": provider.client_id}
     assert client.put(f"/api/oidc/admin/providers/{entry.id}", json=body).status_code == 200
-    assert _way_back() == ("", "", [])
+    assert _way_back() == (other.issuer, provider.client_id, []), "the new issuer, and nobody of the old one"
 
 
 @pytest.mark.parametrize(("enabled", "auto_create", "old", "found"), [
@@ -567,11 +570,12 @@ def test_an_invitation_used_meanwhile_still_lets_a_known_link_in_without_the_rig
     assert browser.get("/api/auth/me").json()["name"] == "dora" and _right_in(space_id, "dora") is None
 
 
-def _held_way_back() -> tuple[str, str, str, str, bool, object]:
+def _held_way_back() -> tuple[str, str, str, str, bool]:
+    """Issuer, client, the secret (opened: it is sealed afresh when it comes back), name and "make accounts"."""
     with SessionLocal() as db:
         return (str(settings_service.get(db, "oidc_issuer")), str(settings_service.get(db, "oidc_client_id")),
-                str(settings_service.get(db, "oidc_client_secret_enc")), str(settings_service.get(db, "oidc_provider_name")),
-                bool(settings_service.get(db, "oidc_auto_create")), settings_service.get(db, "oidc_way_back_held"))
+                decrypt_secret(str(settings_service.get(db, "oidc_client_secret_enc") or "")),
+                str(settings_service.get(db, "oidc_provider_name")), bool(settings_service.get(db, "oidc_auto_create")))
 
 
 def _put_entry(client: TestClient, entry: OidcProvider, provider: FakeProvider, **form: object) -> None:
@@ -589,7 +593,7 @@ def test_the_way_back_of_0_3_finds_no_provider_while_the_provider_does_not_check
     entry = oidc_store.migrate_settings(backup=False)
     assert entry is not None
     before = _held_way_back()
-    assert before[:2] == (provider.issuer, provider.client_id) and before[4] is True and before[5] is None
+    assert before[:2] == (provider.issuer, provider.client_id) and before[4] is True
     _put_entry(client, entry, provider, auto_create=True, trusts_second_factor=False)
     assert _held_way_back()[:5] == ("", "", "", "", False), "no client, nobody new"
     assert _way_back() == ("", "", ["anna-1"]), "the persons stay: they are the way back of the switch turned on again"
@@ -609,11 +613,11 @@ def test_the_way_back_stays_empty_across_saves_while_the_switch_is_off_and_comes
     assert _held_way_back()[:5] == ("", "", "", "", False)
     # Back on, but the entry itself off: still held, for the second reason.
     _put_entry(client, entry, provider, trusts_second_factor=True, enabled=False, auto_create=True)
-    assert _held_way_back()[:5] == ("", "", "", "", False) and _held_way_back()[5] is not None
+    assert _held_way_back()[:5] == ("", "", "", "", False)
     # Both reasons gone: the provider is back for 0.3, and it makes accounts as the entry says.
     _put_entry(client, entry, provider, trusts_second_factor=True, enabled=True, auto_create=True)
     after = _held_way_back()
-    assert after[:4] == before[:4] and after[4:] == (True, None)
+    assert after == before
 
 
 def test_the_way_back_of_0_3_finds_no_provider_while_the_entry_is_off_the_persons_stay_and_it_is_back_when_it_is_on(
@@ -635,7 +639,7 @@ def test_the_way_back_of_0_3_finds_no_provider_while_the_entry_is_off_the_person
     assert _held_way_back() == before and _way_back()[2] == ["anna-1"]
 
 
-def test_removing_the_entry_or_another_issuer_forgets_what_the_switch_held_back(
+def test_removing_the_entry_empties_the_way_back_and_another_issuer_gives_it_the_new_one(
     client: TestClient, operator: Account, provider: FakeProvider
 ) -> None:
     other = provider.network.add(FakeProvider("https://other.example.com"))  # type: ignore[attr-defined]
@@ -644,15 +648,64 @@ def test_removing_the_entry_or_another_issuer_forgets_what_the_switch_held_back(
         entry = oidc_store.migrate_settings(backup=False)
         assert entry is not None
         _put_entry(client, entry, provider, trusts_second_factor=False)
-        assert _held_way_back()[5] is not None
+        assert _held_way_back()[:5] == ("", "", "", "", False)
         if how == "remove":
             assert client.delete(f"/api/oidc/admin/providers/{entry.id}").status_code == 200
+            assert _held_way_back() == ("", "", "", "", False), how
         else:
             body = {"label": "Company", "issuer": other.issuer, "client_id": provider.client_id,
                     "trusts_second_factor": True}
             assert client.put(f"/api/oidc/admin/providers/{entry.id}", json=body).status_code == 200
-        assert _held_way_back() == ("", "", "", "", False, None), how
+            assert _held_way_back()[:2] == (other.issuer, provider.client_id), how
         with SessionLocal() as db:
             db.execute(delete(OidcProvider))
             settings_service.save(db, {oidc_store.MIGRATED: False})
             db.commit()
+
+
+# --- "Second factor required": not forced by a sign-in through a provider that checks it (decided 2026-10-10) -------
+
+
+def _required_with_linked_password_account(
+    client: TestClient, provider: FakeProvider, *, trusts: bool
+) -> tuple[Account, dict]:
+    made = oidc_helpers.configure(client, provider, auto_create=False, trusts_second_factor=trusts)
+    anna = make_account("anna")
+    with SessionLocal() as db:
+        db.add(OidcLink(provider_id=made["id"], subject="anna-1", account_id=anna.id, issuer=provider.issuer))
+        settings_service.save(db, {"two_factor_required": True})
+    return anna, made
+
+
+def _setup_asked(browser: TestClient) -> bool:
+    me = browser.get("/api/auth/me")
+    assert me.status_code == 200, me.text
+    return bool(me.json()["second_factor_setup_required"])
+
+
+def test_required_second_factor_does_not_force_a_sign_in_through_a_provider_that_checks_it_but_does_the_password(
+    client: TestClient, operator: Account, provider: FakeProvider
+) -> None:
+    anna, _ = _required_with_linked_password_account(client, provider, trusts=True)
+    through_provider = fresh_browser()
+    assert location(sign_in_via_oidc(through_provider, provider, sub="anna-1", preferred_username="anna")) == "/"
+    assert _setup_asked(through_provider) is False
+    assert through_provider.get("/api/spaces").status_code == 200
+    # The same account with its password: asked, as before.
+    with_password = TestClient(client.app, base_url="http://testserver", headers=client.headers, follow_redirects=False)
+    sign_in(with_password, anna)
+    assert _setup_asked(with_password) is True
+    blocked = with_password.get("/api/spaces")
+    assert blocked.status_code == 403 and blocked.json()["detail"]["code"] == "second_factor_setup_required"
+    # Both sessions side by side: one does not decide for the other.
+    assert through_provider.get("/api/spaces").status_code == 200
+
+
+def test_required_second_factor_still_forces_a_provider_that_does_not_check_it(
+    client: TestClient, operator: Account, provider: FakeProvider
+) -> None:
+    _required_with_linked_password_account(client, provider, trusts=False)
+    browser = fresh_browser()
+    assert location(sign_in_via_oidc(browser, provider, sub="anna-1", preferred_username="anna")) == "/"
+    assert _setup_asked(browser) is True
+    assert browser.get("/api/spaces").status_code == 403
