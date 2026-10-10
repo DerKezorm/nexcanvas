@@ -25,8 +25,10 @@ Paths (all below ``/api/oidc``):
 | POST, DELETE | ``/{slug}/link`` | signed in: link (``{"password"}`` → ``{"url"}``), unlink |
 | POST, DELETE | ``/me/address`` | signed in: take the address a provider knows, or stop being asked |
 | DELETE | ``/admin/accounts/{account}/links/{provider}`` | operator, with the own password |
-| POST | ``/authentik/setup`` | operator: ``{"url", "token", "confirm_issuer_change"}`` → always 200 with the steps |
-| GET | ``/authentik/blueprint`` | operator: ``nexcanvas-authentik.yaml`` |
+| POST | ``/authentik/setup`` | operator: ``{"url", "token", "confirm_issuer_change", "public_url"}``, 200 with steps |
+| GET | ``/authentik/address`` | operator: what the authentik card shows about the public address |
+| POST | ``/authentik/address`` | operator: ``{"public_url", "confirm"}`` saves it ("Use it only"); 409 asks first |
+| GET | ``/authentik/blueprint`` | operator: ``nexcanvas-authentik.yaml`` (409 ``public_url_needed`` without address) |
 """
 
 from __future__ import annotations
@@ -110,6 +112,14 @@ class SetupIn(BaseModel):
     token: str = Field(min_length=1, max_length=2000)
     #: The operator answered the question before an issuer change (the module stops with ``issuer_change`` until then).
     confirm_issuer_change: bool = False
+    #: The address the card proposed (the browser's) and the operator confirmed, while nexcanvas has none of its own.
+    public_url: str = Field(default="", max_length=400)
+
+
+class AddressIn(BaseModel):
+    public_url: str = Field(max_length=400)
+    #: The operator answered the question that came back as 409 ``public_url_change``.
+    confirm: bool = False
 
 
 class OrderIn(BaseModel):
@@ -488,14 +498,42 @@ async def authentik_setup(payload: SetupIn, operator: OperatorAccount, request: 
     logger.info("authentik setup started by=%s", operator.name)
     with store() as s:
         result = await authentik.setup(
-            s, payload.url, payload.token, _base(request), confirm_issuer_change=payload.confirm_issuer_change
+            s, payload.url, payload.token, _base(request), confirm_issuer_change=payload.confirm_issuer_change,
+            public_url=payload.public_url, headers=request.headers,
         )
     return result.as_dict()
+
+
+@router.get("/authentik/address", summary="What the authentik card shows about the public address")
+def authentik_address(_operator: OperatorAccount, request: Request) -> dict[str, Any]:
+    with store() as s:
+        return authentik.address_view(s, _base(request), request.headers)
+
+
+@router.post("/authentik/address", summary="Save the public address, asking first when it changes what authentik knows")
+def authentik_save_address(payload: AddressIn, operator: OperatorAccount, request: Request) -> dict[str, Any]:
+    # Kept in nexsuite while connected, as in the settings (``PUT /api/settings``).
+    with store() as s:
+        suite.refuse_if_managed(s.db)
+        try:
+            view = authentik.save_public_url(s, payload.public_url, _base(request), confirm=payload.confirm)
+        except ValueError as exc:
+            raise error("public_url_invalid", "This is not an address nexcanvas can use.", 422) from exc
+        except authentik.PublicUrlChange as asked:
+            raise error("public_url_change", "The address changes what authentik knows.", 409,
+                        **asked.question) from asked
+        except authentik.PublicUrlNotKept as exc:
+            raise error("public_url_needed", "The address could not be stored.", 409) from exc
+    logger.info("Public address saved from the authentik card by=%s", operator.name)
+    return view
 
 
 @router.get("/authentik/blueprint", summary="Download a blueprint that creates the same objects in authentik")
 def authentik_blueprint(_operator: OperatorAccount, request: Request) -> Response:
     with store() as s:
-        text = authentik.blueprint(authentik.blueprint_redirect(s, _base(request)))
+        try:
+            text = authentik.blueprint(authentik.blueprint_redirect(s, _base(request)))
+        except authentik.PublicUrlNeeded as exc:
+            raise error("public_url_needed", "Set the public address of nexcanvas first.", 409) from exc
     return Response(content=text, media_type="application/yaml",
                     headers={"Content-Disposition": f'attachment; filename="{authentik.blueprint_filename()}"'})

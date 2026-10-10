@@ -78,6 +78,11 @@ def _is_trusted_proxy(text: str) -> bool:
     return address is not None and any(address in network for network in networks)
 
 
+def is_trusted_proxy(text: str) -> bool:
+    """The address belongs to a reverse proxy configured in ``NEXCANVAS_TRUSTED_PROXIES``."""
+    return _is_trusted_proxy(text)
+
+
 _warned_unknown_proxy = False
 #: Headers a reverse proxy adds; any of them without a trusted proxy configured means one stands in front unnamed.
 PROXY_HEADERS = ("x-forwarded-for", "x-real-ip", "forwarded")

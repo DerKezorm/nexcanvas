@@ -792,6 +792,9 @@
     "invalid_days": "Choose one of the offered durations.",
     "invalid_email": "This is not a mail address.",
     "invalid_url": "Enter an address starting with http:// or https://.",
+    "public_url_invalid": "This is not an address nexcanvas can use. Check how it is written.",
+    "public_url_change": "This address changes what authentik knows. Confirm that first.",
+    "public_url_needed": "nexcanvas has no public address yet. Enter it first.",
     "mail_off": "No mail server is set up.",
     "mail_failed": "The mail server did not accept the mail.",
     "cannot_delete_self": "You cannot delete your own account.",
@@ -1309,7 +1312,9 @@
     "unused": "never used",
     "allSpaces": "All spaces I may read, later ones too",
     "someSpaces": "Only these",
-    "offForOperator": "API tokens are switched off."
+    "offForOperator": "API tokens are switched off.",
+    "waitsForSecondFactor": "Works only once you set up a second factor.",
+    "setUpSecondFactor": "Set it up now"
   },
   "teams": {
     "text": "Who works together. Separate from spaces: a space says who sees what. When a space gives a team a right, every member has it.",

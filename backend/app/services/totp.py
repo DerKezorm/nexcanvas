@@ -156,17 +156,23 @@ def use_recovery(stored: str, code: str) -> str | None:
     return json.dumps(remaining)
 
 
+def factor_missing(db: Session, account: Account) -> bool:
+    """The operator requires a second factor, and this password account has none of its own yet, whatever session it
+    is in. A session sheltered by a provider (``setup_required``) does not need it; an API token never has a session,
+    so it waits until the account has one."""
+    return (
+        bool(settings_service.get(db, "two_factor_required"))
+        and account.sign_in == SIGN_IN_PASSWORD
+        and not account.totp_secret_enc
+    )
+
+
 def setup_required(db: Session, account: Account) -> bool:
     """The operator requires a second factor, and this password account has none yet. Such an account reaches its
     own account page and nothing else until it enrols. Accounts from OIDC bring their provider's, and so does a
     session of a password account that signed in through a provider which checks the second factor itself (decided
     2026-10-10: the same account signing in with its password is asked as before)."""
-    return (
-        bool(settings_service.get(db, "two_factor_required"))
-        and account.sign_in == SIGN_IN_PASSWORD
-        and not account.totp_secret_enc
-        and not account.provider_checked
-    )
+    return factor_missing(db, account) and not account.provider_checked
 
 
 # --- Seeds at rest ----------------------------------------------------------------------------------------------------

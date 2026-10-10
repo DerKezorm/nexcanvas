@@ -4,6 +4,8 @@
  * its sentence from `errors.<code>` in the language files.
  */
 
+import type { AuthentikAddress } from '../vendor/nexoidc/oidc'
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -281,7 +283,13 @@ export type AuthentikResult = {
   links_dropped: number
   /** With a step stopped on `issuer_change`: how many accounts would have to link again. */
   count?: number
+  /** The public address this run stored (the one the operator confirmed), '' when nexcanvas had one. */
+  public_url?: string
+  /** With a step stopped on `public_url_needed`: what the card shows about the address. */
+  address?: AuthentikAddress | null
 }
+/** What saving the public address would leave behind at authentik (409 `public_url_change`, module `public_url_change`). */
+export type AddressQuestion = { count: number; hand: number; address: string }
 
 // ---- Calls ----------------------------------------------------------------------------------------------------------
 
@@ -319,8 +327,13 @@ export const oidcAdminApi = {
   providerImpact: (id: number, issuer = '') =>
     api<OidcImpact>(`/api/oidc/admin/providers/${id}/impact${issuer ? `?issuer=${encodeURIComponent(issuer)}` : ''}`),
   orderProviders: (ids: number[]) => api<ProviderButton[]>('/api/oidc/admin/providers/order', { method: 'PUT', body: { ids } }),
-  authentik: (url: string, token: string, confirm_issuer_change = false) =>
-    api<AuthentikResult>('/api/oidc/authentik/setup', { method: 'POST', body: { url, token, confirm_issuer_change } }),
+  authentik: (url: string, token: string, confirm_issuer_change = false, public_url = '') =>
+    api<AuthentikResult>('/api/oidc/authentik/setup', { method: 'POST', body: { url, token, confirm_issuer_change, public_url } }),
+  /** What the authentik card shows about the public address. */
+  authentikAddress: () => api<AuthentikAddress>('/api/oidc/authentik/address'),
+  /** "Use it only": saves the address; 409 `public_url_change` asks first (send again with `confirm`). */
+  authentikSaveAddress: (public_url: string, confirm = false) =>
+    api<AuthentikAddress>('/api/oidc/authentik/address', { method: 'POST', body: { public_url, confirm } }),
   /** Takes an account's link to a provider, with the operator's own password. */
   unlinkAccount: (accountId: number, providerId: number, current_password: string) =>
     api<void>(`/api/oidc/admin/accounts/${accountId}/links/${providerId}`, { method: 'DELETE', body: { current_password } }),
@@ -384,7 +397,7 @@ export type AnyApiToken = Omit<ApiToken, 'spaces'> & { account: string; spaces: 
 
 /** API tokens for programs (`/api/v1`); reading only. */
 export const apiTokensApi = {
-  list: () => api<{ allowed: boolean; tokens: ApiToken[] }>('/api/api-tokens'),
+  list: () => api<{ allowed: boolean; tokens: ApiToken[]; second_factor_pending?: boolean }>('/api/api-tokens'),
   make: (name: string, spaces: number[] | null, days: number | null) =>
     api<{ token: ApiToken; secret: string }>('/api/api-tokens', { method: 'POST', body: { name, spaces, days } }),
   remove: (id: number) => api<void>(`/api/api-tokens/${id}`, { method: 'DELETE' }),

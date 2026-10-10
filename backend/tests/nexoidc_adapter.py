@@ -157,6 +157,16 @@ class Adapter(StandardAdapter):
         with SessionLocal() as db:
             settings_service.save(db, {"public_url": url})
 
+    def read_public_url(self) -> str:
+        # The setting as a restart would find it (the environment variable is none of the test's).
+        with SessionLocal() as db:
+            return str(settings_service.get(db, "public_url") or "")
+
+    def save_public_url_route(self, url: str, *, confirm: bool = False) -> httpx.Response:
+        # Card 1 of the interface: the settings route that saves the address with the other settings. It asks first
+        # (409 ``public_url_change``) and saves nothing until the operator confirms.
+        return self.operator().put("/api/settings", json={"public_url": url, "confirm_address": confirm})
+
     def legacy_setup(
         self, *, issuer: str, client_id: str, client_secret: str, label: str, subjects: dict[str, str]
     ) -> None:
@@ -187,8 +197,20 @@ class Adapter(StandardAdapter):
             "client_id": legacy.client_id,
             "client_secret": legacy.client_secret,
             "label": legacy.label,
+            "auto_create": legacy.auto_create,
             "subjects": {names[account_id]: subject for account_id, subject in subjects},
         }
+
+    def delete_account(self, name: str) -> None:
+        # The operator's route, as the accounts list calls it (the operator's own password again).
+        with SessionLocal() as db:
+            row = accounts.by_name(db, name)
+            assert row is not None
+            account_id = row.id
+        answer = self.operator().request(
+            "DELETE", f"/api/accounts/{account_id}", json={"current_password": self.password_for(OPERATOR_NAME)}
+        )
+        assert answer.status_code == 204, answer.text
 
     def trip_throttle(self, client: Any) -> None:
         # As many failed runs at the provider from this sender as the brake lets pass (every TestClient is the

@@ -217,6 +217,10 @@ export function CopyLink({ value, label }: { value: string; label: string }) {
   )
 }
 
+/** What a `run` job returns when it has asked a question instead of working: no success message, no problem. */
+// eslint-disable-next-line react-refresh/only-export-components
+export const ASKED = Symbol('asked')
+
 /** Runs a change, remembers whether it worked; the card shows it with `Feedback`. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useAction() {
@@ -228,7 +232,8 @@ export function useAction() {
     setProblem(null)
     setDone(null)
     try {
-      await work()
+      const result = await work()
+      if (result === ASKED) return false
       if (success) setDone(success)
       return true
     } catch (error) {

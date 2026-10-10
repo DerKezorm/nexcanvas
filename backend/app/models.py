@@ -27,6 +27,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     event,
+    false,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
@@ -205,7 +206,7 @@ class AuthSession(Base):
     user_agent: Mapped[str] = mapped_column(String(255), default="")
     #: This sign-in came through a provider that checks the second factor itself (the entry's switch was on): the
     #: operator's "second factor required" does not force a setup for this session, whatever the account is.
-    provider_checked: Mapped[bool] = mapped_column(Boolean, default=False)
+    provider_checked: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
 
 class OidcProvider(Base):
@@ -235,6 +236,9 @@ class OidcProvider(Base):
     position: Mapped[int] = mapped_column(Integer, default=0)
     #: A callback path the provider knew before (a migration or a coupling sets it); "" is the standard one.
     redirect_path: Mapped[str] = mapped_column(String(300), default="")
+    #: The redirect address the authentik button registered at authentik the last time ("" for none; an entry of
+    #: before 1.0.10 has none). The card reports ``stale`` when today's address is another.
+    registered_redirect: Mapped[str] = mapped_column(String(500), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
 

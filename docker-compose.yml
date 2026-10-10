@@ -29,7 +29,8 @@ services:
       # also be set in the interface.
       # NEXCANVAS_PUBLIC_URL: https://boards.example.com
 
-      # Behind a reverse proxy: its address, so that the brake against password guessing sees the real sender.
+      # Behind a reverse proxy: its address, so that the brake against password guessing sees the real sender, and
+      # so that nexcanvas believes the proxy that it was reached over https (X-Forwarded-Proto).
       # The proxy must pass WebSockets through (the boards are edited live over /api/boards/<id>/live).
       # NEXCANVAS_TRUSTED_PROXIES: 172.16.0.0/12
 

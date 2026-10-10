@@ -20,7 +20,7 @@ from . import __version__, private
 from .config import get_settings
 from .db import SessionLocal, init_db
 from .errors import detail
-from .middleware import GuardMiddleware, RequestContextMiddleware, unhandled_error
+from .middleware import ForwardedProtoMiddleware, GuardMiddleware, RequestContextMiddleware, unhandled_error
 from .routers import about, apitokens, auth, boards, health, media, members, oidc, shapes, shares, spaces, templates
 from .routers import avatars as avatars_router
 from .routers import backups as backups_router
@@ -145,6 +145,8 @@ app = FastAPI(
 # Added last, runs first: the request id and headers wrap everything, the guard sits inside it.
 app.add_middleware(GuardMiddleware)
 app.add_middleware(RequestContextMiddleware)
+# Outermost: the scheme a trusted proxy reports is known before anything looks at the request.
+app.add_middleware(ForwardedProtoMiddleware)
 
 
 @app.exception_handler(RequestValidationError)

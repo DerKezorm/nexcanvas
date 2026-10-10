@@ -21,7 +21,7 @@ from ..models import Account as AccountRow
 from ..security import encrypt_secret
 from ..services import accounts, mailer, settings_service, suite
 from ..services.oidc_store import SqlStore
-from ..vendor.nexoidc import providers
+from ..vendor.nexoidc import authentik, providers
 
 logger = logging.getLogger("nexcanvas.settings")
 
@@ -53,6 +53,9 @@ class SettingsOut(BaseModel):
 
 class SettingsIn(BaseModel):
     public_url: str | None = Field(default=None, max_length=255)
+    #: The operator answered the question that came back as 409 ``public_url_change`` (authentik knows the old
+    #: address). Not a setting; it only goes with ``public_url``.
+    confirm_address: bool = False
     password_login: bool | None = None
     two_factor_required: bool | None = None
     shares_allowed: bool | None = None
@@ -110,9 +113,10 @@ def read(request: Request, _operator: OperatorAccount, db: DbSession) -> Setting
 
 
 @router.put("", response_model=SettingsOut)
-def save(payload: SettingsIn, operator: OperatorAccount, db: DbSession) -> SettingsOut:
+def save(payload: SettingsIn, request: Request, operator: OperatorAccount, db: DbSession) -> SettingsOut:
     changes: dict[str, Any] = {}
-    sent = {key for key, value in payload.model_dump(exclude_unset=True).items() if value is not None}
+    sent = {key for key, value in payload.model_dump(exclude_unset=True).items()
+            if value is not None and key != "confirm_address"}
     mail_managed = bool(settings_service.get(db, "suite_mail")) and any(k.startswith("smtp_") for k in sent)
     # The public address too: nexsuite knows the app by it, and the return address of the sign-in hangs on it (A9).
     # What team leads may as well: nexsuite keeps the teams and has its own switch for it (D3).
@@ -120,13 +124,19 @@ def save(payload: SettingsIn, operator: OperatorAccount, db: DbSession) -> Setti
     if suite.connected(db) and (sent & kept_there or mail_managed):
         raise error("managed_by_suite", "This is kept in nexsuite now.", 409)
     for key, value in payload.model_dump(exclude_unset=True).items():
-        if value is None:
+        if value is None or key == "confirm_address":
             continue
         if key == "public_url":
             try:
                 value = settings_service.normalize_public_url(value)
             except ValueError as exc:
                 raise error("invalid_url", "Enter an address starting with http:// or https://.", 422) from exc
+            # Saving the address changes the return address of the sign-in: authentik, set up by the button, knows
+            # the old one. Ask first, save nothing (blueprint 04, card 1).
+            question = authentik.public_url_guard(SqlStore(db), value, str(request.base_url),
+                                                  confirm=payload.confirm_address)
+            if question is not None:
+                raise error("public_url_change", "The address changes what authentik knows.", 409, **question)
         elif key == "smtp_from":
             value = value.strip()
             if value and not accounts.EMAIL_PATTERN.match(value):

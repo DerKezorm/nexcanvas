@@ -28,7 +28,8 @@ function leaves(tree: Tree, prefix = ''): [string, string][] {
   })
 }
 
-const values = { name: 'N', count: 2, only: 1, status: 403 }
+// `address` since 1.0.10 (addressChangeConfirm, proxyWarning, stale): the template of the module lacks it.
+const values = { name: 'N', count: 2, only: 1, status: 403, address: 'https://old.example.com/cb' }
 
 describe('the oidc texts', () => {
   for (const [language, tree] of [['de', de], ['en', en]] as const) {

@@ -792,6 +792,9 @@
     "invalid_days": "Bitte eine der angebotenen Laufzeiten wählen.",
     "invalid_email": "Das ist keine Mailadresse.",
     "invalid_url": "Gib eine Adresse an, die mit http:// oder https:// beginnt.",
+    "public_url_invalid": "Diese Adresse lässt sich in nexcanvas nicht verwenden. Prüf, wie sie geschrieben ist.",
+    "public_url_change": "Mit dieser Adresse ändert sich, was authentik kennt. Bestätige das zuerst.",
+    "public_url_needed": "nexcanvas hat noch keine öffentliche Adresse. Trag sie zuerst ein.",
     "mail_off": "Es ist kein Mailserver eingetragen.",
     "mail_failed": "Der Mailserver hat die Mail nicht angenommen.",
     "cannot_delete_self": "Das eigene Konto kannst du nicht löschen.",
@@ -1309,7 +1312,9 @@
     "unused": "nie benutzt",
     "allSpaces": "Alle Bereiche, die ich lesen darf, auch spätere",
     "someSpaces": "Nur diese",
-    "offForOperator": "API-Token sind ausgeschaltet."
+    "offForOperator": "API-Token sind ausgeschaltet.",
+    "waitsForSecondFactor": "Wirkt erst, wenn du einen zweiten Faktor einrichtest.",
+    "setUpSecondFactor": "Jetzt einrichten"
   },
   "teams": {
     "text": "Wer zusammenarbeitet. Getrennt von den Bereichen: Ein Bereich regelt, wer was sieht. Gibt ein Bereich einem Team ein Recht, hat es jedes Mitglied.",

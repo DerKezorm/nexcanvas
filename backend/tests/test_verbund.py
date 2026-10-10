@@ -8,6 +8,7 @@ import ast
 import hashlib
 import hmac
 import json
+import logging
 import pathlib
 import re
 import threading
@@ -64,6 +65,8 @@ def _own_link(account_id: int, subject: str) -> None:
             entry = OidcProvider(slug="oidc", label="Own", issuer="https://own.example.com", client_id="own-client")
             db.add(entry)
             db.flush()
+        # The migration happened, and the issuer 0.3 knows is the entry's (the anchor of the way back).
+        settings_service.save(db, {oidc_store.MIGRATED: True, oidc_store.ANCHOR: entry.issuer}, commit=False)
         db.add(OidcLink(provider_id=entry.id, subject=subject, account_id=account_id, issuer=entry.issuer))
         db.commit()
 
@@ -1774,13 +1777,14 @@ def test_coupling_and_uncoupling_bring_back_the_way_back_to_0_3_as_the_entry_say
     assert _setting("oidc_issuer") == SUITE
     _disconnect(client, fake)
     assert _own_settings() == own and _setting("oidc_auto_create") is True
-    # Off before coupling: empty for 0.3 after uncoupling, and back when the entry is on again.
+    # Off before coupling: no client for 0.3 after uncoupling (issuer and name stay), and back when the entry is on again.
+    off = (provider.issuer, "", "", "Own")
     _put_own(client, entry, provider, enabled=False, auto_create=True)
-    assert _own_settings() == ("", "", "", "")
+    assert _own_settings() == off
     connect(client, world, operator)
     assert _setting("oidc_issuer") == SUITE
     _disconnect(client, fake)
-    assert _own_settings() == ("", "", "", "") and _setting("oidc_auto_create") is False
+    assert _own_settings() == off and _setting("oidc_auto_create") is False
     _put_own(client, entry, provider, enabled=True, auto_create=True)
     assert _own_settings() == own and _setting("oidc_auto_create") is True
 
@@ -1860,6 +1864,23 @@ def _list_state() -> Any:
     return entries, _links(), _setting("suite_coupling"), _setting("suite_saved"), _setting("suite_state")
 
 
+def test_a_change_of_the_list_while_coupled_does_not_write_over_the_settings_of_0_3(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any) -> None:
+    """Coupled, the settings of 0.3 name nexsuite (``suite._old_settings``) and the way back is not written: a link the
+    sync makes for a new person is a change of the list, and it must leave them, the fingerprint and the anchor as
+    they are (module README: while coupled ``way_back`` shows nothing and the app keeps its own rule)."""
+    _own_entry_of_0_3(provider)
+    connect(client, world, operator)
+    keys = ("oidc_issuer", "oidc_client_id", "oidc_provider_name", oidc_store.FINGERPRINT, oidc_store.ANCHOR)
+    before = {key: _setting(key) for key in keys}
+    assert before["oidc_issuer"] == SUITE and before[oidc_store.ANCHOR]
+    fake.people["60"] = {"id": "60", "name": "dora", "display_name": "Dora", "email": "", "operator": False,
+                         "blocked": False}
+    assert client.post("/api/suite/sync").status_code == 200
+    assert any(link[2] == "60" for link in _links()), "the sync made a link: the list did change"
+    assert {key: _setting(key) for key in keys} == before
+
+
 def test_a_start_while_coupled_takes_over_nothing_of_0_3_and_leaves_the_coupling_alone(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any,
         caplog: pytest.LogCaptureFixture) -> None:
@@ -1869,15 +1890,22 @@ def test_a_start_while_coupled_takes_over_nothing_of_0_3_and_leaves_the_coupling
     connect(client, world, operator)
     state = _list_state()
     stored = _setting(oidc_store.FINGERPRINT)
+    anchor = _setting(oidc_store.ANCHOR)
     with SessionLocal() as db:
         # 0.3 at work meanwhile: another client, and a subject at an account that is somebody else's person here.
         settings_service.save(db, {"oidc_client_id": "set-by-0-3", "oidc_issuer": "https://other.example.com"})
         db.get(Account, world["cleo"].id).oidc_subject = "set-by-0-3"  # type: ignore[union-attr]
         db.commit()
     caplog.clear()
-    for _ in range(2):
-        assert oidc_store.migrate_settings(backup=False) is None
+    with caplog.at_level(logging.INFO):
+        for _ in range(2):
+            assert oidc_store.migrate_settings(backup=False) is None
     assert _list_state() == state
     assert _setting(oidc_store.FINGERPRINT) == stored, "nothing was written as the way back"
     assert _setting("oidc_client_id") == "set-by-0-3", "the settings of 0.3 are left as 0.3 wrote them"
-    assert any("nothing taken over" in line for line in caplog.messages), caplog.messages
+    # Said at every start, but as information: it is no fault, and a warning at each start is noise (module warning
+    # of ``resync`` replaced by the app's own line).
+    said = [record for record in caplog.records if "not taken over" in record.getMessage()]
+    assert said and all(record.levelno == logging.INFO for record in said), caplog.messages
+    assert not [r for r in caplog.records if r.levelno >= logging.WARNING and "sign-in settings" in r.getMessage()]
+    assert _setting(oidc_store.ANCHOR) == anchor and anchor, "the anchor outlives the coupling"

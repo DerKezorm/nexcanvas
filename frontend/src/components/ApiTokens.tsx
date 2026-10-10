@@ -49,7 +49,7 @@ export function ApiTokens() {
   const { t, i18n } = useTranslation()
   const { me } = useAuth()
   const boards = useBoards()
-  const [state, setState] = useState<{ allowed: boolean; tokens: ApiToken[] } | null>(null)
+  const [state, setState] = useState<{ allowed: boolean; tokens: ApiToken[]; second_factor_pending?: boolean } | null>(null)
   const [making, setMaking] = useState(false)
   const [name, setName] = useState('')
   // null: every space the account may read, later ones too; otherwise the ids chosen.
@@ -124,11 +124,22 @@ export function ApiTokens() {
     return { text: t('apiTokens.runsOut', { day: day(token.expires_at) }), soon: at - now <= WEEK }
   }
   const readable = boards.spaces
+  const waits = Boolean(state.second_factor_pending)
 
   return (
     <section id="api-tokens" className="rounded-2xl border border-ink-700 bg-ink-900 p-5" aria-labelledby="api-tokens-title">
       {title}
       <p className="mb-4 text-sm text-mist-500">{t('apiTokens.text')}</p>
+      {/* A provider checked the second factor for this session, but a token has no session: it works only once the
+          account has a factor of its own. Making one stays possible. */}
+      {waits && (
+        <p role="note" className="mb-3 rounded-lg border border-warn-500/30 bg-warn-500/10 px-3 py-2 text-sm text-warn-500" data-testid="api-tokens-waits">
+          {t('apiTokens.waitsForSecondFactor')}{' '}
+          <Link to="/account?tab=security" className="underline">
+            {t('apiTokens.setUpSecondFactor')}
+          </Link>
+        </p>
+      )}
       {problem && (
         <p role="alert" className="mb-3 rounded-lg border border-bad-500/30 bg-bad-500/10 px-3 py-2 text-sm text-bad-500">
           {problem}
@@ -184,6 +195,11 @@ export function ApiTokens() {
                     </span>
                   )}
                   <span>{token.last_used_at ? t('apiTokens.used', { when: moment(token.last_used_at, i18n.language) }) : t('apiTokens.unused')}</span>
+                  {waits && !token.blocked && (
+                    <span className="text-warn-500" data-testid="api-token-waits">
+                      {t('apiTokens.waitsForSecondFactor')}
+                    </span>
+                  )}
                 </div>
               </li>
             )

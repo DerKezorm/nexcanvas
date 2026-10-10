@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from ..config import get_settings
 from ..models import Setting
+from ..vendor.nexoidc import flow
 
 DEFAULTS: dict[str, Any] = {
     "log_mode": "normal",
@@ -39,6 +40,9 @@ DEFAULTS: dict[str, Any] = {
     #: What the way back to 0.3 said when this version last wrote it (``services/oidc_store.mirror_way_back``): sums
     #: only. At the next start the difference to what stands there now is what 0.3 changed.
     "oidc_legacy_fingerprint": None,
+    #: The issuer 0.3 knows, or "-" (closed): with the entry ``oidc`` it decides what the way back shows (module
+    #: ``migrate.way_back``, ``services/oidc_store.ANCHOR``).
+    "oidc_legacy_anchor": None,
     #: The settings above were looked at once and, where there was a provider, became the entry ``oidc``.
     "oidc_list_migrated": False,
     #: Public read-only pages of boards: a way out, closed until the operator opens it.
@@ -117,7 +121,7 @@ def save(db: Session, changes: dict[str, Any], *, commit: bool = True) -> None:
 
 def normalize_public_url(value: str) -> str:
     """``scheme://host[:port]`` and nothing else, or empty. ``ValueError`` for anything people could not type into
-    a browser: no other schemes, no credentials, no path, no query."""
+    a browser: no other schemes, no credentials, no path, no query, nothing the shared sign-in module refuses."""
     text = value.strip()
     if not text:
         return ""
@@ -130,7 +134,9 @@ def normalize_public_url(value: str) -> str:
         parts.port  # noqa: B018 - raises ValueError when the port is not a number
     except ValueError as exc:
         raise ValueError("port") from exc
-    return f"{parts.scheme.lower()}://{parts.netloc}"
+    # Never more than the sign-in module takes (the host's letters, at most 199 characters): what it refuses is no
+    # address here either, or the authentik card and the sign-in would disagree about it.
+    return flow.clean_public_url(f"{parts.scheme.lower()}://{parts.netloc}")
 
 
 def public_url(db: Session) -> str:

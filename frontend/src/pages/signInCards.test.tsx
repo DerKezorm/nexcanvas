@@ -51,6 +51,21 @@ let count: number | undefined
 let afterConfirm: Step[] | null = null
 let list: OidcProvider[] = []
 let settings = { password_login: true, two_factor_required: false, public_url: 'https://boards.example.com' }
+/** What `GET /api/oidc/authentik/address` says; the browser of the test is at http://localhost:3000. */
+const ADDRESS = {
+  public_url: 'https://boards.example.com',
+  seen: 'https://boards.example.com',
+  forwarded_proto: '',
+  forwarded_host: '',
+  proxy_ignored: false,
+  callback_path: '/api/oidc/authentik/callback',
+  redirect_uri: 'https://boards.example.com/api/oidc/authentik/callback',
+  registered_redirect_uri: '',
+  stale: false,
+}
+let addressView: Record<string, unknown> = ADDRESS
+/** When set, saving the address (settings or the card's second button) is answered with this refusal until it comes with the confirmation. */
+let refusal: { status: number; detail: Record<string, unknown> } | null = null
 let gate: Promise<void> = Promise.resolve()
 let calls: { method: string; path: string; body: unknown }[] = []
 let root: Root
@@ -63,6 +78,8 @@ beforeEach(() => {
   afterConfirm = null
   list = []
   settings = { password_login: true, two_factor_required: false, public_url: 'https://boards.example.com' }
+  addressView = ADDRESS
+  refusal = null
   gate = Promise.resolve()
   calls = []
   vi.stubGlobal(
@@ -71,7 +88,20 @@ beforeEach(() => {
       const path = String(input)
       const method = init?.method ?? 'GET'
       calls.push({ method, path, body: init?.body ? JSON.parse(String(init.body)) : null })
+      if (path === '/api/settings' && method === 'PUT') {
+        const sent = JSON.parse(String(init?.body ?? '{}')) as { public_url?: string; confirm_address?: boolean }
+        if (refusal && !sent.confirm_address) return json({ detail: refusal.detail }, refusal.status)
+        if (sent.public_url !== undefined) settings = { ...settings, public_url: sent.public_url }
+        return json(settings)
+      }
       if (path === '/api/settings') return json(settings)
+      if (path === '/api/oidc/authentik/address' && method === 'GET') return json(addressView)
+      if (path === '/api/oidc/authentik/address' && method === 'POST') {
+        const sent = JSON.parse(String(init?.body ?? '{}')) as { public_url: string; confirm?: boolean }
+        if (refusal && !sent.confirm) return json({ detail: refusal.detail }, refusal.status)
+        addressView = { ...ADDRESS, public_url: sent.public_url, redirect_uri: sent.public_url + ADDRESS.callback_path }
+        return json(addressView)
+      }
       if (path === '/api/oidc/admin/providers' && method === 'GET') return json(list)
       if (path.endsWith('/impact')) return json({ issuer_change: 0, count: 3, only: 1, only_names: ['kim'] })
       if (path === '/api/oidc/authentik/setup') {
@@ -300,7 +330,7 @@ describe('the authentik steps', () => {
       expect(rows()).toEqual([`✗${i18n.t('oidc.authentik.step.reached')}${i18n.t('oidc.authentik.why.issuer_change', { count: 7 })}`])
       expect(box.textContent).not.toContain('{{')
       expect(calls.filter((call) => call.path === '/api/oidc/authentik/setup').map((call) => call.body)).toEqual([
-        { url: 'https://auth.example.com', token: 'token', confirm_issuer_change: false },
+        { url: 'https://auth.example.com', token: 'token', confirm_issuer_change: false, public_url: '' },
       ])
     })
 
@@ -315,8 +345,8 @@ describe('the authentik steps', () => {
       await settle()
       const bodies = calls.filter((call) => call.path === '/api/oidc/authentik/setup').map((call) => call.body)
       expect(bodies).toEqual([
-        { url: 'https://auth.example.com', token: 'token', confirm_issuer_change: false },
-        { url: 'https://auth.example.com', token: 'token', confirm_issuer_change: true },
+        { url: 'https://auth.example.com', token: 'token', confirm_issuer_change: false, public_url: '' },
+        { url: 'https://auth.example.com', token: 'token', confirm_issuer_change: true, public_url: '' },
       ])
       expect(dialog()).toBeNull()
       expect(rows()).toEqual(STEP_KEYS.map((key) => `✓${i18n.t(`oidc.authentik.step.${key}`)}`))
@@ -345,11 +375,118 @@ describe('the authentik steps', () => {
     })
   })
 
-  it('warns without a public address, with a way to the field', async () => {
-    settings = { ...settings, public_url: '' }
-    await page()
-    const warning = box.querySelector('[data-testid="authentik-no-address"]')!
-    expect(warning.textContent).toContain(i18n.t('oidc.authentik.noAddress'))
-    expect(warning.querySelector('a[href="#sign-in"]')).not.toBeNull()
+  describe('the public address in the card (module 1.0.10)', () => {
+    const NONE = { ...ADDRESS, public_url: '', seen: 'http://localhost:3000', redirect_uri: 'http://localhost:3000/api/oidc/authentik/callback' }
+    const dialog = () => document.querySelector('[role="dialog"]')
+    const setups = () => calls.filter((call) => call.path === '/api/oidc/authentik/setup').map((call) => call.body)
+    const saves = () => calls.filter((call) => call.path === '/api/oidc/authentik/address' && call.method === 'POST').map((call) => call.body)
+
+    it('shows the ordinary button with an address, and no suggestion', async () => {
+      await page()
+      expect(box.querySelector('[data-testid="authentik-no-address"]')).toBeNull()
+      expect(box.querySelector('[data-testid="authentik-stale"]')).toBeNull()
+      expect(button(authentikCard(), i18n.t('oidc.authentik.run'))).toBeDefined()
+      expect(button(authentikCard(), i18n.t('oidc.authentik.adoptOnly'))).toBeUndefined()
+      expect(authentikCard().querySelector('a[href="/api/oidc/authentik/blueprint"]')).not.toBeNull()
+    })
+
+    it.each(['en', 'de'] as const)('suggests the address of the browser in %s, with where authentik leads back to, and sends it with the button', async (language) => {
+      addressView = NONE
+      answer = STEP_KEYS.map((key) => ({ key, ok: true, detail: key }))
+      await card(language)
+      const warning = box.querySelector('[data-testid="authentik-no-address"]')!
+      expect(warning.textContent).toContain(i18n.t('oidc.authentik.noAddress'))
+      expect(warning.querySelector('[data-testid="authentik-proposal"]')!.textContent).toBe('http://localhost:3000')
+      expect(warning.textContent).toContain('http://localhost:3000/api/oidc/authentik/callback')
+      expect(box.textContent).not.toContain('{{')
+      // The blueprint has nothing to name yet: no link.
+      expect(authentikCard().querySelector('a[href="/api/oidc/authentik/blueprint"]')).toBeNull()
+      await press(authentikCard(), i18n.t('oidc.authentik.adopt'))
+      await settle()
+      expect(setups()).toEqual([{ url: 'https://auth.example.com', token: 'token', confirm_issuer_change: false, public_url: 'http://localhost:3000' }])
+    })
+
+    it('warns when the server sees another scheme than the browser uses, and not when they agree', async () => {
+      addressView = { ...NONE, seen: 'http://localhost:3000' }
+      await page()
+      expect(box.querySelector('[data-testid="authentik-proxy-warning"]')).toBeNull()
+      act(() => root.unmount())
+      root = createRoot(box)
+      addressView = { ...NONE, seen: 'https://localhost:3000' }
+      await page()
+      expect(box.querySelector('[data-testid="authentik-proxy-warning"]')!.textContent).toContain('https://localhost:3000')
+      act(() => root.unmount())
+      root = createRoot(box)
+      addressView = { ...NONE, proxy_ignored: true }
+      await page()
+      expect(box.querySelector('[data-testid="authentik-proxy-warning"]')).not.toBeNull()
+    })
+
+    it('says that authentik still knows the old address, with the old one in it', async () => {
+      addressView = { ...ADDRESS, stale: true, registered_redirect_uri: 'https://old.example.com/api/oidc/authentik/callback' }
+      await page()
+      expect(box.querySelector('[data-testid="authentik-stale"]')!.textContent).toBe(
+        i18n.t('oidc.authentik.stale', { address: 'https://old.example.com/api/oidc/authentik/callback' }),
+      )
+    })
+
+    it('saves only the address with the second button, asks first when that changes what authentik knows, and says yes with the confirmation', async () => {
+      addressView = NONE
+      refusal = { status: 409, detail: { code: 'public_url_change', message: 'x', count: 1, hand: 2, address: 'https://old.example.com/cb' } }
+      await page()
+      await press(authentikCard(), i18n.t('oidc.authentik.adoptOnly'))
+      await settle()
+      const asked = dialog()!.textContent!
+      expect(asked).toContain(i18n.t('oidc.admin.addressChangeConfirm', { address: 'https://old.example.com/cb' }))
+      expect(asked).toContain(i18n.t('oidc.admin.addressChangeHand', { count: 2 }))
+      expect(saves()).toEqual([{ public_url: 'http://localhost:3000', confirm: false }])
+      await press(dialog()!, i18n.t('oidc.authentik.adoptOnly'))
+      await settle()
+      expect(saves()).toEqual([
+        { public_url: 'http://localhost:3000', confirm: false },
+        { public_url: 'http://localhost:3000', confirm: true },
+      ])
+      expect(dialog()).toBeNull()
+      expect(box.querySelector('[data-testid="authentik-no-address"]')).toBeNull()
+    })
+
+    it('asks about the entries by hand alone, without the sentence about authentik', async () => {
+      addressView = NONE
+      refusal = { status: 409, detail: { code: 'public_url_change', message: 'x', count: 0, hand: 1, address: '' } }
+      await page()
+      await press(authentikCard(), i18n.t('oidc.authentik.adoptOnly'))
+      await settle()
+      expect(dialog()!.textContent).toContain(i18n.t('oidc.admin.addressChangeHand', { count: 1 }))
+      expect(dialog()!.textContent).not.toContain('authentik still knows')
+    })
+
+    it('says an address that is none cannot be used', async () => {
+      addressView = NONE
+      refusal = { status: 422, detail: { code: 'public_url_invalid', message: 'x' } }
+      await page()
+      await press(authentikCard(), i18n.t('oidc.authentik.adoptOnly'))
+      await settle()
+      expect(authentikCard().querySelector('[data-testid="authentik-unusable"]')!.textContent).toBe(i18n.t('oidc.authentik.why.unusable'))
+      expect(dialog()).toBeNull()
+    })
+
+    it('asks in card 1 as well before the address is saved, and sends the confirmation on yes', async () => {
+      refusal = { status: 409, detail: { code: 'public_url_change', message: 'x', count: 1, hand: 0, address: 'https://boards.example.com/cb' } }
+      await page()
+      const card1 = document.getElementById('sign-in')!
+      type(card1.querySelector(`input[placeholder="https://boards.example.com"]`), 'https://new.example.com')
+      await act(async () => card1.querySelector('form')!.requestSubmit())
+      await settle()
+      expect(dialog()!.textContent).toContain(i18n.t('oidc.admin.addressChangeConfirm', { address: 'https://boards.example.com/cb' }))
+      const puts = () => calls.filter((call) => call.method === 'PUT' && call.path === '/api/settings').map((call) => call.body)
+      expect(puts()).toEqual([{ public_url: 'https://new.example.com', confirm_address: false }])
+      await press(dialog()!, i18n.t('common.save'))
+      await settle()
+      expect(puts()).toEqual([
+        { public_url: 'https://new.example.com', confirm_address: false },
+        { public_url: 'https://new.example.com', confirm_address: true },
+      ])
+      expect(dialog()).toBeNull()
+    })
   })
 })

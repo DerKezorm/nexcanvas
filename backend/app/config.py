@@ -58,8 +58,9 @@ class Settings(BaseSettings):
     #: Appended to every cookie name. Two instances on one host under different ports share their cookies (a browser
     #: does not tell ports apart); a suffix keeps their sign-ins apart. Letters, digits and "_" only.
     cookie_suffix: str = ""
-    #: Addresses or networks of reverse proxies whose ``X-Forwarded-For`` may be believed, comma separated. Empty:
-    #: the header is ignored, so that nobody dodges the sign-in brake with made-up addresses.
+    #: Addresses or networks of reverse proxies whose ``X-Forwarded-For`` and ``X-Forwarded-Proto`` may be believed,
+    #: comma separated. Empty: the headers are ignored, so that nobody dodges the sign-in brake with made-up
+    #: addresses or makes the app see a scheme it was not reached with.
     trusted_proxies: str = ""
     #: The code the first account must bring. Empty: nexcanvas makes one at every start until set up and writes it to
     #: the log, so that whoever reaches a fresh instance first does not become its operator.

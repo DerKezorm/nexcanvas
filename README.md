@@ -170,7 +170,7 @@ With an image: `docker compose pull && docker compose up -d`. Built from source:
 | `NEXCANVAS_LOCALES_DIR` | `<data>/locales` | Extra languages, one JSON file each |
 | `NEXCANVAS_SECRET_KEY` | created on first start | Protects server-side secrets; when set, it wins over `secret.key` |
 | `NEXCANVAS_PUBLIC_URL` | from the request | The address people use to reach nexcanvas, for invitation links, public pages and the redirect addresses of the sign-in providers. The setting in the interface wins when set |
-| `NEXCANVAS_TRUSTED_PROXIES` | none | Addresses or networks of reverse proxies whose `X-Forwarded-For` is believed, comma separated |
+| `NEXCANVAS_TRUSTED_PROXIES` | none | Addresses or networks of reverse proxies whose `X-Forwarded-For` and `X-Forwarded-Proto` are believed, comma separated |
 | `NEXCANVAS_SETUP_TOKEN` | made at start | The code the first account needs |
 | `NEXCANVAS_OPERATOR_NETWORKS` | none | Networks the operator's settings may be changed from, comma separated |
 | `NEXCANVAS_UPLOAD_MAX_MB` | `50` | The largest photo or file; the operator can lower it in the settings |

@@ -17,7 +17,7 @@ from ..deps import Account, DbSession, OperatorAccount
 from ..errors import error
 from ..models import Account as AccountRow
 from ..models import ApiToken, Space, utcnow
-from ..services import apitokens, rights
+from ..services import apitokens, rights, totp
 from ..services.apitokens import TokenError
 
 logger = logging.getLogger("nexcanvas.api")
@@ -42,6 +42,9 @@ class TokenOut(BaseModel):
 class TokensOut(BaseModel):
     allowed: bool
     tokens: list[TokenOut]
+    #: The operator requires a second factor and this account has none of its own (it got here through a provider that
+    #: checks it): its tokens make fine, but they work only once it sets one up.
+    second_factor_pending: bool = False
 
 
 class TokenIn(BaseModel):
@@ -58,6 +61,8 @@ class MadeOut(BaseModel):
     token: TokenOut
     #: Shown once, never again.
     secret: str
+    #: As in ``TokensOut``.
+    second_factor_pending: bool = False
 
 
 def _out(db: Any, account: Any, row: ApiToken) -> TokenOut:
@@ -75,7 +80,8 @@ def _out(db: Any, account: Any, row: ApiToken) -> TokenOut:
 @router.get("/api-tokens", response_model=TokensOut, summary="The own API tokens")
 def own_tokens(account: Account, db: DbSession) -> TokensOut:
     rows = db.scalars(select(ApiToken).where(ApiToken.account_id == account.id).order_by(ApiToken.id)).all()
-    return TokensOut(allowed=apitokens.allowed(db), tokens=[_out(db, account, row) for row in rows])
+    return TokensOut(allowed=apitokens.allowed(db), tokens=[_out(db, account, row) for row in rows],
+                     second_factor_pending=totp.factor_missing(db, account))
 
 
 @router.post("/api-tokens", response_model=MadeOut, status_code=201, summary="Make an API token; shown once")
@@ -86,7 +92,7 @@ def make_token(body: TokenIn, account: Account, db: DbSession) -> MadeOut:
         row, secret = apitokens.make(db, account, body.name, body.level, body.spaces, body.days)
     except TokenError as exc:
         raise error(exc.code, exc.text, exc.status) from exc
-    return MadeOut(token=_out(db, account, row), secret=secret)
+    return MadeOut(token=_out(db, account, row), secret=secret, second_factor_pending=totp.factor_missing(db, account))
 
 
 @router.delete("/api-tokens/{token_id}", status_code=204, summary="Delete an own API token")

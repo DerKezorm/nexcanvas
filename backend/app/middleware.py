@@ -53,6 +53,45 @@ SECURITY_HEADERS: tuple[tuple[bytes, bytes], ...] = (
 )
 
 
+class ForwardedProtoMiddleware:
+    """The scheme a TLS-ending proxy says it received the request with (``X-Forwarded-Proto``), believed only when the
+    connection comes from a proxy named in ``NEXCANVAS_TRUSTED_PROXIES``: the list the sign-in brake already trusts
+    for ``X-Forwarded-For``. Nothing else of the proxy's headers is taken (not the host, not the port). Without that
+    setting, or from any other sender, the scheme stays what the connection is (uvicorn starts with
+    ``--no-proxy-headers``). It is what makes ``request.base_url`` and the card of the authentik button see
+    ``https://`` behind a proxy, so that it stops warning about an address the sign-in does not use.
+
+    Pure ASGI, so streaming responses and WebSockets are not buffered."""
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: dict, receive: Callable, send: Callable) -> None:
+        if scope["type"] in ("http", "websocket"):
+            scheme = self._scheme(scope)
+            if scheme:
+                scope = {**scope, "scheme": scheme}
+        await self.app(scope, receive, send)
+
+    @staticmethod
+    def _scheme(scope: dict) -> str:
+        from .deps import is_trusted_proxy
+
+        peer = scope.get("client")
+        if not peer or not is_trusted_proxy(str(peer[0])):
+            return ""
+        said = ""
+        for name, value in scope.get("headers", []):
+            if name == b"x-forwarded-proto":
+                said = value.decode("latin-1").split(",")[0].strip().lower()
+                break
+        if said not in ("http", "https"):
+            return ""
+        if scope["type"] == "websocket":
+            return "wss" if said == "https" else "ws"
+        return said
+
+
 class RequestContextMiddleware:
     """Pure ASGI, so streaming responses and WebSockets are not buffered."""
 

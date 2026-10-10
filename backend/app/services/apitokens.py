@@ -120,8 +120,9 @@ def authenticate(db: Session, token: str | None) -> Caller | None:
     if account is None or account.blocked_at is not None:
         # Blocked (here or in nexsuite) means no way in at all, a token included (Prüfgang 04.10.2026, A4).
         return None
-    if totp.setup_required(db, account):
-        # The operator requires a second factor this account has not set up: its tokens wait like its sessions.
+    if totp.factor_missing(db, account):
+        # The operator requires a second factor this account has not set up: its tokens wait like its sessions (also
+        # when it signed in through a provider that checked it: a token has no session to be sheltered by).
         return None
     if row.last_used_at is None or now - row.last_used_at >= USED_EVERY:
         row.last_used_at = now

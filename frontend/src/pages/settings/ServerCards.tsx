@@ -7,14 +7,14 @@ import { Box, Download, Files, Globe, History, Info, KeyRound, Mail, RotateCcw, 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, apiTokensApi, oidcAdminApi, passwordHeader, type AnyApiToken, type LinkedProvider, type Me, type Role, type SpaceInfo } from '../../api/client'
+import { api, ApiError, apiTokensApi, oidcAdminApi, passwordHeader, type AddressQuestion, type AnyApiToken, type LinkedProvider, type Me, type Role, type SpaceInfo } from '../../api/client'
 import { useBoards } from '../../board/store'
 import { Avatar } from '../../components/Avatar'
 import { clock, moment } from '../../lib/time'
 import { MembersDialog } from '../../components/MembersDialog'
 import { byName, forgetAddedLanguages, templateFile } from '../../i18n'
 import { useAuth } from '../../state/auth'
-import { Button, Card, Confirm, CopyLink, Feedback, Input, saveAsFile, Select, Toggle, useAction } from './ui'
+import { ASKED, Button, Card, Confirm, CopyLink, Feedback, Input, saveAsFile, Select, Toggle, useAction } from './ui'
 import { Managed, useSuiteConnected } from '../../components/Suite'
 
 export type ServerSettings = {
@@ -58,7 +58,27 @@ export function useServerSettings() {
     const ok = await action.run(async () => setSettings(await api<ServerSettings>('/api/settings', { method: 'PUT', body: change })), done)
     if (!ok) setSettings(before)
   }
-  return { settings, save, ...action }
+  /**
+   * Saves the public address. authentik, set up by the button, knows the old one: the server then answers 409
+   * `public_url_change` and saves nothing. That comes back as the question to put to the operator (send again with
+   * `confirm`); null: saved (or refused for another reason, which `problem` shows).
+   */
+  const saveAddress = async (public_url: string, confirm: boolean, done?: string): Promise<AddressQuestion | null> => {
+    let question: AddressQuestion | null = null
+    await action.run(async () => {
+      try {
+        setSettings(await api<ServerSettings>('/api/settings', { method: 'PUT', body: { public_url, confirm_address: confirm } }))
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.code !== 'public_url_change') throw error
+        question = { count: Number(error.values.count ?? 0), hand: Number(error.values.hand ?? 0), address: String(error.values.address ?? '') }
+        return ASKED
+      }
+    }, done)
+    return question
+  }
+  /** Reads the settings again (the authentik card stored the public address). */
+  const reload = useCallback(() => api<ServerSettings>('/api/settings').then(setSettings, () => undefined), [])
+  return { settings, save, saveAddress, reload, ...action }
 }
 
 /** Requests come with proxy headers, but no proxy is named: the sign-in brake sees one sender for everybody (A5). */
