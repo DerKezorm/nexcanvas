@@ -46,6 +46,9 @@ function entry(change: Partial<OidcProvider> = {}): OidcProvider {
 
 /** What the server answers next, and a gate that holds the setup answer back while a test looks at the page. */
 let answer: Step[] = []
+/** With ``count`` the setup answer carries the number of an issuer change; ``afterConfirm`` is what the run answers once it is sent with ``confirm_issuer_change``. */
+let count: number | undefined
+let afterConfirm: Step[] | null = null
 let list: OidcProvider[] = []
 let settings = { password_login: true, two_factor_required: false, public_url: 'https://boards.example.com' }
 let gate: Promise<void> = Promise.resolve()
@@ -56,6 +59,8 @@ let box: HTMLDivElement
 beforeEach(() => {
   ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
   answer = []
+  count = undefined
+  afterConfirm = null
   list = []
   settings = { password_login: true, two_factor_required: false, public_url: 'https://boards.example.com' }
   gate = Promise.resolve()
@@ -71,7 +76,9 @@ beforeEach(() => {
       if (path.endsWith('/impact')) return json({ issuer_change: 0, count: 3, only: 1, only_names: ['kim'] })
       if (path === '/api/oidc/authentik/setup') {
         await gate
-        return json({ ok: answer.every((step) => step.ok) && answer.length === STEP_KEYS.length, steps: answer, client_id: '', issuer: '', provider_id: null, links_dropped: 0 })
+        const confirmed = (JSON.parse(String(init?.body ?? '{}')) as { confirm_issuer_change?: boolean }).confirm_issuer_change === true
+        const steps = confirmed && afterConfirm ? afterConfirm : answer
+        return json({ ok: steps.every((step) => step.ok) && steps.length === STEP_KEYS.length, steps, client_id: '', issuer: '', provider_id: null, links_dropped: 0, ...(!confirmed && count !== undefined ? { count } : {}) })
       }
       return new Response('{}', { status: 404 })
     }),
@@ -274,6 +281,68 @@ describe('the authentik steps', () => {
     await settle()
     expect(authentikCard().querySelector('[role="status"]')).toBeNull()
     expect(rows()).toEqual([`✗${i18n.t('oidc.authentik.step.reached')}${i18n.t('oidc.authentik.why.unreachable')}`])
+  })
+
+  describe('the question before an issuer change (module 1.0.8)', () => {
+    const stopped: Step[] = [
+      { key: STEP_KEYS[0], ok: false, detail: 'another issuer', reason: 'issuer_change', status: 0 },
+    ]
+    const dialog = () => document.querySelector('[role="dialog"]')
+
+    it.each(['en', 'de'] as const)('asks in %s with the number of accounts and sends nothing more until it is answered yes', async (language) => {
+      answer = stopped
+      count = 7
+      await card(language)
+      await press(authentikCard(), i18n.t('oidc.authentik.run'))
+      await settle()
+      expect(dialog()!.textContent).toContain(i18n.t('oidc.admin.issuerChangeConfirm', { count: 7 }))
+      // The step list says it too, with the number in it (no placeholder left over).
+      expect(rows()).toEqual([`✗${i18n.t('oidc.authentik.step.reached')}${i18n.t('oidc.authentik.why.issuer_change', { count: 7 })}`])
+      expect(box.textContent).not.toContain('{{')
+      expect(calls.filter((call) => call.path === '/api/oidc/authentik/setup').map((call) => call.body)).toEqual([
+        { url: 'https://auth.example.com', token: 'token', confirm_issuer_change: false },
+      ])
+    })
+
+    it('runs the button once more with the confirmation on yes, and shows what that run did', async () => {
+      answer = stopped
+      afterConfirm = STEP_KEYS.map((key) => ({ key, ok: true, detail: key }))
+      count = 2
+      await card('en')
+      await press(authentikCard(), i18n.t('oidc.authentik.run'))
+      await settle()
+      await press(dialog()!, i18n.t('oidc.authentik.run'))
+      await settle()
+      const bodies = calls.filter((call) => call.path === '/api/oidc/authentik/setup').map((call) => call.body)
+      expect(bodies).toEqual([
+        { url: 'https://auth.example.com', token: 'token', confirm_issuer_change: false },
+        { url: 'https://auth.example.com', token: 'token', confirm_issuer_change: true },
+      ])
+      expect(dialog()).toBeNull()
+      expect(rows()).toEqual(STEP_KEYS.map((key) => `✓${i18n.t(`oidc.authentik.step.${key}`)}`))
+      expect(tokenField().value).toBe('')
+    })
+
+    it('changes nothing on no: no second call, the token stays for the next try', async () => {
+      answer = stopped
+      count = 2
+      await card('en')
+      await press(authentikCard(), i18n.t('oidc.authentik.run'))
+      await settle()
+      await press(dialog()!, i18n.t('common.cancel'))
+      await settle()
+      expect(dialog()).toBeNull()
+      expect(calls.filter((call) => call.path === '/api/oidc/authentik/setup')).toHaveLength(1)
+      expect(tokenField().value).toBe('token')
+    })
+
+    it('does not ask for any other failure', async () => {
+      answer = [{ key: STEP_KEYS[0], ok: false, detail: 'down', reason: 'unreachable', status: 0 }]
+      await card('en')
+      await press(authentikCard(), i18n.t('oidc.authentik.run'))
+      await settle()
+      expect(dialog()).toBeNull()
+    })
   })
 
   it('warns without a public address, with a way to the field', async () => {

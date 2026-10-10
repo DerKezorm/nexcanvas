@@ -141,3 +141,41 @@ test('34: add, edit and remove a provider; the authentik card lists its steps', 
   await expect(steps).toContainText('authentik cannot be reached at this address')
   expect(problems).toEqual([])
 })
+
+test('the authentik card asks before another issuer, and runs again only when answered yes', async ({ page }) => {
+  // The server's answer is put in by hand: the question itself is the server's, tested in the contract tests; this
+  // is the page in the real build, in front of a real server that never hears of the first run.
+  const problems = collectProblems(page)
+  const bodies: { confirm_issuer_change?: boolean }[] = []
+  const keys = ['reached', 'signingKey', 'mapping', 'provider', 'application', 'filled']
+  await page.route('**/api/oidc/authentik/setup', async (route) => {
+    const body = route.request().postDataJSON() as { confirm_issuer_change?: boolean }
+    bodies.push(body)
+    const steps = body.confirm_issuer_change
+      ? keys.map((key) => ({ key, ok: true, detail: key }))
+      : [{ key: 'reached', ok: false, detail: 'another issuer', reason: 'issuer_change', status: 0 }]
+    await route.fulfill({
+      json: { ok: !!body.confirm_issuer_change, steps, client_id: '', issuer: '', provider_id: null, links_dropped: 0, count: 3 },
+    })
+  })
+  await page.goto('/settings?tab=server&sub=signin')
+  const card = page.locator('#sign-in-authentik')
+  await card.getByLabel('Address of authentik').fill('https://auth.example.com')
+  await card.getByLabel('API token').fill(`e2e-${Date.now()}`)
+  await card.getByRole('button', { name: 'Set up', exact: true }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toContainText('3 accounts will have to link again')
+  if (process.env.NEXCANVAS_E2E_SHOT) await page.screenshot({ path: process.env.NEXCANVAS_E2E_SHOT })
+  // No: nothing more is sent, the token stays.
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(dialog).toHaveCount(0)
+  expect(bodies).toHaveLength(1)
+  await expect(card.getByLabel('API token')).not.toHaveValue('')
+  // Yes: the same run once more, with the confirmation.
+  await card.getByRole('button', { name: 'Set up', exact: true }).click()
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('button', { name: 'Set up', exact: true }).click()
+  await expect(page.getByTestId('authentik-steps').locator('li')).toHaveCount(keys.length)
+  expect(bodies.map((body) => body.confirm_issuer_change)).toEqual([false, false, true])
+  expect(problems).toEqual([])
+})

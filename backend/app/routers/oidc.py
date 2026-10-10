@@ -25,7 +25,7 @@ Paths (all below ``/api/oidc``):
 | POST, DELETE | ``/{slug}/link`` | signed in: link (``{"password"}`` → ``{"url"}``), unlink |
 | POST, DELETE | ``/me/address`` | signed in: take the address a provider knows, or stop being asked |
 | DELETE | ``/admin/accounts/{account}/links/{provider}`` | operator, with the own password |
-| POST | ``/authentik/setup`` | operator: ``{"url", "token"}`` → always 200 with the steps |
+| POST | ``/authentik/setup`` | operator: ``{"url", "token", "confirm_issuer_change"}`` → always 200 with the steps |
 | GET | ``/authentik/blueprint`` | operator: ``nexcanvas-authentik.yaml`` |
 """
 
@@ -108,6 +108,8 @@ class PasswordIn(BaseModel):
 class SetupIn(BaseModel):
     url: str = Field(min_length=1, max_length=500)
     token: str = Field(min_length=1, max_length=2000)
+    #: The operator answered the question before an issuer change (the module stops with ``issuer_change`` until then).
+    confirm_issuer_change: bool = False
 
 
 class OrderIn(BaseModel):
@@ -484,7 +486,9 @@ async def authentik_setup(payload: SetupIn, operator: OperatorAccount, request: 
     # Coupled, the module touches nothing and says so (reason ``coupled``); the page locks the card as well.
     logger.info("authentik setup started by=%s", operator.name)
     with store() as s:
-        result = await authentik.setup(s, payload.url, payload.token, _base(request))
+        result = await authentik.setup(
+            s, payload.url, payload.token, _base(request), confirm_issuer_change=payload.confirm_issuer_change
+        )
     return result.as_dict()
 
 

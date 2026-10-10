@@ -10,25 +10,39 @@ import logging
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 
 from app.config import get_settings
 from app.db import SessionLocal
-from app.models import SIGN_IN_OIDC, Account, OidcLink, OidcProvider, SpaceNotice
+from app.models import (
+    MANAGE,
+    READ,
+    SIGN_IN_OIDC,
+    WRITE,
+    Account,
+    Invite,
+    Membership,
+    OidcLink,
+    OidcProvider,
+    Space,
+    SpaceNotice,
+)
 from app.security import encrypt_secret
-from app.services import backups, oidc_store, settings_service, suite
+from app.services import accounts, backups, oidc_store, settings_service, suite
 
 from . import oidc_helpers
 from .conftest import PASSWORD, make_account, sign_in
 from .oidc_helpers import (
     FakeProvider,
     add_provider,
+    come_back,
     configure,
     error_in,
     fresh_browser,
     link,
     location,
     sign_in_via_oidc,
+    start,
 )
 
 provider = oidc_helpers.provider
@@ -491,3 +505,130 @@ def test_unlinking_from_the_entry_oidc_takes_the_subject_of_0_3_along(client: Te
                           json={"current_password": PASSWORD})
     assert done.status_code == 204, done.text
     assert _way_back() == (provider.issuer, provider.client_id, ["tester-1"])
+
+
+# --- Module 1.0.8: an invitation at a known link, the way back without the second factor of the provider ------------
+
+
+def _space_with_invite(role: str) -> tuple[int, str]:
+    """A space the operator manages and an invitation into it with ``role``."""
+    with SessionLocal() as db:
+        boss = db.scalar(select(Account).where(Account.role == "operator"))
+        assert boss is not None
+        space = Space(name="Studio")
+        db.add(space)
+        db.flush()
+        db.add(Membership(space_id=space.id, account_id=boss.id, role=MANAGE))
+        db.commit()
+        _invite, token = accounts.create_invite(db, boss, space_id=space.id, space_role=role, days=7)
+        return space.id, token
+
+
+def _right_in(space_id: int, name: str) -> str | None:
+    with SessionLocal() as db:
+        return db.scalar(select(Membership.role).join(Account, Account.id == Membership.account_id)
+                         .where(Membership.space_id == space_id, Account.name == name))
+
+
+@pytest.mark.parametrize(("before", "after"), [(None, WRITE), (READ, WRITE), (WRITE, WRITE), (MANAGE, MANAGE)])
+def test_an_invitation_at_a_known_link_adds_its_right_to_the_account_and_never_takes_one_away(
+    client: TestClient, operator: Account, provider: FakeProvider, before: str | None, after: str
+) -> None:
+    configure(client, provider)
+    sign_in_via_oidc(fresh_browser(), provider, sub="p-1", preferred_username="dora")
+    space_id, token = _space_with_invite(WRITE)
+    if before is not None:
+        with SessionLocal() as db:
+            db.add(Membership(space_id=space_id, account_id=_row("dora").id, role=before))
+            db.commit()
+    browser = fresh_browser()
+    assert location(sign_in_via_oidc(browser, provider, sub="p-1", preferred_username="dora", invite=token)) == "/"
+    assert browser.get("/api/auth/me").json()["name"] == "dora"
+    assert _right_in(space_id, "dora") == after
+    with SessionLocal() as db:
+        assert db.scalar(select(func.count()).select_from(Invite)) == 0, "the invitation is used up"
+    assert len(_entries()) == 1 and _row("dora").name == "dora"
+
+
+def test_an_invitation_used_meanwhile_still_lets_a_known_link_in_without_the_right(
+    client: TestClient, operator: Account, provider: FakeProvider
+) -> None:
+    configure(client, provider)
+    sign_in_via_oidc(fresh_browser(), provider, sub="p-1", preferred_username="dora")
+    space_id, token = _space_with_invite(WRITE)
+    browser = fresh_browser()
+    where = start(browser, invite=token)
+    with SessionLocal() as db:
+        db.execute(delete(Invite))
+        db.commit()
+    assert location(come_back(browser, provider, where)) == "/"
+    assert browser.get("/api/auth/me").json()["name"] == "dora" and _right_in(space_id, "dora") is None
+
+
+def _held_way_back() -> tuple[str, str, str, str, bool, object]:
+    with SessionLocal() as db:
+        return (str(settings_service.get(db, "oidc_issuer")), str(settings_service.get(db, "oidc_client_id")),
+                str(settings_service.get(db, "oidc_client_secret_enc")), str(settings_service.get(db, "oidc_provider_name")),
+                bool(settings_service.get(db, "oidc_auto_create")), settings_service.get(db, "oidc_way_back_held"))
+
+
+def _put_entry(client: TestClient, entry: OidcProvider, provider: FakeProvider, **form: object) -> None:
+    body = {"label": "Company", "issuer": provider.issuer, "client_id": provider.client_id, **form}
+    assert client.put(f"/api/oidc/admin/providers/{entry.id}", json=body).status_code == 200
+
+
+def test_the_way_back_of_0_3_finds_no_provider_while_the_provider_does_not_check_the_second_factor_itself(
+    client: TestClient, operator: Account, provider: FakeProvider
+) -> None:
+    """0.3 does not know the switch and would ask for no code: an entry ``oidc`` with it off is an entry that is off
+    for 0.3, now, and with it on again the provider is back, with the persons, as it was."""
+    make_account("anna")
+    _legacy(provider, label="Company", auto_create=True, subjects={"anna": "anna-1"})
+    entry = oidc_store.migrate_settings(backup=False)
+    assert entry is not None
+    before = _held_way_back()
+    assert before[:2] == (provider.issuer, provider.client_id) and before[4] is True and before[5] is None
+    _put_entry(client, entry, provider, auto_create=True, trusts_second_factor=False)
+    assert _held_way_back()[:5] == ("", "", "", "", False), "no client, nobody new"
+    assert _way_back() == ("", "", ["anna-1"]), "the persons stay: they are the way back of the switch turned on again"
+    _put_entry(client, entry, provider, auto_create=True, trusts_second_factor=True)
+    assert _held_way_back() == before
+
+
+def test_the_way_back_stays_empty_across_saves_while_the_switch_is_off_and_comes_back_off_when_the_entry_is_off(
+    client: TestClient, operator: Account, provider: FakeProvider
+) -> None:
+    _legacy(provider, label="Company", auto_create=True)
+    entry = oidc_store.migrate_settings(backup=False)
+    assert entry is not None
+    before = _held_way_back()
+    _put_entry(client, entry, provider, trusts_second_factor=False, label="Company A")
+    _put_entry(client, entry, provider, trusts_second_factor=False, label="Company B")
+    assert _held_way_back()[:5] == ("", "", "", "", False)
+    # Back on, but the entry itself off: the provider is back for 0.3 and makes no accounts (the rule of before).
+    _put_entry(client, entry, provider, trusts_second_factor=True, enabled=False, auto_create=True)
+    after = _held_way_back()
+    assert after[:4] == before[:4] and after[4:] == (False, None)
+
+
+def test_removing_the_entry_or_another_issuer_forgets_what_the_switch_held_back(
+    client: TestClient, operator: Account, provider: FakeProvider
+) -> None:
+    other = provider.network.add(FakeProvider("https://other.example.com"))  # type: ignore[attr-defined]
+    for how in ("remove", "issuer"):
+        _legacy(provider, label="Company", auto_create=True)
+        entry = oidc_store.migrate_settings(backup=False)
+        assert entry is not None
+        _put_entry(client, entry, provider, trusts_second_factor=False)
+        assert _held_way_back()[5] is not None
+        if how == "remove":
+            assert client.delete(f"/api/oidc/admin/providers/{entry.id}").status_code == 200
+        else:
+            body = {"label": "Company", "issuer": other.issuer, "client_id": provider.client_id,
+                    "trusts_second_factor": True}
+            assert client.put(f"/api/oidc/admin/providers/{entry.id}", json=body).status_code == 200
+        assert _held_way_back() == ("", "", "", "", False, None), how
+        with SessionLocal() as db:
+            db.execute(delete(OidcProvider))
+            settings_service.save(db, {oidc_store.MIGRATED: False})
+            db.commit()

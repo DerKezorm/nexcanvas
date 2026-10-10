@@ -279,6 +279,8 @@ export type AuthentikResult = {
   issuer: string
   provider_id: number | null
   links_dropped: number
+  /** With a step stopped on `issuer_change`: how many accounts would have to link again. */
+  count?: number
 }
 
 // ---- Calls ----------------------------------------------------------------------------------------------------------
@@ -317,7 +319,8 @@ export const oidcAdminApi = {
   providerImpact: (id: number, issuer = '') =>
     api<OidcImpact>(`/api/oidc/admin/providers/${id}/impact${issuer ? `?issuer=${encodeURIComponent(issuer)}` : ''}`),
   orderProviders: (ids: number[]) => api<ProviderButton[]>('/api/oidc/admin/providers/order', { method: 'PUT', body: { ids } }),
-  authentik: (url: string, token: string) => api<AuthentikResult>('/api/oidc/authentik/setup', { method: 'POST', body: { url, token } }),
+  authentik: (url: string, token: string, confirm_issuer_change = false) =>
+    api<AuthentikResult>('/api/oidc/authentik/setup', { method: 'POST', body: { url, token, confirm_issuer_change } }),
   /** Takes an account's link to a provider, with the operator's own password. */
   unlinkAccount: (accountId: number, providerId: number, current_password: string) =>
     api<void>(`/api/oidc/admin/accounts/${accountId}/links/${providerId}`, { method: 'DELETE', body: { current_password } }),

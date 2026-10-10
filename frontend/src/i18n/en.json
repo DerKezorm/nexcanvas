@@ -873,7 +873,7 @@
     "person_unknown": "A person you chose is not in nexsuite (any more). The list is loaded anew; look at the choices again.",
     "space_unknown": "A space you chose is not in nexsuite (any more). The list is loaded anew; look at the choices again.",
     "team_unknown": "A team you chose is not in nexsuite (any more). The list is loaded anew; look at the choices again.",
-    "suite_no_account": "nexcanvas does not know you yet. Try again in a few seconds; if it still does not work, ask the operator of nexsuite.",
+    "suite_no_account": "nexcanvas does not know you yet. Try again in a few seconds; if it still does not work, ask your operator.",
     "invite_suite": "This invitation is not valid any more: nexcanvas is connected to nexsuite now, and you sign in through nexsuite.",
     "too_many": "That is too many.",
     "connection_sent": "The connection has been sent to nexsuite already. The choices from then apply; for other choices, cancel and connect again.",

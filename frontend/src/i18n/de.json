@@ -873,7 +873,7 @@
     "person_unknown": "Eine gewählte Person gibt es in nexsuite nicht (mehr). Die Liste ist neu geladen, sieh die Auswahl noch einmal an.",
     "space_unknown": "Einen gewählten Bereich gibt es in nexsuite nicht (mehr). Die Liste ist neu geladen, sieh die Auswahl noch einmal an.",
     "team_unknown": "Ein gewähltes Team gibt es in nexsuite nicht (mehr). Die Liste ist neu geladen, sieh die Auswahl noch einmal an.",
-    "suite_no_account": "nexcanvas kennt dich noch nicht. Versuch es in ein paar Sekunden noch einmal; klappt es dann nicht, frag den Betreiber von nexsuite.",
+    "suite_no_account": "nexcanvas kennt dich noch nicht. Versuch es in ein paar Sekunden noch einmal; klappt es dann nicht, frag deinen Betreiber.",
     "invite_suite": "Diese Einladung gilt nicht mehr: nexcanvas ist jetzt mit nexsuite verbunden, und du meldest dich über nexsuite an.",
     "too_many": "Das sind zu viele.",
     "connection_sent": "Die Verbindung ist schon an nexsuite geschickt. Es gilt die Auswahl von damals; für eine andere Auswahl brich ab und verbinde neu.",

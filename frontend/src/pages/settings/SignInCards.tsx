@@ -18,7 +18,7 @@ import { ApiError, oidcAdminApi, type AuthentikResult, type OidcProvider, type O
 import { Dialog } from '../../components/Dialog'
 import { errorText } from '../../lib/errors'
 import { useAuth } from '../../state/auth'
-import { authentikReasonKey, authentikStepKey, oidcErrorKey, oidcFormErrorKey, slugFromLabel } from '../../vendor/nexoidc/oidc'
+import { authentikIssuerChange, authentikReasonKey, authentikStepKey, oidcErrorKey, oidcFormErrorKey, slugFromLabel } from '../../vendor/nexoidc/oidc'
 import type { useServerSettings } from './ServerCards'
 import { Button, Card, Confirm, CopyLink, Feedback, Input, Toggle, useAction } from './ui'
 
@@ -439,7 +439,24 @@ export function AuthentikCard({ publicUrl, coupled, reload }: { publicUrl: strin
   const { t } = useTranslation()
   const [authentik, setAuthentik] = useState({ url: '', token: '' })
   const [steps, setSteps] = useState<AuthentikResult | null>(null)
+  // The button stopped before an issuer change and asks how many accounts would have to link again (Bauplan 03).
+  const [asking, setAsking] = useState<number | null>(null)
   const { busy, problem, run } = useAction()
+
+  const start = (confirmIssuerChange: boolean) => {
+    // What the last attempt said goes first: an old failure stood above the new answer (Prüfgang C4).
+    setSteps(null)
+    setAsking(null)
+    void run(async () => {
+      const answer = await oidcAdminApi.authentik(authentik.url, authentik.token, confirmIssuerChange)
+      setSteps(answer)
+      setAsking(authentikIssuerChange(answer))
+      // The token goes only once everything worked; after a failure the operator corrects the address and
+      // tries again.
+      if (answer.ok) setAuthentik((current) => ({ ...current, token: '' }))
+      await reload()
+    })
+  }
 
   return (
     <Card id="sign-in-authentik" icon={Sparkles} title={t('oidc.authentik.title')} text={t('oidc.authentik.text')}>
@@ -457,16 +474,7 @@ export function AuthentikCard({ publicUrl, coupled, reload }: { publicUrl: strin
         onSubmit={(event) => {
           event.preventDefault()
           if (coupled) return
-          // What the last attempt said goes first: an old failure stood above the new answer (Prüfgang C4).
-          setSteps(null)
-          void run(async () => {
-            const answer = await oidcAdminApi.authentik(authentik.url, authentik.token)
-            setSteps(answer)
-            // The token goes only once everything worked; after a failure the operator corrects the address and
-            // tries again.
-            if (answer.ok) setAuthentik((current) => ({ ...current, token: '' }))
-            await reload()
-          })
+          start(false)
         }}
       >
         <Input label={t('oidc.authentik.url')} value={authentik.url} onChange={(url) => setAuthentik({ ...authentik, url })} placeholder="https://auth.example.com" />
@@ -501,7 +509,7 @@ export function AuthentikCard({ publicUrl, coupled, reload }: { publicUrl: strin
                 </span>
                 <span>
                   <span className={step.ok ? 'text-mist-200' : 'font-medium text-bad-500'}>{name ? t(name) : step.key}</span>
-                  {why && <span className="block text-xs text-mist-400">{t(why, { status: step.status ?? 0 })}</span>}
+                  {why && <span className="block text-xs text-mist-400">{t(why, { status: step.status ?? 0, count: steps.count ?? 0 })}</span>}
                 </span>
               </li>
             )
@@ -509,6 +517,16 @@ export function AuthentikCard({ publicUrl, coupled, reload }: { publicUrl: strin
         </ol>
       )}
       <Feedback problem={problem} />
+      {asking !== null && (
+        <Confirm
+          title={t('oidc.admin.issuer')}
+          text={t('oidc.admin.issuerChangeConfirm', { count: asking })}
+          confirm={t('oidc.authentik.run')}
+          danger
+          onCancel={() => setAsking(null)}
+          onConfirm={async () => start(true)}
+        />
+      )}
     </Card>
   )
 }

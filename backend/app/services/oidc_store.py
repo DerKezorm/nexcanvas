@@ -201,12 +201,32 @@ def _is_old_entry(row: OidcProvider) -> bool:
     return row.slug == nexoidc.LEGACY_SLUG and row.managed != MANAGED_NEXSUITE
 
 
+WAY_BACK_KEYS = ("oidc_issuer", "oidc_client_id", "oidc_client_secret_enc", "oidc_provider_name")
+
+
+def _hold_the_way_back(db: Session, held: bool) -> None:
+    """The entry ``oidc`` without "the provider checks the second factor itself" is an entry that is off for 0.3: it
+    does not know the switch and would let people in without a code. So the provider of 0.3 is emptied while the
+    switch is off and put back when it is on again, at once, in both directions. Flushes; the caller commits."""
+    if held:
+        if settings_service.get(db, "oidc_issuer"):
+            kept = {key: settings_service.get(db, key) for key in WAY_BACK_KEYS}
+            settings_service.save(db, {"oidc_way_back_held": kept, **{key: "" for key in WAY_BACK_KEYS}}, commit=False)
+        settings_service.save(db, {"oidc_auto_create": False}, commit=False)
+        return
+    kept = settings_service.get(db, "oidc_way_back_held")
+    if isinstance(kept, dict):
+        back = {key: str(kept.get(key) or "") for key in WAY_BACK_KEYS}
+        settings_service.save(db, {"oidc_way_back_held": None, **back}, commit=False)
+
+
 def forget_the_way_back(db: Session) -> None:
     """The settings and the column of 0.3 (its way back, one version) always describe the same issuer, or nothing:
     once the entry they became is removed or gets another issuer, they go too, or a return to 0.3 would bring back a
     provider the operator removed, with its subjects. Flushes; the caller commits."""
     settings_service.save(db, {"oidc_issuer": "", "oidc_client_id": "", "oidc_client_secret_enc": "",
-                               "oidc_provider_name": "", "oidc_auto_create": False}, commit=False)
+                               "oidc_provider_name": "", "oidc_auto_create": False, "oidc_way_back_held": None},
+                          commit=False)
     db.execute(update(Account).values(oidc_subject="", oidc_subject_local=""))
     db.flush()
     logger.info("The settings of the one provider of 0.3 went with the entry oidc")
@@ -278,10 +298,12 @@ class SqlStore:
         assert row is not None
         if _is_old_entry(row) and not protocol.same_issuer(row.issuer, values.issuer):
             forget_the_way_back(self.db)
-        elif _is_old_entry(row) and settings_service.get(self.db, "oidc_issuer"):
-            # The way back lets nobody new in through an entry that is off or makes no accounts.
-            settings_service.save(self.db, {"oidc_auto_create": bool(values.auto_create and values.enabled)},
-                                  commit=False)
+        elif _is_old_entry(row):
+            _hold_the_way_back(self.db, not values.trusts_second_factor)
+            if values.trusts_second_factor and settings_service.get(self.db, "oidc_issuer"):
+                # The way back lets nobody new in through an entry that is off or makes no accounts.
+                settings_service.save(self.db, {"oidc_auto_create": bool(values.auto_create and values.enabled)},
+                                      commit=False)
         self._apply(row, values)
         if values.client_secret is not None:
             row.client_secret_enc = encrypt_secret(values.client_secret, secret_context(row.id))
@@ -434,6 +456,14 @@ class SqlStore:
     def consume_invite(self, invite: Invite) -> bool:
         row = invite.rights
         return isinstance(row, InviteRow) and accounts.consume(self.db, row)
+
+    def accept_invite(self, account_id: int, invite: Invite) -> None:
+        """A known identity that came through an invitation: the invitation's right in its space comes on top of what
+        the account has (raised, never lowered); the invitation is used up already (``consume_invite``)."""
+        row = invite.rights
+        account = self.db.get(Account, account_id)
+        if account is not None and isinstance(row, InviteRow):
+            accounts.redeem(self.db, row, account, consumed=True, commit=False)
 
     # --- Transaction -----------------------------------------------------------------------------------------------
 

@@ -524,6 +524,27 @@ def _provider_is_nexsuite() -> None:
         assert (entry.managed, entry.issuer, entry.client_id, entry.enabled) == ("nexsuite", SUITE, "nxs-client", True)
 
 
+def test_the_authentik_button_stays_locked_while_connected_and_the_question_about_an_issuer_changes_nothing(
+    client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any
+) -> None:
+    """Module 1.0.8 asks before an issuer change (``issuer_change``); connected, the button touches nothing at all and
+    says ``coupled``, with the confirmation or without it, and the coupled entry stays as it is."""
+    connect(client, world, operator)
+    _provider_is_nexsuite()
+    before = _setting("suite_coupling")
+    for confirm in (False, True):
+        body = {"url": "https://auth.example.com", "token": "one-time-token", "confirm_issuer_change": confirm}
+        answer = client.post("/api/oidc/authentik/setup", json=body)
+        assert answer.status_code == 200, answer.text
+        steps = answer.json()["steps"]
+        assert [(step["key"], step["ok"], step.get("reason")) for step in steps] == [("reached", False, "coupled")]
+        assert answer.json().get("count") in (None, 0)
+    _provider_is_nexsuite()
+    assert _setting("suite_coupling") == before
+    with SessionLocal() as db:
+        assert db.query(OidcProvider).count() == 1
+
+
 def test_b20_a_person_made_a_moment_ago_gets_in_at_once(client: TestClient, operator: Account, world: dict,
                                                         fake: FakeSuite, provider: Any) -> None:
     connect(client, world, operator)
