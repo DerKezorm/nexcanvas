@@ -20,9 +20,9 @@ from app.services import backups, oidc_store, settings_service
 from app.vendor.nexoidc import migrate
 
 from . import oidc_helpers
-from .conftest import PASSWORD
+from .conftest import PASSWORD, make_account
 from .oidc_helpers import FakeProvider
-from .test_oidc_app import _entries, _put_entry, _row
+from .test_oidc_app import _entries, _legacy, _put_entry, _row
 from .test_oidc_way_back import _migrated, _quiet
 
 provider = oidc_helpers.provider
@@ -231,3 +231,55 @@ def test_the_secret_of_the_way_back_is_the_entrys_and_stays_when_nothing_about_i
     _put_entry(client, entry, provider, label="Renamed", enabled=True)
     with SessionLocal() as db:
         assert decrypt_secret(str(settings_service.get(db, "oidc_client_secret_enc"))) == provider.client_secret
+
+
+def test_the_issuer_goes_back_letter_by_letter_as_0_3_knew_it_also_with_the_slash_authentik_gives(
+    client: TestClient, operator: Account, provider: FakeProvider
+) -> None:
+    """0.3 compares the stored issuer with the new one character by character when it saves a provider and drops every
+    subject on a difference: a slash taken off on the way back would make its authentik button lose all links."""
+    slashed = provider.issuer + "/"
+    make_account("anna")
+    _legacy(provider, label="Company", issuer=slashed, auto_create=True, subjects={"anna": "anna-1"})
+    entry = oidc_store.migrate_settings(backup=False)
+    assert entry is not None
+    _quiet()
+    assert _shown()["issuer"] == slashed and _shown()["anchor"] == slashed
+    before = len(backups.entries())
+    # Off and on, a change of the name, a link made and a start: the text stays as 0.3 wrote it.
+    _put_entry(client, entry, provider, enabled=False, auto_create=True)
+    assert _shown()["issuer"] == slashed
+    _put_entry(client, entry, provider, enabled=True, auto_create=True)
+    assert _shown()["issuer"] == slashed
+    _put_entry(client, entry, provider, label="Renamed", enabled=True, auto_create=True)
+    shown = _shown()
+    assert (shown["issuer"], shown["anchor"], shown["client"], shown["subjects"]) == (
+        slashed, slashed, provider.client_id, {"anna": "anna-1"})
+    assert oidc_store.migrate_settings() is None
+    assert _shown() == shown and len(backups.entries()) == before, "the start changes nothing and makes no backup"
+    _quiet()
+
+
+def test_a_start_with_a_fingerprint_of_1_0_9_and_nothing_changed_makes_no_backup(
+    client: TestClient, operator: Account, provider: FakeProvider
+) -> None:
+    """The first start with a database of module 1.0.9: compared in the form it stored, so no change is seen and the
+    backup that goes before a take-over is not made for nothing."""
+    _migrated(provider, anna="anna-1")
+    with SessionLocal() as db:
+        legacy, subjects = oidc_store.read_legacy(db)
+        settings_service.save(db, {oidc_store.FINGERPRINT: migrate._fingerprint(legacy, subjects, "nexoidc-fp1")})
+    before = len(backups.entries())
+    assert oidc_store.migrate_settings() is None
+    assert len(backups.entries()) == before
+    _quiet()
+    # And when 0.3 changed something since, the same fingerprint of 1.0.9 shows it: the backup goes first.
+    with SessionLocal() as db:
+        legacy, subjects = oidc_store.read_legacy(db)
+        settings_service.save(db, {oidc_store.FINGERPRINT: migrate._fingerprint(legacy, subjects, "nexoidc-fp1")})
+    _written_by_0_3(provider, label="Renamed in 0.3")
+    assert oidc_store.migrate_settings() is None
+    assert len(backups.entries()) == before + 1
+    [row] = _entries()
+    assert row.label == "Renamed in 0.3"
+    _quiet()
