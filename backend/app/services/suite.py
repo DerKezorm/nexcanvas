@@ -740,6 +740,35 @@ def _coupled_entry(db: Session) -> OidcProvider | None:
     return db.scalar(select(OidcProvider).where(OidcProvider.managed == MANAGED_NEXSUITE).limit(1))
 
 
+def settle_unsettled(db: Session, store: Any, entry: OidcProvider, seen: dict[str, Any]) -> None:
+    """Persons a coupled 0.3 left claimed by several accounts (``oidc_store.UNSETTLED``): the one account whose sign-in
+    name is the person's gets the link; with none or several, none does, and the person gets an account of its own.
+    Never an account that only wins by its place in a list. Once."""
+    unsettled = settings_service.get(db, "suite_unsettled")
+    if not isinstance(unsettled, dict) or not unsettled:
+        return
+    names = {str(person["id"]): str(person.get("name") or "").casefold() for person in seen.get("people", [])}
+    linked = {link.account_id for link in store.links_of_provider(entry.id)}
+    for subject, account_ids in unsettled.items():
+        if store.find_link(entry.id, subject) is not None or subject not in names:
+            continue
+        rows = [db.get(Account, account_id) for account_id in account_ids]
+        named = [row for row in rows
+                 if row is not None and row.id not in linked and row.name.casefold() == names[subject]]
+        winner = named[0] if len(named) == 1 else None
+        if winner is not None:
+            store.add_link(Link(provider_id=entry.id, subject=subject, account_id=winner.id, issuer=entry.issuer))
+            linked.add(winner.id)
+            logger.info("A person claimed by several accounts settled by the sign-in name name=%s", winner.name)
+        else:
+            logger.warning("A person claimed by several accounts settled for none of them; it gets its own")
+        for row in rows:
+            if row is not None and row is not winner and row.oidc_subject == subject:
+                # The way back names the person only at the account that has it.
+                row.oidc_subject = ""
+    settings_service.save(db, {"suite_unsettled": None}, commit=False)
+
+
 def _theirs_back(db: Session) -> list[Account]:
     """The accounts nexsuite knew (their links at its entry) sign in here again, with their password when they have
     one (B8); each keeps its person for connecting again to the same nexsuite. The columns of 0.3 go back as 0.3 put
@@ -930,6 +959,7 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
     store = _store(db)
     # Which account is which person: its link at nexsuite's entry (one identity per account and provider). Never the
     # columns of 0.3, and never a link of an own entry: a subject "3" there is somebody else.
+    settle_unsettled(db, store, entry, seen)
     by_subject: dict[str, Account] = {}
     for link in store.links_of_provider(entry.id):
         holder = db.get(Account, link.account_id)

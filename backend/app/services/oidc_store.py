@@ -278,6 +278,10 @@ class SqlStore:
         assert row is not None
         if _is_old_entry(row) and not protocol.same_issuer(row.issuer, values.issuer):
             forget_the_way_back(self.db)
+        elif _is_old_entry(row) and settings_service.get(self.db, "oidc_issuer"):
+            # The way back lets nobody new in through an entry that is off or makes no accounts.
+            settings_service.save(self.db, {"oidc_auto_create": bool(values.auto_create and values.enabled)},
+                                  commit=False)
         self._apply(row, values)
         if values.client_secret is not None:
             row.client_secret_enc = encrypt_secret(values.client_secret, secret_context(row.id))
@@ -506,12 +510,34 @@ def migration_due(db: Session) -> bool:
     return legacy_plan(db) is not None
 
 
-def _person_of_0_3(row: Account) -> bool:
-    """How 0.3 told an account nexsuite knew by the person in its ``oidc_subject`` (its ``suite.known``): marked with
-    that person, or, connected before marks were kept, not blocked (one left out is always blocked). Read once, by the
-    migration of a coupled installation; afterwards the links decide."""
-    return bool(row.oidc_subject) and (row.suite_person == row.oidc_subject
-                                       or (not row.suite_person and row.blocked_at is None))
+#: Persons of nexsuite a coupled 0.3 left with more than one account claiming them (never settled under 0.3):
+#: ``{person: [account ids]}``, decided by the first directory fetch.
+UNSETTLED = "suite_unsettled"
+
+
+def _persons_of_0_3(db: Session) -> tuple[list[tuple[int, str]], dict[str, list[int]]]:
+    """Who 0.3 had as each person: the pairs to link at once, and the persons claimed by several accounts. A person
+    goes to the one account marked with it (``suite_person``, the operator's choice when connecting) or to the one
+    unmarked account not blocked that holds it; with more than one, or only blocked ones, nobody wins by order: the
+    directory's sign-in name decides later (``suite.settle_unsettled``), as 0.3's own sync did first."""
+    holders: dict[str, list[Account]] = {}
+    for row in db.scalars(select(Account).where(Account.oidc_subject != "").order_by(Account.id)):
+        holders.setdefault(row.oidc_subject, []).append(row)
+    people: list[tuple[int, str]] = []
+    unsettled: dict[str, list[int]] = {}
+    for subject, rows in holders.items():
+        marked = [row for row in rows if row.suite_person == subject]
+        if len(marked) == 1:
+            people.append((marked[0].id, subject))
+            continue
+        unmarked = [row for row in rows if not row.suite_person]
+        if len(marked) > 1:
+            unsettled[subject] = [row.id for row in marked]
+        elif len(unmarked) == 1 and unmarked[0].blocked_at is None:
+            people.append((unmarked[0].id, subject))
+        elif unmarked:
+            unsettled[subject] = [row.id for row in unmarked]
+    return people, unsettled
 
 
 def _apply_coupled(db: Session) -> coupling.Coupling | None:
@@ -524,16 +550,16 @@ def _apply_coupled(db: Session) -> coupling.Coupling | None:
     saved = values.get("suite_saved") if isinstance(values.get("suite_saved"), dict) else {}
     own = _legacy(saved) if saved and saved.get("oidc_issuer") and saved.get("oidc_client_id") else None
     nexsuite = _legacy({**values, "oidc_provider_name": "nexsuite"})
-    rows = sorted(
-        (row for row in db.scalars(select(Account).where(Account.oidc_subject != "")) if _person_of_0_3(row)),
-        # The account 0.3 matched the person to first (its ``account_of_person``).
-        key=lambda row: (row.suite_person != row.oidc_subject, row.id),
-    )
-    people = [(row.id, row.oidc_subject) for row in rows]
+    people, unsettled = _persons_of_0_3(db)
     own_subjects = [
         (row.id, row.oidc_subject_local)
         for row in db.scalars(select(Account).where(Account.oidc_subject_local != "").order_by(Account.id))
     ]
+    if unsettled:
+        # Settled at the first fetch of the directory (``suite._apply``), by the person's sign-in name only.
+        settings_service.save(db, {UNSETTLED: unsettled}, commit=False)
+        logger.warning("OIDC: %d persons of nexsuite have more than one account here; the directory decides",
+                       len(unsettled))
     return migrate.apply_coupled(
         SqlStore(db, hold=True),
         nexsuite=nexsuite,

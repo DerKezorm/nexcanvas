@@ -22,7 +22,7 @@ from fastapi.testclient import TestClient
 from app.db import SessionLocal
 from app.main import app
 from app.models import OPERATOR, Account, Board, OidcLink, OidcProvider, Space, SpaceNotice, Team, utcnow
-from app.services import logs, settings_service, suite
+from app.services import logs, oidc_store, settings_service, suite
 
 from . import oidc_helpers, test_suite
 from .conftest import PASSWORD, make_account, new_client
@@ -1742,3 +1742,45 @@ def test_a_sign_in_under_way_while_the_directory_or_the_connection_changes_ends_
     back = browser.get("/api/oidc/callback", params=params)
     assert back.status_code == 303 and oidc_helpers.error_in(back) in ("oidc_state_mismatch", "oidc_not_configured")
     assert browser.get("/api/auth/me").status_code == 401
+
+
+def _coupled_unsettled(client: TestClient, world: dict, operator: Account, holders: list[str]) -> None:
+    """Coupled under an earlier commit and never synced under 0.3.0: nothing marked, and every account of ``holders``
+    holds person 2 in its column (the operator linked to "2" while connected). The list does not exist yet."""
+    connect(client, world, operator)
+    with SessionLocal() as db:
+        db.query(OidcLink).delete()
+        db.query(OidcProvider).delete()
+        settings_service.save(db, {oidc_store.MIGRATED: False, "suite_coupling": None}, commit=False)
+        for row in db.query(Account):
+            row.suite_person = ""
+            if row.name in holders:
+                row.oidc_subject = "2"
+        db.commit()
+
+
+def test_a_person_held_by_several_accounts_goes_to_none_by_order_the_sign_in_name_decides(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any) -> None:
+    """Person 2 is anna in nexsuite; the operator's account has the smaller id. The migration links none of the two,
+    the first sync gives the person to the account with its sign-in name, as 0.3.0's own sync did."""
+    assert operator.id < world["anna"].id
+    _coupled_unsettled(client, world, operator, ["tester", "anna"])
+    oidc_store.migrate_settings(backup=False)
+    assert not [link for link in _links() if link[2] == "2"], "nobody is person 2 by the place in a list"
+    assert ("oidc", "nexsuite", "3", "erik") in _links(), "a person held by one account is linked at once"
+    assert client.post("/api/suite/sync").status_code == 200
+    assert [link[3] for link in _links() if link[2] == "2"] == ["anna"]
+    assert _through(provider.suite, "oidc", "2") == "anna"
+    assert _setting("suite_unsettled") is None
+    with SessionLocal() as db:
+        assert [row.name for row in db.query(Account).filter_by(oidc_subject="2")] == ["anna"], "the way back too"
+
+
+def test_a_person_held_by_several_accounts_none_named_like_it_gets_an_account_of_its_own(
+        client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any) -> None:
+    _coupled_unsettled(client, world, operator, ["tester", "anna"])
+    fake.people["2"]["name"] = "annabel"
+    oidc_store.migrate_settings(backup=False)
+    assert client.post("/api/suite/sync").status_code == 200
+    assert [link[3] for link in _links() if link[2] == "2"] == ["annabel"]
+    assert _through(provider.suite, "oidc", "2") == "annabel"

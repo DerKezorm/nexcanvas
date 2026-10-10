@@ -434,6 +434,24 @@ def test_another_issuer_for_the_entry_oidc_takes_the_way_back_of_0_3_along_the_s
     assert _way_back() == ("", "", [])
 
 
+@pytest.mark.parametrize(("enabled", "auto_create", "old"), [(True, True, True), (False, True, False),
+                                                           (True, False, False), (False, False, False)])
+def test_the_way_back_of_0_3_lets_nobody_new_in_through_an_entry_that_is_off_or_makes_no_accounts(
+    client: TestClient, operator: Account, provider: FakeProvider, enabled: bool, auto_create: bool, old: bool
+) -> None:
+    """0.3 knows one provider and one switch "make new accounts": the entry switched off or without new accounts
+    here is a 0.3 that lets nobody new in through it."""
+    _legacy(provider, label="Company", auto_create=not old)
+    entry = oidc_store.migrate_settings(backup=False)
+    assert entry is not None
+    body = {"label": "Company", "issuer": provider.issuer, "client_id": provider.client_id, "enabled": enabled,
+            "auto_create": auto_create}
+    assert client.put(f"/api/oidc/admin/providers/{entry.id}", json=body).status_code == 200
+    with SessionLocal() as db:
+        assert settings_service.get(db, "oidc_auto_create") is old
+        assert settings_service.get(db, "oidc_issuer") == provider.issuer, "the provider itself stays the way back"
+
+
 def test_another_entry_leaves_the_way_back_of_0_3_alone(client: TestClient, operator: Account,
                                                         provider: FakeProvider) -> None:
     second = provider.network.add(FakeProvider("https://second.example.com"))  # type: ignore[attr-defined]

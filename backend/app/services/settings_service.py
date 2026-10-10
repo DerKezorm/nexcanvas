@@ -67,6 +67,8 @@ DEFAULTS: dict[str, Any] = {
     #: While connected: how the own sign-in providers looked before they were set aside (``nexoidc.coupling``), for
     #: putting them back on disconnecting.
     "suite_coupling": None,
+    #: Persons a coupled 0.3 left claimed by more than one account; the first fetch of the directory decides.
+    "suite_unsettled": None,
     "suite_emergency_account": 0,
     "suite_emergency": [],
     "suite_mail": False,
