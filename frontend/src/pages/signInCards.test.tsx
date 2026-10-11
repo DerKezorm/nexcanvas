@@ -11,7 +11,9 @@ import i18n from '../i18n'
 import { useServerSettings } from './settings/ServerCards'
 import { SignInPart } from './settings/SignInCards'
 
-vi.mock('../state/auth', () => ({ useAuth: () => ({ me: { id: 1, name: 'operator', role: 'operator', sign_in: 'password', two_factor: true } }) }))
+/** Whether the operator has an own second factor; the requirement switch shows another hint without one. */
+const viewer = vi.hoisted(() => ({ two_factor: true }))
+vi.mock('../state/auth', () => ({ useAuth: () => ({ me: { id: 1, name: 'operator', role: 'operator', sign_in: 'password', two_factor: viewer.two_factor } }) }))
 
 type Files = { readFileSync: (file: string, encoding: string) => string }
 const fsName = 'node:fs'
@@ -74,6 +76,7 @@ let box: HTMLDivElement
 beforeEach(() => {
   ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
   answer = []
+  viewer.two_factor = true
   count = undefined
   afterConfirm = null
   list = []
@@ -237,6 +240,24 @@ describe('the three cards', () => {
     expect(dialog.textContent).toContain(i18n.t('oidc.admin.removeConfirm', { name: 'Company SSO', count: 3, only: 1 }))
     expect(calls.some((call) => call.method === 'DELETE')).toBe(false)
   })
+})
+
+describe('the second factor requirement', () => {
+  for (const language of ['de', 'en'] as const) {
+    for (const own of [true, false]) {
+      it(`names the provider switch that exempts a sign-in (${language}, ${own ? 'with' : 'without'} an own factor)`, async () => {
+        viewer.two_factor = own
+        await page(language)
+        const hint = i18n.t(own ? 'server.twoFactorRequiredHint' : 'server.ownSecondFactorFirst', {
+          trusts: i18n.t('oidc.admin.trustsSecondFactor'),
+        })
+        expect(box.textContent).toContain(hint)
+        // The words of the switch itself, between the quotes of the sentence: not a gap.
+        const [open, close] = language === 'de' ? ['„', '“'] : ['“', '”']
+        expect(box.textContent).toContain(`${open}${i18n.t('oidc.admin.trustsSecondFactor')}${close}`)
+      })
+    }
+  }
 })
 
 describe('coupled (blueprint 06)', () => {

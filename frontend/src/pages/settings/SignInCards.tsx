@@ -66,6 +66,7 @@ export function SignInCard({ server, anyActive, coupled }: { server: Server; any
   const [asking, setAsking] = useState<{ question: AddressQuestion; url: string } | null>(null)
   const s = server.settings
   if (!s) return null
+  const trusts = { trusts: t('oidc.admin.trustsSecondFactor') }
   const saveAddress = async (url: string, confirm: boolean) => {
     const question = await server.saveAddress(url, confirm, t('settings.saved'))
     setAsking(question ? { question, url } : null)
@@ -105,10 +106,11 @@ export function SignInCard({ server, anyActive, coupled }: { server: Server; any
               {t('common.save')}
             </Button>
           </form>
-          {/* Without an own second factor the operator would be the first one sent away (a1-14): first the own one. */}
+          {/* Without an own second factor the operator would be the first one sent away (a1-14): first the own one. A sign-in through a
+          provider whose switch says it checks the second factor itself is not sent away; both hints name that switch. */}
           <Toggle
             label={t('server.twoFactorRequired')}
-            hint={!s.two_factor_required && me?.sign_in === 'password' && !me?.two_factor ? t('server.ownSecondFactorFirst') : t('server.twoFactorRequiredHint')}
+            hint={!s.two_factor_required && me?.sign_in === 'password' && !me?.two_factor ? t('server.ownSecondFactorFirst', trusts) : t('server.twoFactorRequiredHint', trusts)}
             checked={s.two_factor_required}
             disabled={!s.two_factor_required && me?.sign_in === 'password' && !me?.two_factor}
             onChange={(two_factor_required) => void server.save({ two_factor_required })}
