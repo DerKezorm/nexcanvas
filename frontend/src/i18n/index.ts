@@ -16,7 +16,7 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 
-import { oidcWording } from '../vendor/nexoidc/oidc'
+import { oidcVariables, oidcWording } from '../vendor/nexoidc/oidc'
 import oidcDe from '../vendor/nexoidc/oidc.de.json'
 import oidcEn from '../vendor/nexoidc/oidc.en.json'
 import ownDe from './de.json'
@@ -25,8 +25,8 @@ import ownEn from './en.json'
 type Texts = Record<string, unknown>
 
 /** nexcanvas' own texts with the shared sign-in texts. */
-const en: Texts = { ...ownEn, ...oidcWording(oidcEn, { singleAccount: false }) }
-const de: Texts = { ...ownDe, ...oidcWording(oidcDe, { singleAccount: false }) }
+const en: Texts = { ...ownEn, ...oidcWording(oidcEn, { singleAccount: false, invitations: true }) }
+const de: Texts = { ...ownDe, ...oidcWording(oidcDe, { singleAccount: false, invitations: true }) }
 /** What `{{app}}` stands for in the shared texts. */
 export const APP_NAME = 'nexcanvas'
 
@@ -127,7 +127,7 @@ i18n.use(initReactI18next).init({
   resources: { en: { translation: en }, de: { translation: de } },
   lng: first in SHIPPED ? first : FALLBACK,
   fallbackLng: FALLBACK,
-  interpolation: { escapeValue: false, defaultVariables: { app: APP_NAME } },
+  interpolation: { escapeValue: false, defaultVariables: oidcVariables(APP_NAME) },
   returnNull: false,
 })
 document.documentElement.lang = i18n.language
