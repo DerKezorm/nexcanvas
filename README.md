@@ -178,7 +178,7 @@ With an image: `docker compose pull && docker compose up -d`. Built from source:
 | `NEXCANVAS_UPLOAD_MAX_MB` | `50` | The largest photo or file; the operator can lower it in the settings |
 | `NEXCANVAS_SESSION_DAYS` | `30` | A browser session ends after this many days |
 | `NEXCANVAS_LOG_LEVEL` | stored setting | `quiet`, `normal`, `detailed` or `trace`; overrides the setting |
-| `NEXCANVAS_COOKIE_SECURE` | `auto` | `on`, `off` or `auto` (from the request or `X-Forwarded-Proto`) |
+| `NEXCANVAS_COOKIE_SECURE` | `auto` | `on`, `off` or `auto` (from the request, or `X-Forwarded-Proto` of a trusted proxy) |
 | `NEXCANVAS_API_DOCS` | `false` | Serves `/api/docs` and `/api/openapi.json` |
 | `PUID`, `PGID` | `1000` | Owner of the files in the data directory |
 

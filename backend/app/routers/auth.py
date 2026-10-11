@@ -29,7 +29,6 @@ from ..deps import (
     reauth_succeeded,
 )
 from ..errors import detail, error
-from ..middleware import forwarded_proto
 from ..models import OPERATOR, ROLES, SIGN_IN_PASSWORD, Membership, utcnow
 from ..models import Account as AccountRow
 from ..security import (
@@ -113,7 +112,10 @@ def secure_cookie(request: Request) -> bool:
         return True
     if mode == "off":
         return False
-    return request.url.scheme == "https" or forwarded_proto(request.scope.get("headers", [])) == "https"
+    # The scheme as ``ForwardedProtoMiddleware`` left it: the connection's own, or the rightmost value of
+    # ``X-Forwarded-Proto`` from a proxy in ``NEXCANVAS_TRUSTED_PROXIES``, never the header of anybody else (the shared
+    # sign-in module README, "Hinter einem Proxy"). Behind a proxy nexcanvas was not told about: ``on``.
+    return request.url.scheme == "https"
 
 
 def _set_cookie(response: Response, request: Request, token: str) -> None:

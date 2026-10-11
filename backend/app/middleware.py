@@ -53,15 +53,26 @@ SECURITY_HEADERS: tuple[tuple[bytes, bytes], ...] = (
 )
 
 
-def forwarded_proto(headers: Any) -> str:
-    """``http`` or ``https`` as ``X-Forwarded-Proto`` says it, else an empty text. Of a list the RIGHTMOST value counts:
-    it is the one the proxy nearest to the app appended, while the first can be sent by the visitor himself. With
-    several header lines the last one counts. Case does not matter."""
-    said = ""
+#: The schemes a trusted proxy may hand on, per kind of connection. A WebSocket may arrive as http/https (nginx's
+#: ``$scheme``) or as ws/wss (Traefik); either becomes ws/wss.
+_SCHEMES = {
+    "http": {"http": "http", "https": "https"},
+    "websocket": {"http": "ws", "https": "wss", "ws": "ws", "wss": "wss"},
+}
+
+
+def forwarded_proto(headers: Any, kind: str = "http") -> str:
+    """The scheme ``X-Forwarded-Proto`` names for this kind of connection (``http``/``https``, for a WebSocket
+    ``ws``/``wss``), else an empty text. Of a list the RIGHTMOST value counts: it is the one the proxy nearest to the
+    app appended, while the first can be sent by the visitor himself. With several header lines the last one counts.
+    Case does not matter. Read only for a proxy in ``NEXCANVAS_TRUSTED_PROXIES`` (``ForwardedProtoMiddleware``)."""
+    said: str | None = None
     for name, value in headers:
-        if name == b"x-forwarded-proto":
-            said = value.decode("latin-1").rsplit(",", 1)[-1].strip().lower()
-    return said if said in ("http", "https") else ""
+        if name.lower() == b"x-forwarded-proto":
+            said = value.decode("latin-1")
+    if said is None:
+        return ""
+    return _SCHEMES.get(kind, {}).get(said.rsplit(",", 1)[-1].strip().lower(), "")
 
 
 class ForwardedProtoMiddleware:
@@ -91,12 +102,7 @@ class ForwardedProtoMiddleware:
         peer = scope.get("client")
         if not peer or not is_trusted_proxy(str(peer[0])):
             return ""
-        said = forwarded_proto(scope.get("headers", []))
-        if not said:
-            return ""
-        if scope["type"] == "websocket":
-            return "wss" if said == "https" else "ws"
-        return said
+        return forwarded_proto(scope.get("headers", []), scope["type"])
 
 
 class RequestContextMiddleware:

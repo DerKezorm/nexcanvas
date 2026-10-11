@@ -9,7 +9,6 @@ import asyncio
 from datetime import timedelta
 
 import pytest
-from fastapi import Request
 from fastapi.testclient import TestClient
 from sqlalchemy import select, text
 
@@ -18,7 +17,7 @@ from app.db import SessionLocal
 from app.main import app
 from app.middleware import ForwardedProtoMiddleware
 from app.models import Account, OidcProvider, utcnow
-from app.routers.auth import secure_cookie
+from app.security import SESSION_COOKIE
 from app.services import settings_service
 from app.vendor.nexoidc import MANAGED_AUTHENTIK, MANAGED_HAND
 
@@ -184,20 +183,45 @@ def test_a_websocket_from_a_trusted_proxy_gets_ws_or_wss_by_the_same_rule(monkey
     assert _scheme_of(scope("websocket", b"https, http")) == "ws"
     assert _scheme_of(scope("websocket", b"javascript")) == "ws", "not a scheme: the connection's own"
     assert _scheme_of(scope("websocket", b"https", peer="10.8.0.5")) == "ws", "no trusted proxy: believed by nobody"
-    # The same header on a plain request, for the other side of the branch.
+    # A proxy that names the WebSocket's own scheme (Traefik does) is believed the same way.
+    assert _scheme_of(scope("websocket", b"WSS")) == "wss"
+    assert _scheme_of(scope("websocket", b"ws, wss")) == "wss"
+    assert _scheme_of(scope("websocket", b"wss, ws")) == "ws"
+    # Of several header lines the last one counts.
+    two_lines = {**scope("websocket", b"https"), "headers": [(b"x-forwarded-proto", b"https"),
+                                                              (b"x-forwarded-proto", b"http")]}
+    assert _scheme_of(two_lines) == "ws"
+    # The same header on a plain request, for the other side of the branch; a WebSocket's scheme is none of its.
     assert _scheme_of(scope("http", b"http, https")) == "https"
+    assert _scheme_of(scope("http", b"wss")) == "http"
 
 
-def test_the_cookie_flag_follows_the_same_rule_of_the_header(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_cookie_flag_takes_the_scheme_of_a_trusted_proxy_only_and_its_rightmost_value(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The shared sign-in module README, "Hinter einem Proxy": nobody is trusted from the start, a stranger's
+    ``X-Forwarded-Proto`` counts for nothing, and of a trusted proxy only the value it appended itself."""
     monkeypatch.setattr(get_settings(), "cookie_secure", "auto")
+    make_account("anna")
 
-    def secure(value: bytes) -> bool:
-        scope = {"type": "http", "scheme": "http", "server": ("testserver", 80), "path": "/", "query_string": b"",
-                 "headers": [(b"host", b"testserver"), (b"x-forwarded-proto", value)]}
-        return secure_cookie(Request(scope))
+    def secure(value: str, peer: str) -> bool:
+        with TestClient(app, base_url="http://testserver", headers=TAB, client=(peer, 50000)) as browser:
+            signed = browser.post("/api/auth/login", json={"name": "anna", "password": PASSWORD},
+                                  headers={"X-Forwarded-Proto": value})
+        assert signed.status_code == 200, signed.text
+        flags = {line.split("=", 1)[0]: {part.strip().lower() for part in line.split(";")[1:]}
+                 for line in signed.headers.get_list("set-cookie")}
+        assert SESSION_COOKIE in flags, flags
+        return "secure" in flags[SESSION_COOKIE]
 
-    assert secure(b"http, https") and secure(b"HTTPS")
-    assert not secure(b"https, http") and not secure(b"javascript")
+    monkeypatch.setattr(get_settings(), "trusted_proxies", "")
+    assert not secure("https", "10.9.0.5"), "no proxy is trusted from the start"
+    monkeypatch.setattr(get_settings(), "trusted_proxies", "10.9.0.0/16")
+    assert not secure("https", "203.0.113.5"), "a stranger's header is not believed"
+    assert not secure("https, http", "10.9.0.5"), "the rightmost value counts"
+    assert not secure("javascript", "10.9.0.5"), "not a scheme: the connection's own"
+    assert not secure("wss", "10.9.0.5"), "a WebSocket's scheme is no scheme of a plain request"
+    assert secure("http, HTTPS", "10.9.0.5"), "the rightmost value, in any case"
 
 
 def test_a_sender_that_is_no_trusted_proxy_cannot_make_the_app_see_another_scheme(

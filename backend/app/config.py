@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     argon2_time: int = 3
     argon2_memory_kib: int = 65536
     argon2_parallelism: int = 2
-    #: ``auto``: the session cookie is ``Secure`` when the request came over HTTPS (or a proxy says so).
+    #: ``auto``: the session cookie is ``Secure`` when the request came over HTTPS (or a trusted proxy says so).
     cookie_secure: str = "auto"
     #: The address people reach nexcanvas under, for links in invitations and the OIDC return. Empty: the address of
     #: the request. The setting in the interface wins over this.
