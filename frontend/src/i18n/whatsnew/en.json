@@ -1,4 +1,18 @@
 {
+  "0.4.2": {
+    "lead": "A small fix for running behind a reverse proxy.",
+    "sections": [
+      {
+        "title": "X-Forwarded-Proto only from trusted proxies",
+        "where": "Signing in behind a reverse proxy (NEXCANVAS_TRUSTED_PROXIES)",
+        "body": "Whether the sign-in cookies get the Secure flag now depends only on a proxy listed in NEXCANVAS_TRUSTED_PROXIES, and only on the value it appended itself, the rightmost one. Until now the X-Forwarded-Proto header of any sender counted for this. If nexcanvas runs behind a proxy, list it there or set NEXCANVAS_COOKIE_SECURE to on; otherwise cookies in auto mode stay without Secure."
+      }
+    ],
+    "smallTitle": "Also",
+    "small": [
+      "The README says it beside NEXCANVAS_COOKIE_SECURE: auto follows the request, or X-Forwarded-Proto of a trusted proxy."
+    ]
+  },
   "0.4.0": {
     "lead": "Sign-in is rebuilt: any number of providers, one link per provider, and authentik in a single step.",
     "sections": [

@@ -1,4 +1,18 @@
 {
+  "0.4.2": {
+    "lead": "Eine kleine Korrektur für den Betrieb hinter einem Reverse Proxy.",
+    "sections": [
+      {
+        "title": "X-Forwarded-Proto nur von vertrauten Proxys",
+        "where": "Anmelden hinter einem Reverse Proxy (NEXCANVAS_TRUSTED_PROXIES)",
+        "body": "Ob die Cookies der Anmeldung das Secure-Flag bekommen, richtet sich jetzt nur noch nach einem Proxy, der in NEXCANVAS_TRUSTED_PROXIES steht, und nur nach dem Wert, den er selbst angehängt hat, dem rechtesten. Bisher zählte dafür der Kopf X-Forwarded-Proto von jedem Absender. Läuft nexcanvas hinter einem Proxy, trag ihn dort ein oder setz NEXCANVAS_COOKIE_SECURE auf on, sonst bleiben die Cookies im Modus auto ohne Secure."
+      }
+    ],
+    "smallTitle": "Außerdem",
+    "small": [
+      "Das README sagt es bei NEXCANVAS_COOKIE_SECURE: auto folgt der Anfrage oder X-Forwarded-Proto eines vertrauten Proxys."
+    ]
+  },
   "0.4.0": {
     "lead": "Die Anmeldung ist neu gebaut: beliebig viele Anbieter, eine Verknüpfung je Anbieter und authentik in einem Schritt.",
     "sections": [
