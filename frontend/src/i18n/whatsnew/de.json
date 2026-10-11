@@ -1,4 +1,43 @@
 {
+  "0.4.0": {
+    "lead": "Die Anmeldung ist neu gebaut: beliebig viele Anbieter, eine Verknüpfung je Anbieter und authentik in einem Schritt.",
+    "sections": [
+      {
+        "title": "Mehrere Anbieter zur Anmeldung",
+        "where": "Einstellungen, Server, Anmeldung; Anmeldeseite",
+        "body": "nexcanvas nimmt jetzt beliebig viele OpenID-Connect-Anbieter (authentik, Microsoft Entra ID, Keycloak, Authelia, Pocket ID), jeden mit einem eigenen Knopf auf der Anmeldeseite. Jeder Anbieter hat seine eigenen Regeln: ob neue Personen ein Konto bekommen und ob er den zweiten Faktor selbst prüft. Dein bisheriger Anbieter zieht beim ersten Start von selbst um, und die Personen bleiben verknüpft."
+      },
+      {
+        "title": "Verknüpft über die Identität, nie über die Mailadresse",
+        "where": "Mein Konto, Sicherheit, Anmeldeanbieter",
+        "body": "Ein Konto hängt an einem Anbieter nur über die Identität, die der Anbieter meldet, nie über eine gleiche Mailadresse. Jede Person verknüpft und löst ihre Anbieter selbst in den Kontoeinstellungen, nach Bestätigung mit ihrem Passwort. Der Betreiber kann eine Verknüpfung in der Kontenliste lösen. Ein Konto, das nur über einen Anbieter hineinkommt, behält die letzte Verknüpfung."
+      },
+      {
+        "title": "authentik in einem Schritt, jetzt mit Rückfrage",
+        "where": "Einstellungen, Server, Anmeldung, „authentik in einem Schritt“",
+        "body": "Würde der Knopf auf ein anderes authentik zeigen, fragt er vorher und nennt, wie viele Konten sich danach neu verknüpfen müssen. Ist noch keine öffentliche Adresse eingetragen, schlägt er die vor, unter der du gerade arbeitest, und warnt, wenn ein Proxy das Schema nicht weitergibt."
+      },
+      {
+        "title": "Öffentliche Adresse mit Sicherheitsfrage",
+        "where": "Einstellungen, Server, Anmeldung, „Öffentliche Adresse“",
+        "body": "Die öffentliche Adresse zu ändern fragt jetzt vorher nach: authentik kennt die alte Rückleitadresse noch, und die Anmeldung darüber geht erst wieder, wenn du den Knopf noch einmal laufen lässt. Von Hand eingetragene Anbieter werden gezählt, damit du weißt, wo du die Rückleitadresse selbst änderst."
+      },
+      {
+        "title": "API-Tokens warten auf den zweiten Faktor",
+        "where": "Mein Konto, Verbindungen, API-Token",
+        "body": "Wo ein zweiter Faktor verlangt wird und noch fehlt, steht am Token, dass er erst wirkt, wenn du einen eingerichtet hast."
+      }
+    ],
+    "smallTitle": "Außerdem",
+    "small": [
+      "Prüft ein Anbieter den zweiten Faktor selbst, fragt nexcanvas nicht noch einmal; ist der Schalter aus, kommt die Codeabfrage nach dem Anbieter.",
+      "Microsoft Entra ID geht mit einem Mandanten oder mit common und organizations.",
+      "NEXCANVAS_TRUSTED_PROXIES entscheidet jetzt auch, wessen X-Forwarded-Proto gilt (der rechteste Wert); hinter einem genannten Proxy kommen Rückleitadressen mit https heraus.",
+      "Mails tragen eine Date-Kopfzeile; manche Anbieter verwarfen sie ohne diese stillschweigend.",
+      "Eine Einladung, die jemand öffnet, der schon mit einem Anbieter verknüpft ist, gibt das Recht dazu und scheitert nicht.",
+      "Zwei Personen, die sich gleichzeitig zum ersten Mal mit derselben Identität anmelden, lösen keinen Fehler mehr aus."
+    ]
+  },
   "0.3.0": {
     "lead": "Mails kommen in der Sprache der Person, die sie bekommt, Einladungen sagen, wer einlädt, und die Anmeldung hält Fremden besser stand.",
     "sections": [

@@ -1,4 +1,43 @@
 {
+  "0.4.0": {
+    "lead": "Sign-in is rebuilt: any number of providers, one link per provider, and authentik in a single step.",
+    "sections": [
+      {
+        "title": "Several sign-in providers",
+        "where": "Settings, Server, Sign-in; sign-in page",
+        "body": "nexcanvas now takes any number of OpenID Connect providers (authentik, Microsoft Entra ID, Keycloak, Authelia, Pocket ID), each with its own button on the sign-in page. Every provider has its own rules: whether new people get an account and whether it checks the second factor itself. Your existing provider moves over by itself at the first start, and people stay linked."
+      },
+      {
+        "title": "Linked by identity, never by mail address",
+        "where": "My account, Security, Sign-in providers",
+        "body": "An account is tied to a provider only by the identity the provider reports, never by a matching mail address. Everyone links and unlinks their own providers in their account settings, after confirming with their password. The operator can undo a link in the account list. An account that signs in through one provider only keeps its last link."
+      },
+      {
+        "title": "authentik in one step, now with questions first",
+        "where": "Settings, Server, Sign-in, “authentik in one step”",
+        "body": "When the button would point to another authentik, it asks first and says how many accounts will have to link again. When no public address is set, it suggests the one you are using right now, and it warns when a proxy does not pass on the scheme."
+      },
+      {
+        "title": "Public address with a safety question",
+        "where": "Settings, Server, Sign-in, “Public address”",
+        "body": "Changing the public address now asks first: authentik still knows the old redirect address, and sign-in through it works again only after you run the button once more. Providers entered by hand are counted, so you know where to change the redirect address yourself."
+      },
+      {
+        "title": "API tokens wait for a second factor",
+        "where": "My account, Connections, API tokens",
+        "body": "Where a second factor is required and not yet set up, a token says beside it that it works only once you have set one up."
+      }
+    ],
+    "smallTitle": "Also",
+    "small": [
+      "When a provider checks the second factor itself, nexcanvas no longer asks again; with that switch off, the code is asked for after the provider.",
+      "Microsoft Entra ID works with a single tenant or with common and organizations.",
+      "NEXCANVAS_TRUSTED_PROXIES now also decides whose X-Forwarded-Proto is believed (the rightmost value), so redirect addresses come out with https behind a proxy you named.",
+      "Mails carry a Date header; some providers dropped them silently without one.",
+      "An invitation opened by someone who is already linked to a provider adds the right and does not fail.",
+      "Two people signing in for the first time with the same identity at once no longer cause an error."
+    ]
+  },
   "0.3.0": {
     "lead": "Mails come in the language of whoever receives them, invitations say who invites, and signing in stands up better to strangers.",
     "sections": [
