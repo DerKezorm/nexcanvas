@@ -1,4 +1,4 @@
-"""Own templates (block 5): a board kept as a starting point, for one space by whoever manages it, or for the whole
+"""Own templates: a board kept as a starting point, for one space by whoever manages it, or for the whole
 server by the operator.
 
 Everybody who may read a space sees its templates and the server's; nobody sees those of a space they may not read.

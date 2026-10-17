@@ -1,5 +1,5 @@
 /**
- * Every shipped text is asked for somewhere, numbers count right, and English is English (Prüfgang H3, H10, H15).
+ * Every shipped text is asked for somewhere, numbers count right, and English is English.
  * "Download template" (Settings, General) hands every key to translators: a text no page shows is work for nothing,
  * and a sentence of another app (a vault, notes, a task) told them nexcanvas had it.
  *
@@ -12,7 +12,7 @@ import sharedEn from '../vendor/nexoidc/oidc.en.json'
 import de from './de.json'
 import en from './en.json'
 
-/** The sentences the shared sign-in blueprint fixes word for word (Bauplan 04, `oidc.error.*`): not ours to change. */
+/** The sentences the shared sign-in blueprint fixes word for word: not ours to change. */
 const sharedErrors: string[] = Object.values(sharedEn.oidc.error)
 
 type Files = {
@@ -63,7 +63,7 @@ describe('the shipped texts', () => {
   it('have every key a page asks for, in both languages', () => {
     // A key named whole in the code: t('board.back'), i18nKey="…", or a constant handed to t() later (label:
     // 'nav.boards'). Built keys (`notices.${kind}`) are left to the check above. A deleted key showed its bare name
-    // as the label of the back arrow (Prüfer block 4).
+    // as the label of the back arrow.
     const spaces = new Set(Object.keys(de))
     const keys = new Set(flat(de))
     const english = new Set(flat(en))
@@ -76,7 +76,7 @@ describe('the shipped texts', () => {
   })
 
   it('speak English, not German word for word', () => {
-    // "Angeben" is enter, "anlegen" is create, "enthalten" is contain, "abgelaufen" is expired (WORTLAUTE.md).
+    // "Angeben" is enter, "anlegen" is create, "enthalten" is contain, "abgelaufen" is expired.
     const stiff = flat(en).filter((key) =>
       /\bGive (a|an|the|your)\b|\bMake (a|an|one|them|new|it)\b|\bmakes? (a|an|new|its|their)\b|\b(runs?|ran) out\b|\bWhole:|\bhangs on\b|\bthe own\b|\bTake (the )?second factor\b/i.test(text(en, key)) ||
       // "holds" for "gilt" or "enthält"; a key one holds down while dragging stays ("Hold while dragging").
@@ -88,7 +88,7 @@ describe('the shipped texts', () => {
   })
 
   it('count with a word for one, never "1 Personen"', () => {
-    // A text with {{count}} and a noun after it has its _one form (Prüfgang H1, as nextasks).
+    // A text with {{count}} and a noun after it has its _one form.
     const counted = flat(de).filter((key) => !/_(one|other|zero)$/.test(key) && /\{\{count\}\} \p{Lu}/u.test(text(de, key)))
     expect(counted).toEqual([])
     expect(text(de, 'members.teamPeople_one')).toBe('eine Person')

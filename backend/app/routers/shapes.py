@@ -1,4 +1,4 @@
-"""Shape packages (block 4): installed per space by whoever manages it, or for the whole server by the operator.
+"""Shape packages: installed per space by whoever manages it, or for the whole server by the operator.
 
 Everybody who may read a space sees its packages and the server's; nobody sees the packages of a space they may not
 read, not even that there are any. Every package that comes in is checked by ``services/shapepacks`` and kept only as

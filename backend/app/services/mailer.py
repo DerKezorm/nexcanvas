@@ -1,7 +1,7 @@
 """Invitation mail through the operator's SMTP server.
 
 Off until the operator enters a server: the link to copy is always enough. Nothing else is ever mailed, apart from
-the operator's test mail. Both go out in the language of whoever receives it (Prüfgang 05.10.2026, decision 8): the
+the operator's test mail. Both go out in the language of whoever receives it: the
 receiver's account language, else their browser's at the last sign-in; else whoever sends the mail off (their account,
 their page, their browser); else the instance's, which is its first operator's; else English. The invitation names who
 invites and into which space, and carries the link.

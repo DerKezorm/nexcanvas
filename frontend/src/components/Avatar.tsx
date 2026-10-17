@@ -2,8 +2,8 @@ import { avatarUrl } from '../api/client'
 import { personColor } from '../board/canvas/Peers'
 
 /** The round letter (and a team's square): a tint of the colour behind, the colour mixed with the text colour in front.
- * The pure colour on its tint read 1.2 to 2.4 to 1 in the light theme (Prüfgang G7); mixed, it reads 4.5 to 1 or more
- * in both, as in nextasks and nexsuite. */
+ * The pure colour on its tint read 1.2 to 2.4 to 1 in the light theme; mixed, it reads 4.5 to 1 or more
+ * in both. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function letterColors(color: string): { background: string; color: string } {
   return {
@@ -12,7 +12,7 @@ export function letterColors(color: string): { background: string; color: string
   }
 }
 
-/** A person as their picture, or a round letter in their colour, as nexlore shows accounts. */
+/** A person as their picture, or a round letter in their colour shows accounts. */
 export function Avatar({
   person,
   className = 'h-8 w-8 text-sm',

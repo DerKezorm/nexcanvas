@@ -108,7 +108,7 @@ def authenticate(db: Session, token: str | None) -> Caller | None:
     waiting for its second factor. Tokens being switched off is the caller's to check (``allowed``).
 
     An account locked for a while after wrong passwords keeps its tokens: a stranger with ten guesses would otherwise
-    switch off every program it feeds (decided 2026-10-05, as in nextasks and nexbrand). Blocking, deleting and
+    switch off every program it feeds. Blocking, deleting and
     rights taken away still count."""
     if not token or not token.startswith(TOKEN_PREFIX) or len(token) > 200:
         return None
@@ -118,7 +118,7 @@ def authenticate(db: Session, token: str | None) -> Caller | None:
         return None
     account = db.get(Account, row.account_id)
     if account is None or account.blocked_at is not None:
-        # Blocked (here or in nexsuite) means no way in at all, a token included (Prüfgang 04.10.2026, A4).
+        # Blocked (here or in the directory service) means no way in at all, a token included.
         return None
     if totp.factor_missing(db, account):
         # The operator requires a second factor this account has not set up: its tokens wait like its sessions (also

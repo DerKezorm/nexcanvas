@@ -336,7 +336,7 @@ def _peers(board_id: str) -> int:
 
 def test_a_listener_that_never_sends_loses_the_board_at_once(client: TestClient, operator: Account,
                                                               space: int) -> None:
-    # Prüfgang 04.10.2026, A3: a connection was only looked at again when it sent something itself.
+    # A connection was only looked at again when it sent something itself.
     board_id = make_board(client, space)
     rita = make_account("rita")
     join(client, space, "rita", "read")
@@ -352,7 +352,7 @@ def test_a_listener_that_never_sends_loses_the_board_at_once(client: TestClient,
 @pytest.mark.parametrize("how", ["blocked", "signed_out_everywhere", "new_password"])
 def test_a_blocked_or_signed_out_account_loses_its_open_board(client: TestClient, operator: Account, space: int,
                                                                how: str) -> None:
-    # Prüfgang 04.10.2026, A2: the right in the space stayed, so the connection did too.
+    # The right in the space stayed, so the connection did too.
     board_id = make_board(client, space)
     anna = make_account("anna")
     join(client, space, "anna", "write")

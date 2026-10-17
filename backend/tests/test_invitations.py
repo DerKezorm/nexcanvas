@@ -1,7 +1,7 @@
-"""Prüfgang 05.10.2026 for nexcanvas, block 4, as nextasks d14d184 and nexbrand b3df2c9: the invitation page names who
-invites and says when a link expired (E18, G4), the operator's invitation can bring a person straight into a space
-(E18, decided 2026-10-06 for nexcanvas), nothing of nexcanvas belongs in a search engine (F13), and the log hands
-each line's moment with its offset (G11)."""
+"""The invitation page names who
+invites and says when a link expired, the operator's invitation can bring a person straight into a space
+, nothing of nexcanvas belongs in a search engine, and the log hands
+each line's moment with its offset."""
 
 from __future__ import annotations
 

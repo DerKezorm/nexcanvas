@@ -41,7 +41,7 @@ export function SubHead({ title, text }: { title: string; text?: string }) {
   )
 }
 
-/** A switch with its name and a line of explanation; the whole row is the label (a checkbox, as in nexlore). */
+/** A switch with its name and a line of explanation; the whole row is the label (a checkbox). */
 export function Toggle({ label, hint, checked, onChange, disabled = false }: { label: string; hint?: string; checked: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
   const hintId = useId()
   return (
@@ -288,7 +288,7 @@ export function Confirm({ title, text, confirm, danger = false, password = false
 export type Tab<T extends string> = { value: T; label: string; icon?: LucideIcon }
 
 /**
- * A row of round tabs, as in nexlore. `under`: a second row below the first, tied to it by a line on the left. The
+ * A row of round tabs. `under`: a second row below the first, tied to it by a line on the left. The
  * row wraps on a narrow screen.
  */
 export function TabRow<T extends string>({ tabs, active, onChange, under = false, label }: { tabs: Tab<T>[]; active: T; onChange: (value: T) => void; under?: boolean; label?: string }) {

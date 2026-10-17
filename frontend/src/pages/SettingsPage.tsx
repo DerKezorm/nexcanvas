@@ -101,7 +101,7 @@ function ServerPart({ part }: { part: Part }) {
         </>
       )
     case 'signin':
-      // Coupled too: the list stays visible (the own entries set aside, "off"), the authentik card locked (blueprint 06).
+      // Coupled too: the list stays visible (the own entries set aside, "off"), the authentik card locked.
       return <SignInPart server={server} connected={connected} />
     case 'suite':
       return <SuiteCard />
@@ -327,7 +327,7 @@ function Spaces() {
               <li key={s.id} className="flex items-center gap-3 px-4 py-3 text-sm">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
                 <span className="flex-1 text-mist-200">{s.name}</span>
-                {/* Deleted in nexsuite: it comes back there, and with it here (E1). */}
+                {/* Deleted in the directory service: it comes back there, and with it here. */}
                 {s.in_suite ? (
                   <span className="text-xs text-mist-500">{t('settings.spacesBinInSuite')}</span>
                 ) : (

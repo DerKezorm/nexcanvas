@@ -1,5 +1,5 @@
 /**
- * Shape packages (block 4): named collections of shapes, like Visio's stencils. Some come with nexcanvas (basic
+ * Shape packages: named collections of shapes, like Visio's stencils. Some come with nexcanvas (basic
  * shapes, flowchart, floor plan, project management, network), others are installed per space or for the whole server
  * and can be made from the board ("save as shape") or from SVG files.
  *

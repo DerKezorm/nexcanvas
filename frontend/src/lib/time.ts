@@ -11,7 +11,7 @@ export function ago(time: number, lang: string): string {
 }
 
 /** A moment as the family writes it everywhere: the day as the lists show days (4.10.2026), with hours and minutes, no
- * seconds (Prüfgang G11, as nexsuite and nexbrand). The log adds seconds. */
+ * seconds. The log adds seconds. */
 export function moment(value: string | number | Date, lang: string, seconds = false): string {
   return new Date(value).toLocaleString(lang, {
     day: 'numeric',

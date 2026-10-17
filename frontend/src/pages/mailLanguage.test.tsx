@@ -1,4 +1,4 @@
-// Mails go out in the language of whoever receives them (decision 8 of 05.10.2026). When neither the receiver nor the
+// Mails go out in the language of whoever receives them. When neither the receiver nor the
 // sender has a language of their own, the server takes the language the sender's page shows; the page sends it along
 // with the invitation and with the test mail.
 import { act } from 'react'

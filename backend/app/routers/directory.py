@@ -1,8 +1,8 @@
-"""People and teams as the pages need them, the same in every app of the family (nextasks has it too): everybody on the
+"""People and teams as the pages need them, the same in every app of the family: everybody on the
 server sees everybody.
 
 Teams are made and deleted by the operator; the members of a local team change by the operator, and by the team's lead
-when the operator allows it (``team_leads_edit``, off from the start, D3).
+when the operator allows it (``team_leads_edit``, off from the start).
 """
 
 from __future__ import annotations
@@ -60,8 +60,8 @@ def directory(account: Account, db: DbSession) -> dict[str, Any]:
     # As people read them: by the shown name, any case (b3-20).
     people = sorted(db.scalars(select(AccountRow)),
                     key=lambda row: ((row.display_name or row.name).casefold(), row.name))
-    # Blocked accounts (here, or gone or blocked in nexsuite) are no colleagues to pick; the operator still sees
-    # them, marked (D6).
+    # Blocked accounts (here, or gone or blocked in the directory service) are no colleagues to pick; the operator still
+    # sees them, marked.
     operator = account.role == "operator"
     return {
         "me": account.id,
@@ -103,7 +103,7 @@ def change_team(team_id: TeamId, payload: TeamChange, account: Account, db: DbSe
         raise error("not_found", "Not found.", 404)
     if not teams.may_change(account, team, bool(settings_service.get(db, "team_leads_edit"))):
         if team.lead_id == account.id and team.source == TEAM_LOCAL:
-            # The lead hears why: the operator has not let team leads change their teams (D3).
+            # The lead hears why: the operator has not let team leads change their teams.
             raise error("team_leads_off", "The operator has not let team leads change their teams.", 403)
         raise error("forbidden", "Only the operator or the team's lead changes a team.", 403)
     lead_only = account.role != OPERATOR

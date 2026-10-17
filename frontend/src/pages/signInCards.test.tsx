@@ -1,6 +1,6 @@
-// Settings, Server, Sign-in as the shared sign-in blueprint lays it out (part 04): three cards, the provider form with
+// Settings, Server, Sign-in as the shared sign-in blueprint lays it out: three cards, the provider form with
 // its fields in their order, the confirmations with their numbers, the authentik steps by name with the reason of a
-// failure in words (Prüfgang C4), and what a coupling to nexsuite locks (part 06). The step keys come from the shared
+// failure in words, and what a coupling to the directory service locks. The step keys come from the shared
 // module's own list (`STEP_KEYS` in backend/app/vendor/nexoidc/authentik.py), so a name the language files spell
 // differently shows up here instead of on the operator's screen.
 import { act } from 'react'
@@ -260,7 +260,7 @@ describe('the second factor requirement', () => {
   }
 })
 
-describe('coupled (blueprint 06)', () => {
+describe('coupled', () => {
   it('shows the list only, the set-aside entries off, the coupled one marked, and locks the authentik card', async () => {
     list = [
       entry({ id: 3, slug: 'oidc', label: 'nexsuite', managed: 'nexsuite', editable: false }),

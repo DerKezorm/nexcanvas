@@ -1,4 +1,4 @@
-"""Names typed here: no control characters (Prüfgang 05.10.2026 A13, as in nexbrand and nexsuite).
+"""Names typed here: no control characters.
 
 A name of a space, a team, a board or a template is one line. Before, only C0 was refused; DEL and C1 (U+0080 to
 U+009F, the escape that colours a terminal among them) went into the database and on into the log and exports.

@@ -145,7 +145,7 @@ def operator_reset(
     operator: OperatorAccount,
     db: DbSession,
 ) -> dict[str, Any]:
-    # Connected: the second factor is nexsuite's (or authentik's); the emergency account keeps its own (A5).
+    # Connected: the second factor is the directory service's (or authentik's); the emergency account keeps its own.
     suite.refuse_if_managed(db)
     confirm_operator(request, db, operator, payload.current_password)
     if account_id == operator.id:
@@ -187,8 +187,8 @@ def login_code(payload: CodeIn, request: Request, response: Response, db: DbSess
         _clear_pending_cookie(response)
         raise error("second_factor_expired", "Start again with your password.", 401)
     if row.blocked_at is not None:
-        # Blocked between the password and the code (here or in nexsuite): no session, and the same answer as after
-        # the password (A16).
+        # Blocked between the password and the code (here or in the directory service): no session, and the same answer
+        # as after the password.
         totp.finish_pending(token)
         _clear_pending_cookie(response)
         logger.warning("Sign-in refused at the code, account blocked name=%s", row.name)

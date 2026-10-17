@@ -1,7 +1,7 @@
 /**
- * nexcanvas and nexsuite, as the operator sees it: connecting (address and one-time code, then matching accounts and
+ * nexcanvas and the directory service, as the operator sees it: connecting (address and one-time code, then matching accounts and
  * spaces), the state of the connection, disconnecting with the password or with an emergency code. And the line other
- * cards show where a setting is kept in nexsuite now.
+ * cards show where a setting is kept in the directory service now.
  */
 import { Box, KeyRound, Loader2, Lock, Plug, RefreshCw, ShieldAlert, Unplug, Users } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -14,13 +14,13 @@ import { Avatar } from './Avatar'
 import { Dialog } from './Dialog'
 import { moment } from '../lib/time'
 
-/** For the operator also who stops being an operator on disconnecting (B17): `operators_from_suite`; for a connection made
+/** For the operator also who stops being an operator on disconnecting: `operators_from_suite`; for a connection made
  * before the roles were kept (`roles_kept` false), the operators who stay operators. Names as people see them. */
 type Status = { state: '' | 'connecting' | 'connected'; url: string; last_sync: string | null; problem: string; emergency_codes: number; mail: boolean; operators_from_suite?: string[]; roles_kept?: boolean; operators_staying?: string[] }
 type Left = { without_password: string[]; blocked?: string[]; operators_back?: string[] }
 type SuitePerson = { id: string; name: string; display_name: string; email: string }
-/** `blocked`: blocked here (left out before, blocked or deleted in nexsuite); `from_suite`: nexsuite brought it before a
- * disconnect, `gone`: and its person is deleted there since (B8). */
+/** `blocked`: blocked here (left out before, blocked or deleted in the directory service); `from_suite`: the directory service brought it before a
+ * disconnect, `gone`: and its person is deleted there since. */
 type LocalAccount = { id: number; name: string; display_name: string; email: string; role: string; suggest: string; blocked?: boolean; from_suite?: boolean; gone?: boolean }
 type LocalSpace = { id: number; name: string; color: string; suggest: string }
 type Chosen = { accounts: Record<string, string>; spaces: Record<string, string>; teams: Record<string, string>; step: number }
@@ -31,37 +31,37 @@ type Proposal = {
   candidates: { id: string; name: string }[]
   teams: LocalSpace[]
   team_candidates: { id: string; name: string }[]
-  /** The choices kept from before the assistant was closed (B23). */
+  /** The choices kept from before the assistant was closed. */
   chosen?: Chosen | null
-  /** People, teams and spaces an earlier try made in nexsuite already. */
+  /** People, teams and spaces an earlier try made in the directory service already. */
   made?: number
   /** A /finish went out whose answer did not come: its choices hold, the fields are locked. */
   sent?: boolean
 }
 
-/** Codes of a choice nexsuite does not know (any more): the lists are loaded anew (B9). */
+/** Codes of a choice the directory service does not know (any more): the lists are loaded anew. */
 const UNKNOWN = ['person_unknown', 'space_unknown', 'team_unknown']
 
-/** What a matched person changes on the account: display name and address come from nexsuite afterwards (B16). */
+/** What a matched person changes on the account: display name and address come from the directory service afterwards. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function changesOf(account: LocalAccount, person: SuitePerson | undefined): { name?: string; email?: string } {
   if (!person) return {}
   const now = account.display_name || account.name
-  // A person without a display name takes the one from here when connecting (B16, people/{id}/name).
+  // A person without a display name takes the one from here when connecting (people/{id}/name).
   const then = person.display_name || account.display_name || account.name
   return {
     name: then !== now ? then : undefined,
-    // Without an address there, the one from here goes along (B7): only a different one is a change.
+    // Without an address there, the one from here goes along: only a different one is a change.
     email: person.email && person.email.toLowerCase() !== account.email.toLowerCase() ? person.email : undefined,
   }
 }
 
-/** Every person, space or team in nexsuite gets at most one counterpart here: taken elsewhere, it is shown, not offered. */
+/** Every person, space or team in the directory service gets at most one counterpart here: taken elsewhere, it is shown, not offered. */
 function takenElsewhere(choices: Record<number, string>, own: number): Set<string> {
   return new Set(Object.entries(choices).filter(([id, value]) => Number(id) !== own && value !== 'new' && value !== 'skip').map(([, value]) => value))
 }
 
-/** The lock line: this is kept in nexsuite now. */
+/** The lock line: this is kept in the directory service now. */
 export function Managed({ text }: { text?: string }) {
   const { t } = useTranslation()
   return (
@@ -72,7 +72,7 @@ export function Managed({ text }: { text?: string }) {
   )
 }
 
-/** A card in place of one whose settings nexsuite keeps now. */
+/** A card in place of one whose settings the directory service keeps now. */
 export function ManagedCard({ title, text }: { title: string; text: string }) {
   return (
     <Card icon={Lock} title={title}>
@@ -87,7 +87,7 @@ export function useSuiteConnected(): boolean {
   return me?.suite === 'connected'
 }
 
-/** Settings, Server, nexsuite. */
+/** Settings, Server, the directory service. */
 export function SuiteCard() {
   const { t, i18n } = useTranslation()
   const { me, setMe } = useAuth()
@@ -97,7 +97,7 @@ export function SuiteCard() {
   const [without, setWithout] = useState<string[] | null>(null)
   const [stillBlocked, setStillBlocked] = useState<string[]>([])
   const [operatorsBack, setOperatorsBack] = useState<string[]>([])
-  /** Given up after /finish went out, and nexsuite could not be told: it may list the app still. */
+  /** Given up after /finish went out, and the directory service could not be told: it may list the app still. */
   const [keptInSuite, setKeptInSuite] = useState(false)
   const action = useAction()
   const load = useCallback(async () => {
@@ -142,7 +142,7 @@ export function SuiteCard() {
               <a href={status.url} target="_blank" rel="noreferrer" className="nc-btn nc-btn-ghost">
                 {t('suite.open')}
               </a>
-              {/* Disconnecting here is the emergency account's; whoever comes through nexsuite does it there. */}
+              {/* Disconnecting here is the emergency account's; whoever comes through the directory service does it there. */}
               {me?.suite_emergency && (
                 <>
                   <Button danger onClick={() => setLeaving('password')}>
@@ -196,7 +196,7 @@ export function SuiteCard() {
   )
 }
 
-/** Disconnecting. It names who stops being an operator (B17), or, for a connection made before the roles were kept,
+/** Disconnecting. It names who stops being an operator, or, for a connection made before the roles were kept,
  * that nobody's role changes and who stays an operator. */
 function LeaveDialog({ mode, status, onClose, onDone }: { mode: 'password' | 'code'; status: Status; onClose: () => void; onDone: (left: Left) => void }) {
   const { t } = useTranslation()
@@ -273,12 +273,12 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: (keptInS
   const action = useAction()
   /** One request at a time: a second click before the page shows the first as busy does nothing. */
   const running = useRef(false)
-  /** The suggestions, with the choices made before where they still name something nexsuite has (B9, B23). */
+  /** The suggestions, with the choices made before where they still name something the directory service has. */
   const take = (found: Proposal, before?: Partial<Chosen> | null) => {
     const people = new Set(found.people.map((p) => p.id))
     const candidates = new Set(found.candidates.map((c) => c.id))
     const teamCandidates = new Set((found.team_candidates ?? []).map((c) => c.id))
-    // Once /finish went out the choices that went with it stand as they were, unfiltered (nexsuite offers no space then).
+    // Once /finish went out the choices that went with it stand as they were, unfiltered (the directory service offers no space then).
     const pick = (suggest: string, earlier: string | undefined, known: Set<string>, extra: string[]) =>
       earlier !== undefined && (found.sent || extra.includes(earlier) || known.has(earlier)) ? earlier : suggest
     setProposal(found)
@@ -296,7 +296,7 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: (keptInS
       () => setStep(1),
     )
   }, [resume]) // eslint-disable-line react-hooks/exhaustive-deps
-  // Kept on the server as they are made: closing the assistant or reloading the page resumes here (B23).
+  // Kept on the server as they are made: closing the assistant or reloading the page resumes here.
   useEffect(() => {
     // Once /finish went out the choices are fixed (the server refuses others): nothing to keep.
     if (!proposal || proposal.sent || (step !== 2 && step !== 3)) return
@@ -323,11 +323,11 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: (keptInS
         setStep(4)
       } catch (error) {
         if (error instanceof ApiError && UNKNOWN.includes(error.code)) {
-          // Something chosen is gone from nexsuite meanwhile: the lists anew, the other choices kept.
+          // Something chosen is gone from the directory service meanwhile: the lists anew, the other choices kept.
           take(await api<Proposal>('/api/suite/proposal'), { accounts, spaces, teams })
           if (error.code === 'person_unknown') setStep(2)
         } else {
-          // Part of it may be made in nexsuite already: giving up then says what stays there.
+          // Part of it may be made in the directory service already: giving up then says what stays there.
           const again = await api<Proposal>('/api/suite/proposal').catch(() => null)
           if (again) setProposal((before) => (before ? { ...before, made: again.made, sent: again.sent } : before))
         }
@@ -425,7 +425,7 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: (keptInS
           {own === 'skip' && <p className="text-sm text-bad-500">{t('errors.operator_unmatched')}</p>}
           {proposal.sent && <p className="text-sm text-warn-500" data-testid="suite-sent">{t('suite.sentChoices')}</p>}
           <Feedback problem={action.problem} />
-          {/* An earlier try made people, teams or spaces in nexsuite: they stay there when giving up. */}
+          {/* An earlier try made people, teams or spaces in the directory service: they stay there when giving up. */}
           {(proposal.made ?? 0) > 0 && <p className="text-xs text-warn-500" data-testid="suite-made">{t('suite.abortMade')}</p>}
           <div className="flex justify-between gap-2">
             <button type="button" className="nc-btn nc-btn-ghost text-bad-500" onClick={abort}>
@@ -437,7 +437,7 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: (keptInS
           </div>
         </div>
       )}
-      {/* On a phone each choice sits under its name in full width, never over it (Prüfgang G9). */}
+      {/* On a phone each choice sits under its name in full width, never over it. */}
       {step === 3 && proposal && (
         <div className="space-y-3">
           <p className="text-sm text-mist-300">{t('suite.step3Text')}</p>
@@ -537,7 +537,7 @@ function ConnectWizard({ resume, onClose }: { resume: boolean; onClose: (keptInS
   )
 }
 
-/** Something under way that takes a moment, said in words (B25). */
+/** Something under way that takes a moment, said in words. */
 function Busy({ text }: { text: string }) {
   return (
     <p className="flex items-center gap-2 text-sm text-mist-300" role="status" data-testid="suite-busy">

@@ -105,7 +105,8 @@ def restore(name: BackupName, body: PasswordIn, request: Request, operator: Oper
     """Checks, keeps the current state as a backup, and restarts; the restore happens at the next start. Asks for
     the password again: going back brings back old passwords and keys (review before 1.0.0)."""
     with SessionLocal() as db:
-        # An older state would turn the connection back while nexsuite still holds the app (A9): disconnect first.
+        # An older state would turn the connection back while the directory service still holds the app: disconnect
+        # first.
         from ..services import suite
 
         suite.refuse_if_managed(db)
@@ -129,7 +130,7 @@ def download(name: BackupName, body: DownloadIn, request: Request, operator: Ope
     enough to carry it away, so the password is asked again and counted like a sign-in."""
     with SessionLocal() as db:
         # The archive holds secret.key and the emergency account's password hash and second factor: connected, only
-        # the emergency account carries it away (found when connecting nextasks, 04.10.2026).
+        # the emergency account carries it away.
         from ..services import suite
 
         suite.refuse_unless_keeper(db, operator, "backups_emergency_only",

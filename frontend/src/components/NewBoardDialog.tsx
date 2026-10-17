@@ -14,8 +14,8 @@ import { useSuiteConnected } from './Suite'
 import { TITLE_MAX } from '../board/types'
 
 /**
- * Name, space and a starting point. The space decides who sees the board, as in nexlore. A board can also come from a
- * file (JSON Canvas, as nexcanvas exports it, or from nexlore and Obsidian): it lands in the space chosen.
+ * Name, space and a starting point. The space decides who sees the board. A board can also come from a
+ * file (JSON Canvas exports it, or from nexlore and Obsidian): it lands in the space chosen.
  */
 export function NewBoardDialog({
   space,
@@ -57,7 +57,7 @@ export function NewBoardDialog({
   const file = useRef<HTMLInputElement>(null)
   const connected = useSuiteConnected()
   if (writable.length === 0) {
-    // Connected, spaces and rights come from nexsuite: a new space here would only fail (Prüfgang F4).
+    // Connected, spaces and rights come from the directory service: a new space here would only fail.
     return (
       <Dialog title={t('board.new')} onClose={onClose}>
         <p className="text-sm text-mist-300">{connected ? t('board.noSpaceSuite') : t('board.noSpace')}</p>

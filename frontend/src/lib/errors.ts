@@ -12,7 +12,7 @@ export function errorText(code: string, values: Record<string, unknown> = {}): s
 }
 
 /** What a way back from a provider says in the address (`?error=`): a fixed sign-in code in the shared module's
- * words (Bauplan 04), one of nexcanvas' own as such; never the raw code. */
+ * words, one of nexcanvas' own as such; never the raw code. */
 export function signInErrorText(code: string): string {
   const signIn = oidcErrorKey(code)
   return signIn ? i18n.t(signIn) : errorText(code)

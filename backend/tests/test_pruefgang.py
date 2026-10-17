@@ -1,5 +1,4 @@
-"""What the night check of 04.10.2026 found in nexcanvas, each as it should be now (the numbers are those of the
-list in nexsuite/tools/pruefgang-2026-10-04/LISTE.md)."""
+"""Hardening regressions: accounts and sessions, connected and alone, each as it should be."""
 
 from __future__ import annotations
 
@@ -173,7 +172,7 @@ def test_f5_the_operator_blocks_an_account_alone_too(client: TestClient, operato
     assert client.post(f"/api/accounts/{operator.id}/block", json={"current_password": PASSWORD}).status_code == 409
     assert client.post(f"/api/accounts/{rita.id}/block", json={"current_password": PASSWORD}).status_code == 204
     with new_client() as stranger:
-        # The right password hears that the account is blocked (A16, decided for the family).
+        # The right password hears that the account is blocked.
         refused = stranger.post("/api/auth/login", json={"name": "rita", "password": PASSWORD})
         assert refused.status_code == 403 and refused.json()["detail"]["code"] == "account_blocked"
     assert client.post(f"/api/accounts/{rita.id}/unblock", json={"current_password": PASSWORD}).status_code == 204
@@ -262,7 +261,7 @@ def test_d8_the_emergency_account_goes_with_the_person_and_comes_back_on_disconn
     client: TestClient, operator: Account, world: dict, fake: FakeSuite
 ) -> None:
     connect(client, world, operator)
-    del fake.people["1"]  # the operator's person deleted in nexsuite
+    del fake.people["1"]  # the operator's person deleted in the directory service
     with SessionLocal() as db:
         suite.sync(db)
     with new_client() as browser:
@@ -319,8 +318,8 @@ def test_f2_one_link_per_address_and_invitations_by_name_can_be_withdrawn(client
 def test_connected_only_the_emergency_account_carries_a_backup_away(
     client: TestClient, operator: Account, world: dict, fake: FakeSuite
 ) -> None:
-    # Found when connecting nextasks (04.10.2026): the archive holds secret.key and the emergency account's
-    # password hash and second factor; an operator coming through nexsuite is never asked for a password here.
+    # The archive holds secret.key and the emergency account's
+    # password hash and second factor; an operator coming through the directory service is never asked for a password here.
     made = client.post("/api/backups", json={})
     assert made.status_code == 201, made.text
     name = made.json()["name"]

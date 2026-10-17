@@ -48,7 +48,7 @@ SECURITY_HEADERS: tuple[tuple[bytes, bytes], ...] = (
     (b"referrer-policy", b"same-origin"),
     (b"x-frame-options", b"DENY"),
     (b"permissions-policy", b"camera=(), microphone=(), geolocation=()"),
-    # Nothing of nexcanvas belongs in a search engine: not the app, not a public board (F13, as nexbrand).
+    # Nothing of nexcanvas belongs in a search engine: not the app, not a public board.
     (b"x-robots-tag", b"noindex, nofollow"),
 )
 
@@ -160,7 +160,7 @@ CLIENT_HEADER = b"x-nexcanvas-client"
 CLIENT_PATTERN = re.compile(rb"^[A-Za-z0-9_-]{8,64}$")
 #: The API for programs: a token in ``Authorization``, no tab, an ``Origin`` refused (``routers/v1.py``).
 API_PREFIX = "/api/v1/"
-#: Notices from nexsuite: signed with the app's token instead (``routers/suite.py``).
+#: Notices from the directory service: signed with the app's token instead (``routers/suite.py``).
 SUITE_NOTICE = "/api/suite/event"
 #: Largest body an ordinary request may carry: a board's JSON with many items, an imported canvas.
 MAX_BODY = 16 * 1024 * 1024

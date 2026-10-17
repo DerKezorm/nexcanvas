@@ -1,6 +1,6 @@
 """nexcanvas' side of the shared sign-in module ``vendor/nexoidc``: the ``Store`` over its tables, the start-up
 configuration, the address an account takes from a provider, and the migration from the single provider of the
-settings to the list (also of an installation coupled to nexsuite at that moment).
+settings to the list (also of an installation coupled to the directory service at that moment).
 
 The module (the shared blueprint "Anmeldung mit OIDC und authentik") runs the protocol, decides who an identity is
 and keeps the provider list; it never sees a database. What is nexcanvas' own lives here: accounts and their names,
@@ -10,7 +10,7 @@ the client secrets with the server secret.
 A ``SqlStore`` works inside one SQLAlchemy session, one request. The module commits when an outcome is settled and
 rolls back when it refuses after a write (a consumed invitation comes back that way). A store made with ``hold``
 only flushes where the module commits: its caller commits once, together with what it writes itself (connecting to
-nexsuite, the migration).
+the directory service, the migration).
 """
 
 from __future__ import annotations
@@ -94,7 +94,7 @@ def configure() -> None:
             login_page=LOGIN_PAGE,
             account_page=ACCOUNT_PAGE,
             home=HOME,
-            # Two instances on one host (docker-dev :8500 and :8505) keep their attempts apart, as their sessions.
+            # Two instances on one host (say :8500 and :8505) keep their attempts apart, as their sessions.
             cookie_suffix=get_settings().cookie_name_suffix(),
         )
     )
@@ -149,7 +149,7 @@ def take_address(db: Session, account: Account, address: str) -> bool:
 
 def from_provider(db: Session, account: Account, raw: str | None) -> None:
     """What a provider says about the address at a sign-in or a link (the caller commits). ``email_verified`` is
-    never read (the shared blueprint 01): the address finds nobody, it is only what the account is mailed at. An
+    never read (the shared sign-in module): the address finds nobody, it is only what the account is mailed at. An
     account through providers only follows it; every other account is offered it on its account page and takes it
     only when it says so. Never an address another account has."""
     address = clean_address(raw)
@@ -175,8 +175,8 @@ def offered_address(db: Session, account: Account) -> str:
 
 
 def _own_links(db: Session, account_id: int) -> bool:
-    """The account still has a link to a provider of its own (the coupled nexsuite entry does not count: the address
-    of an account in nexsuite is nexsuite's)."""
+    """The account still has a link to a provider of its own (the coupled directory service entry does not count: the
+    address of an account in the directory service is the directory service's)."""
     found = db.scalar(
         select(OidcLink.id)
         .join(OidcProvider, OidcProvider.id == OidcLink.provider_id)
@@ -187,7 +187,7 @@ def _own_links(db: Session, account_id: int) -> bool:
 
 
 def has_own_links(db: Session, account_id: int) -> bool:
-    """The account can sign in through a provider of its own (not the coupled nexsuite entry)."""
+    """The account can sign in through a provider of its own (not the coupled directory service entry)."""
     return _own_links(db, account_id)
 
 
@@ -365,8 +365,9 @@ class SqlStore:
             self._address(provider_id, account_id, email)
 
     def _address(self, provider_id: int, account_id: int, email: str | None) -> None:
-        """What the provider says about the address, as nexcanvas treats it (``from_provider``). Not for the coupled
-        nexsuite entry: the address of an account in nexsuite comes with the directory (``services/suite.py``)."""
+        """What the provider says about the address treats it (``from_provider``). Not for the coupled
+        the directory service entry: the address of an account in the directory service comes with the directory
+        (``services/suite.py``)."""
         if not email or self._coupled_entry(provider_id):
             return
         account = self.db.get(Account, account_id)
@@ -382,7 +383,7 @@ class SqlStore:
         return AccountState(
             id=row.id,
             name=row.name,
-            # Blocked by the operator, or by nexsuite while connected: no way in through a provider either.
+            # Blocked by the operator, or by the directory service while connected: no way in through a provider either.
             blocked=row.blocked_at is not None,
             has_password=row.sign_in == SIGN_IN_PASSWORD and bool(row.password_hash),
             has_second_factor=bool(row.totp_secret_enc),
@@ -417,7 +418,7 @@ class SqlStore:
         from . import suite
 
         if suite.connected(self.db):
-            # Connected, accounts come from nexsuite: an old invitation is no way in (C9).
+            # Connected, accounts come from the directory service: an old invitation is no way in.
             return None
         row = accounts.find_invite(self.db, key)
         return Invite(key=key, id=row.id, rights=row) if row is not None else None
@@ -460,7 +461,7 @@ def linked_providers(db: Session) -> dict[int, list[dict[str, object]]]:
     return linked
 
 
-# --- The migration from the single provider of the settings (blueprint 01 "Umstieg", 06 "Wanderung") --------------
+# --- The migration from the single provider of the settings --------------
 
 #: The settings of the single provider before the list. They stay readable for one version (the way back), then go.
 LEGACY_KEYS = ("oidc_issuer", "oidc_client_id", "oidc_client_secret_enc", "oidc_provider_name", "oidc_auto_create")
@@ -472,10 +473,10 @@ FINGERPRINT = "oidc_legacy_fingerprint"
 #: The issuer 0.3 knows, or ``migrate.CLOSED`` (module 1.0.10): with the entry ``oidc`` it decides what the way back
 #: shows (``migrate.way_back``). nexcanvas only stores it.
 ANCHOR = "oidc_legacy_anchor"
-#: The copy of the old settings 9f2ef73 kept next to the entry (never shipped; a development database may still have
+#: The copy of the old settings that was kept next to the entry (never shipped; a development database may still have
 #: the row): nothing reads it, the start removes it.
 HELD_COPY = "oidc_way_back_held"
-#: nexcanvas asked no code after the provider before the list: the migrated entries keep that (blueprint 06).
+#: nexcanvas asked no code after the provider before the list: the migrated entries keep that.
 TRUSTED_BEFORE = True
 
 
@@ -517,8 +518,8 @@ def migration_due(db: Session) -> bool:
     return legacy_plan(db) is not None
 
 
-#: Persons of nexsuite a coupled 0.3 left with more than one account claiming them (never settled under 0.3):
-#: ``{person: [account ids]}``, decided by the first directory fetch.
+#: Persons of the directory service a coupled 0.3 left with more than one account claiming them (never settled under
+#: 0.3): ``{person: [account ids]}``, decided by the first directory fetch.
 UNSETTLED = "suite_unsettled"
 
 
@@ -548,9 +549,10 @@ def _persons_of_0_3(db: Session) -> tuple[list[tuple[int, str]], dict[str, list[
 
 
 def _apply_coupled(db: Session) -> coupling.Coupling | None:
-    """An installation connected to nexsuite at the moment of the update: the own provider from before connecting
-    (``suite_saved``) becomes the entry ``oidc`` with the own links (``oidc_subject_local``), set aside at once;
-    nexsuite (the settings now) becomes the coupled entry with the accounts' persons (``oidc_subject``)."""
+    """An installation connected to the directory service at the moment of the update: the own provider from before
+    connecting (``suite_saved``) becomes the entry ``oidc`` with the own links (``oidc_subject_local``), set aside at
+    once; the directory service (the settings now) becomes the coupled entry with the accounts' persons
+    (``oidc_subject``)."""
     from . import suite
 
     values = settings_service.get_all(db)
@@ -582,11 +584,11 @@ def _apply_coupled(db: Session) -> coupling.Coupling | None:
 
 def migrate_settings(*, backup: bool = True) -> Provider | None:
     """The whole start-up of the sign-in: once, at the first start with the list, the provider of the settings becomes
-    the entry ``oidc`` with a link per stored subject (``/api/oidc/callback`` keeps signing in; connected to nexsuite,
-    nexsuite becomes the coupled entry and the own provider waits set aside; a backup goes first, the way back). At
-    every start, what 0.3 changed in its settings and its column while the app ran there is taken over
-    (``migrate.resync``); then the way back is written again, always, and its fingerprint stored. The entry ``oidc``
-    is returned when this start made it (the coupled one while connected), else None."""
+    the entry ``oidc`` with a link per stored subject (``/api/oidc/callback`` keeps signing in; connected to the
+    directory service, the directory service becomes the coupled entry and the own provider waits set aside; a backup
+    goes first, the way back). At every start, what 0.3 changed in its settings and its column while the app ran there
+    is taken over (``migrate.resync``); then the way back is written again, always, and its fingerprint stored. The
+    entry ``oidc`` is returned when this start made it (the coupled one while connected), else None."""
     _drop_held_copy()
     migrated = _migrate_once(backup)
     up_again(backup=backup)
@@ -658,8 +660,8 @@ def mirror_way_back(db: Session) -> None:
     that comes back, and then the fingerprint of what it reads back (``resync`` compares it at the next start). Called
     at every commit that touched the entry, a link or an account (``_write_the_way_back``) and at every start.
     **Not** before the migration (the settings and the column are still 0.3's own and wait to be read) and **not**
-    coupled to nexsuite (they say what 0.3 would have written, ``services/suite.py``; the anchor stays as it is).
-    Flushes; the caller commits."""
+    coupled to the directory service (they say what 0.3 would have written, ``services/suite.py``; the anchor stays as
+    it is). Flushes; the caller commits."""
     db.flush()
     if not settings_service.get(db, MIGRATED) or _coupled_entries(db):
         return
@@ -698,8 +700,8 @@ def up_again(*, backup: bool = True) -> None:
     """At every start after the migration: take over what 0.3 changed since the fingerprint of the last time (and
     nothing else; a backup goes first when there is something), then write the way back again, always, also without
     a single provider, and store the new fingerprint. Without a stored fingerprint (the first start of this version)
-    nothing is taken over. Coupled to nexsuite nothing is taken over either: the list changes through the coupling
-    only; the start says so (info) instead of the module's warning at every start, and the anchor stays."""
+    nothing is taken over. Coupled to the directory service nothing is taken over either: the list changes through the
+    coupling only; the start says so (info) instead of the module's warning at every start, and the anchor stays."""
     with SessionLocal() as db:
         legacy, subjects = read_legacy(db)
         previous = str(settings_service.get(db, FINGERPRINT) or "") or None
@@ -730,7 +732,7 @@ def up_again(*, backup: bool = True) -> None:
 
 def _keep_anchor_coupled() -> None:
     """Coupled the anchor outlives the coupling: the stored one stays; a database that has none (migrated before
-    1.0.10) gets it closed, as ``resync`` would derive it for the entry of nexsuite."""
+    1.0.10) gets it closed, as ``resync`` would derive it for the entry of the directory service."""
     with SessionLocal() as db:
         if not settings_service.get(db, ANCHOR):
             settings_service.save(db, {ANCHOR: migrate.CLOSED})

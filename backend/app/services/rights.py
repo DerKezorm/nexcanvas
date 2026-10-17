@@ -1,4 +1,4 @@
-"""Who may do what in which space, as in nexlore, with teams as in nextasks.
+"""Who may do what in which space.
 
 Three rights, each including the ones before it: **read** (open boards, follow them live), **write** (change boards,
 add photos, the bin), **manage** (inviting, giving rights to people and teams, public pages, renaming or deleting the

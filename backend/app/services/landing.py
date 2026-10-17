@@ -1,5 +1,5 @@
-"""The page a sign-in lands on (Prüfgang B10): a direct link opened without a session survives the way through the
-sign-in page and the provider. Only a page of nexcanvas' own is ever taken (no open redirect, Bauplan 06 "Verbund").
+"""The page a sign-in lands on: a direct link opened without a session survives the way through the
+sign-in page and the provider. Only a page of nexcanvas' own is ever taken (no open redirect).
 """
 
 from __future__ import annotations

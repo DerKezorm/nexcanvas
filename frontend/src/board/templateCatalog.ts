@@ -1,5 +1,5 @@
 /**
- * The templates that come with nexcanvas (block 5), in groups as Visio's: flow and process, project, rooms,
+ * The templates that come with nexcanvas, in groups as Visio's: flow and process, project, rooms,
  * network, thinking, organisation. Each one builds a real board from the shapes of the shipped packages: frames as
  * scenes where a board has parts, a background that fits (squared paper for a plan, millimetres for a floor plan),
  * and words in the language of the page.
@@ -461,7 +461,7 @@ export interface Shipped {
   build: Build
 }
 
-/** The new templates of block 5 by group; the first ones of the app (blank, mood, retro …) stay in `templates.ts`. */
+/** The newer templates by group; the first ones of the app (blank, mood, retro …) stay in `templates.ts`. */
 export const SHIPPED: Shipped[] = [
   { id: 'flowchart', category: 'flow', build: flowchart },
   { id: 'swimlanes', category: 'flow', build: swimlanes },

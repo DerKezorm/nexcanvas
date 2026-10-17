@@ -6,7 +6,7 @@ import { useTitle } from '../lib/title'
 
 /**
  * A link to something that is not there (any more), or not for this account: said in one sentence with the way back,
- * as nextasks and nexbrand do, instead of showing something else under the wrong address (Prüfgang E31).
+ * instead of showing something else under the wrong address.
  */
 export function NotFound({ text, to = '/', back }: { text: string; to?: string; back?: string }) {
   const { t } = useTranslation()

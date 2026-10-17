@@ -31,7 +31,7 @@ export type ServerSettings = {
   smtp_password_set: boolean
   smtp_from: string
   api_tokens_allowed: boolean
-  /** Whether the lead of a team changes its members (D3); off from the start. */
+  /** Whether the lead of a team changes its members; off from the start. */
   team_leads_edit: boolean
   upload_max_mb: number
   upload_ceiling_mb: number
@@ -81,7 +81,7 @@ export function useServerSettings() {
   return { settings, save, saveAddress, reload, ...action }
 }
 
-/** Requests come with proxy headers, but no proxy is named: the sign-in brake sees one sender for everybody (A5). */
+/** Requests come with proxy headers, but no proxy is named: the sign-in brake sees one sender for everybody. */
 export function ProxyHint() {
   const { t } = useTranslation()
   const [seen, setSeen] = useState(false)
@@ -100,7 +100,7 @@ type AccountRow = Me & { spaces: number; locked: boolean; blocked?: boolean; has
 type OpenInvite = { id: number; email: string; expires_at: string; space?: string | null; role?: string }
 const DAYS = ['1', '7', '30'] as const
 
-/** The accounts; connected to nexsuite only shown (``readOnly``): people are kept there (Prüfgang G2). */
+/** The accounts; connected to the directory service only shown (``readOnly``): people are kept there. */
 export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
   const { t, i18n } = useTranslation()
   const { me } = useAuth()
@@ -109,7 +109,7 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
   const [days, setDays] = useState<(typeof DAYS)[number]>('7')
   const [email, setEmail] = useState('')
   const [send, setSend] = useState(true)
-  // Straight into a space as well, if one is chosen (E18, as nextasks); empty brings into nexcanvas only.
+  // Straight into a space as well, if one is chosen; empty brings into nexcanvas only.
   const [into, setInto] = useState('')
   const [role, setRole] = useState<Role>('write')
   const spaces = useBoards().spaces.filter((s) => !s.managed && !s.dropped)
@@ -123,7 +123,7 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
     if (!readOnly) api<OpenInvite[]>('/api/invites').then(setInvites, () => undefined)
   }, [readOnly])
   useEffect(load, [load])
-  // Each button names its account for a screen reader, not five times "Delete" in a row (Prüfgang G6).
+  // Each button names its account for a screen reader, not five times "Delete" in a row.
   const shown = (row: AccountRow) => row.display_name || row.name
   const forRow = (row: AccountRow, action: string) => t('server.forAccount', { name: shown(row), action })
   return (
@@ -132,7 +132,7 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
         {list.map((row) => (
           <li key={row.id} data-testid={`account-row-${row.name}`} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
             <Avatar person={row} className="h-8 w-8 text-sm" />
-            {/* Wide enough to read: when the buttons crowd it, they move below instead of cutting it (Prüfgang G6). */}
+            {/* Wide enough to read: when the buttons crowd it, they move below instead of cutting it. */}
             <div className="min-w-[15rem] flex-1 basis-[15rem]">
               {/* Wraps too: at 375 px a long display name cut off the sign-in name behind it (measured 07.10.2026). */}
               <div data-testid="account-name" className="text-sm font-medium break-words text-mist-100">
@@ -141,7 +141,7 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
                 {row.id === me?.id && <span className="ml-1.5 text-xs font-normal text-mist-500">{t('members.you')}</span>}
               </div>
               <div data-testid="account-status" className="text-xs break-words text-mist-500">
-                {/* Connected, an account that signs in through the provider does so through nexsuite (H4). */}
+                {/* Connected, an account that signs in through the provider does so through the directory service. */}
                 {row.role === 'operator' ? t('account.operator') : t('server.member')} · {t(readOnly && row.sign_in === 'oidc' ? 'server.signInBy.suite' : `server.signInBy.${row.sign_in}`)} ·{' '}
                 {row.role === 'operator' ? t('server.everySpace') : t('server.inSpaces', { count: row.spaces })}
                 {row.two_factor ? ' · ' + t('server.withTwoFactor') : ''}
@@ -149,7 +149,7 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
                 {row.blocked ? ' · ' + t('server.blocked') : ''}
                 {row.has_password === false && !row.blocked ? ' · ' + t('server.noPassword') : ''}
               </div>
-              {/* The providers the account is linked to, as small marks (blueprint 04). */}
+              {/* The providers the account is linked to, as small marks. */}
               {!!row.providers?.length && (
                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs" data-testid="account-providers">
                   {row.providers.map((entry) => (
@@ -165,7 +165,7 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
                 <Button small label={forRow(row, row.role === 'operator' ? t('server.makeMember') : t('server.makeOperator'))} onClick={() => setAsking({ kind: 'role', account: row })}>
                   {row.role === 'operator' ? t('server.makeMember') : t('server.makeOperator')}
                 </Button>
-                {/* Also for accounts without one (after leaving nexsuite): a password is how they get in again (B4). */}
+                {/* Also for accounts without one (after leaving the directory service): a password is how they get in again. */}
                 <Button small label={forRow(row, row.has_password === false ? t('server.givePassword') : t('server.newPassword'))} onClick={() => setAsking({ kind: 'password', account: row })}>
                   {row.has_password === false ? t('server.givePassword') : t('server.newPassword')}
                 </Button>
@@ -308,7 +308,7 @@ export function AccountsCard({ readOnly = false }: { readOnly?: boolean }) {
 
 type AdminSpace = { id: number; name: string; members: number; managers: string[]; role: SpaceInfo['role'] }
 
-/** Every space with who manages it, without its contents: the operator resets rights here, as in nexlore. */
+/** Every space with who manages it, without its contents: the operator resets rights here. */
 export function AllSpacesCard() {
   const { t } = useTranslation()
   const connected = useSuiteConnected()
@@ -476,8 +476,8 @@ export function MailCard({ server, readOnly = false }: { server: Server; readOnl
   const test = useAction()
   if (!s) return null
   if (readOnly) {
-    // The mail server nexsuite hands over, as it holds now (G2), in words: server and port in one row, the encryption
-    // as the form's choice names it, an empty value said, never "none" or a dash (G8).
+    // The mail server the directory service hands over, as it holds now, in words: server and port in one row, the encryption
+    // as the form's choice names it, an empty value said, never "none" or a dash.
     const security = (value: string) => (value === 'none' ? t('server.none') : value.toUpperCase())
     const rows: [string, string][] = [
       [t('server.smtpHostPort'), s.smtp_host ? `${s.smtp_host}:${s.smtp_port}` : ''],
@@ -486,7 +486,7 @@ export function MailCard({ server, readOnly = false }: { server: Server; readOnl
       [t('server.smtpFrom'), s.smtp_from],
     ]
     return (
-      // Without a server there the card says it once, as its text (as nexbrand and nextasks).
+      // Without a server there the card says it once, as its text.
       <Card id="mail" icon={Mail} title={t('suite.mailTitle')} text={s.smtp_host ? t('suite.managedMail') : t('suite.mailNone')}>
         {s.smtp_host && (
           <dl className="grid gap-x-6 gap-y-1.5 rounded-xl border border-ink-700 bg-ink-850 px-4 py-3 text-sm sm:grid-cols-[max-content_1fr]" data-testid="mail-from-suite">
@@ -572,7 +572,7 @@ export function BackupsCard({ server }: { server: Server }) {
   const s = server.settings
   if (!s) return null
   const size = (bytes: number) => (bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`)
-  // Each button names its backup for a screen reader (Prüfgang G10).
+  // Each button names its backup for a screen reader.
   const forBackup = (entry: Backup, action: string) => t('server.forAccount', { name: moment(entry.created, i18n.language), action })
   const keeper = !connected || !!me?.suite_emergency
   return (
@@ -636,8 +636,8 @@ export function BackupsCard({ server }: { server: Server }) {
         </span>
       </div>
       <Feedback problem={server.problem} done={server.done} />
-      {/* Connected, why there is no way to restore, and for an operator through nexsuite why it cannot download or
-          delete either (B15, as nexbrand). */}
+      {/* Connected, why there is no way to restore, and for an operator through the directory service why it cannot download or
+          delete either. */}
       {connected && <Managed text={me?.suite_emergency ? t('suite.backupsRestore') : `${t('suite.backupsKeeper')} ${t('suite.backupsRestore')}`} />}
       <ul className="divide-y divide-ink-700 rounded-xl border border-ink-700 text-sm">
         {list.length === 0 && <li className="px-4 py-3 text-mist-500">{t('server.noBackups')}</li>}
@@ -649,7 +649,7 @@ export function BackupsCard({ server }: { server: Server }) {
                 {entry.uploaded ? t('server.uploaded') : t(`server.kinds.${entry.kind}`)} · {t('server.backupContent', { boards: t('server.countBoards', { count: entry.boards }), files: t('server.countFiles', { count: entry.files }) })} · {size(entry.size)} · {entry.version}
               </div>
             </div>
-            {/* Words, not four bare symbols (Prüfgang G10). Connected, only the emergency account carries a copy away or
+            {/* Words, not four bare symbols. Connected, only the emergency account carries a copy away or
                 deletes one, and nobody restores. */}
             <div className="flex flex-wrap gap-1.5">
               <Button small label={forBackup(entry, t('server.check'))} onClick={() => void action.run(async () => setBrief({ ...(await api<Brief>(`/api/backups/${entry.name}/check`, { method: 'POST' })), name: entry.name }))}>
@@ -791,7 +791,7 @@ export function LanguagesCard() {
   )
 }
 
-/** `at`: the moment with its offset, shown in the reader's own time (G11); `time` is the server's clock. */
+/** `at`: the moment with its offset, shown in the reader's own time; `time` is the server's clock. */
 type LogLine = { time: string; level: string; logger: string; message: string; at?: string | null }
 type LogMode = { mode: string; until: string | null; fixed_by_env: boolean; modes: string[] }
 

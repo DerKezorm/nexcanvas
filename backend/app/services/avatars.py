@@ -3,7 +3,7 @@
 second picture, no script in an SVG (an SVG is not taken at all).
 
 Kept in the database next to the account (a few kilobytes), so every backup carries it and nothing lies beside.
-Seen by everybody on the server, as in nextasks.
+Seen by everybody on the server.
 """
 
 from __future__ import annotations
@@ -69,6 +69,6 @@ def make(data: bytes) -> bytes:
 
 
 def may_see(db: Session, viewer: Account, owner_id: int) -> bool:
-    """Everybody on the server sees everybody's name and picture, as in nextasks: colleagues know each other, and
+    """Everybody on the server sees everybody's name and picture: colleagues know each other, and
     teams are made of them."""
     return True

@@ -61,7 +61,7 @@
 
   /* Darker coral, so white text on it stays readable. */
   --color-accent-300: #9a3412;
-  /* Accent text, also on the coral wash of a chosen tab or row: 4.5 to 1 there too (Prüfgang G7, 4.2 with #b83d22). */
+  /* Accent text, also on the coral wash of a chosen tab or row: 4.5 to 1 there too. */
   --color-accent-400: #9a3412;
   --color-accent-500: #c2452a;
   --color-accent-600: #a8381f;
@@ -70,7 +70,7 @@
   --color-on-accent: #ffffff;
   --color-on-bad: #ffffff;
 
-  /* Status text 4.5 to 1 or more on white and on its own tint, as in nextasks, nexbrand and nexsuite (Prüfgang G7). */
+  /* Status text 4.5 to 1 or more on white and on its own tint. */
   --color-ok-500: #166534;
   --color-warn-500: #92400e;
   --color-bad-500: #b91c3c;
@@ -164,7 +164,7 @@
   }
 }
 
-/* Outside the layers on purpose: these win over the utilities of the elements (as in nexlore). */
+/* Outside the layers on purpose: these win over the utilities of the elements. */
 
 /* A field's edge at 3:1 to its ground; a field in focus keeps the accent, one without a frame stays so. */
 :is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']), select, textarea)[class*='border-ink-7']:not(:focus) {

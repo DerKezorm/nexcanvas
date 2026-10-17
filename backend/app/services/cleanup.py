@@ -52,9 +52,10 @@ def run_once() -> None:
         for board in db.scalars(select(Board).where(Board.deleted_at < now - timedelta(days=BIN_DAYS))):
             db.delete(board)
             logger.info("Board deleted after 30 days in the trash id=%s", board.id)
-        # A space from nexsuite goes when nexsuite says so ("gone"): by the clock here it went up to a day early,
-        # and a restore there then brought back an empty space (E3). One nexsuite no longer gives this app was put
-        # into the trash here by the operator (B18): nexsuite says nothing about it, so the clock here counts.
+        # A space from the directory service goes when the directory service says so ("gone"): by the clock here it went
+        # up to a day early, and a restore there then brought back an empty space. One the directory service no longer
+        # gives this app was put into the trash here by the operator: the directory service says nothing about it, so
+        # the clock here counts.
         for space in db.scalars(select(Space).where(Space.deleted_at < now - timedelta(days=BIN_DAYS), or_(
                 Space.external_id == "", Space.suite_dropped_at.is_not(None)))):
             db.delete(space)

@@ -1,5 +1,5 @@
-"""nexcanvas and nexsuite (``services/suite.py``): the connection as the operator sees and changes it, and the
-notices nexsuite sends."""
+"""nexcanvas and the directory service (``services/suite.py``): the connection as the operator sees and changes it, and
+the notices the directory service sends."""
 
 from __future__ import annotations
 
@@ -24,16 +24,16 @@ router = APIRouter(prefix="/api/suite", tags=["nexsuite"])
 
 class StartIn(BaseModel):
     url: str = Field(min_length=8, max_length=500)
-    #: Checked in ``suite.start`` (4 to 40 characters once trimmed), so a wrong length reads as a wrong code (B24).
+    #: Checked in ``suite.start`` (4 to 40 characters once trimmed), so a wrong length reads as a wrong code.
     code: str = Field(min_length=1, max_length=500)
 
 
 class FinishIn(BaseModel):
-    #: Per account here: a person id in nexsuite, ``new`` or ``skip``.
+    #: Per account here: a person id in the directory service, ``new`` or ``skip``.
     accounts: dict[int, str] = Field(default_factory=dict)
-    #: Per space here: a space id in nexsuite, ``new`` or ``keep`` (stays here only).
+    #: Per space here: a space id in the directory service, ``new`` or ``keep`` (stays here only).
     spaces: dict[int, str] = Field(default_factory=dict)
-    #: Per team here: a team id in nexsuite or ``new``.
+    #: Per team here: a team id in the directory service or ``new``.
     teams: dict[int, str] = Field(default_factory=dict)
 
 
@@ -54,7 +54,7 @@ def status(account: Account, db: DbSession) -> dict[str, Any]:
     view = suite.view(db)
     if account.role != "operator":
         return {"state": view["state"], "url": view["url"]}
-    # Who stops being an operator when disconnecting, for the dialog (B17), by the names people see. A connection from
+    # Who stops being an operator when disconnecting, for the dialog, by the names people see. A connection from
     # before the roles were kept changes no role: the dialog says so and names the operators who stay.
     return {**view, "operators_from_suite": [suite.shown(row) for row in suite.operators_from_suite(db)],
             "roles_kept": suite.roles_kept(db),
@@ -63,7 +63,7 @@ def status(account: Account, db: DbSession) -> dict[str, Any]:
 
 @router.post("/start", summary="Pair with nexsuite using a one-time code; returns what to match (operator)")
 def start(payload: StartIn, request: Request, operator: OperatorAccount, db: DbSession) -> dict[str, Any]:
-    # The return address of the coupled entry ``oidc`` (blueprint 06): nexsuite compares it exactly and keeps it.
+    # The return address of the coupled entry ``oidc``: the directory service compares it exactly and keeps it.
     redirect = flow.redirect_uri(LEGACY_SLUG, str(request.base_url))
     own = flow.base_address(str(request.base_url))
     try:
@@ -108,7 +108,7 @@ def finish(payload: FinishIn, operator: OperatorAccount, db: DbSession) -> dict[
     except suite.SuiteError as exc:
         db.rollback()
         raise _fail(exc) from exc
-    # Who was made new in nexsuite, and whether the link to set the password went by mail (B3).
+    # Who was made new in the directory service, and whether the link to set the password went by mail.
     return {**suite.view(db), "new_people": new_people}
 
 
@@ -120,7 +120,7 @@ def abort(_operator: OperatorAccount, db: DbSession) -> Response:
     except suite.SuiteError as exc:
         raise _fail(exc) from exc
     if kept:
-        # /finish had gone out and nexsuite could not be told: the page says the app may stand there still.
+        # /finish had gone out and the directory service could not be told: the page says the app may stand there still.
         return JSONResponse({"kept_in_suite": True})
     return Response(status_code=204)
 

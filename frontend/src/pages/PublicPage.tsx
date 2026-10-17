@@ -43,7 +43,7 @@ export function PublicPage() {
   useEffect(() => {
     api<Page>(`/api/public/${encodeURIComponent(token)}`).then(setPage, () => setMissing(true))
   }, [token])
-  // The tab names the board once it is open (F13); the page carries noindex in index.html and every answer.
+  // The tab names the board once it is open; the page carries noindex in index.html and every answer.
   useTitle(page && !page.password ? page.title : null)
 
   const doc: Doc = page?.picture ?? { items: [], lines: [] }

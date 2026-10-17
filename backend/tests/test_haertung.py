@@ -1,7 +1,7 @@
-"""Prüfgang 05.10.2026 for nexcanvas on its own, as in nextasks and nexbrand: API tokens and a lock from guessing, the
-sign-in brake behind a proxy and device cookies (A5), pictures counted before they open (A7), control characters in
-mail addresses and names (A13), an unchanged password (E25), mail without a mail server (G12), team leads (D3), a
-blocked account at the sign-in (A16)."""
+"""API tokens and a lock from guessing, the
+sign-in brake behind a proxy and device cookies, pictures counted before they open, control characters in
+mail addresses and names, an unchanged password, mail without a mail server, team leads, a
+blocked account at the sign-in."""
 
 from __future__ import annotations
 
@@ -48,12 +48,12 @@ def _row(name: str) -> Account:
     return row
 
 
-# --- #job-172b: a lock from wrong passwords leaves the tokens working ----------------------------------------------
+# --- a lock from wrong passwords leaves the tokens working ----------------------------------------------
 
 
 def test_a_lock_from_wrong_passwords_leaves_the_tokens_working(client: TestClient, operator: Account,
                                                               space: int) -> None:
-    """Ten guesses by a stranger would otherwise switch off every program the account feeds (decided 2026-10-05).
+    """Ten guesses by a stranger would otherwise switch off every program the account feeds.
     A block by the operator still ends the token."""
     apitokens.forget()
     assert client.put("/api/settings", json={"api_tokens_allowed": True}).status_code == 200
@@ -77,7 +77,7 @@ def test_a_lock_from_wrong_passwords_leaves_the_tokens_working(client: TestClien
     apitokens.forget()
 
 
-# --- A5: the brake per sender always counts ---------------------------------------------------------------------------
+# --- the brake per sender always counts ---------------------------------------------------------------------------
 
 
 def _spray(count: int = 31) -> list[int]:
@@ -163,7 +163,7 @@ def test_a5_a_stranger_guessing_that_very_name_does_not_keep_its_known_browser_o
                                                                                    name: str) -> None:
     """Behind a proxy nobody named, everybody has one address: the count per address and name would hold the own
     browser too after five guesses at the operator's (or the emergency account's) name. For a browser with a device
-    cookie of that name the count per name goes with the browser (decided 2026-10-07)."""
+    cookie of that name the count per name goes with the browser."""
     if name != "tester":
         make_account(name)
     own = _known(name)
@@ -280,7 +280,7 @@ def test_a5_a_new_account_under_the_id_of_a_deleted_one_knows_none_of_its_browse
 
 
 def test_a5_any_way_a_password_or_block_changes_forgets_the_browsers(client: TestClient, operator: Account) -> None:
-    """Also where no session is ended on the way (a block from nexsuite, a password set by a service)."""
+    """Also where no session is ended on the way (a block from the directory service, a password set by a service)."""
     make_account("anna")
     for change in ("password", "block"):
         browser = _known("anna")
@@ -299,7 +299,7 @@ def test_a5_any_way_a_password_or_block_changes_forgets_the_browsers(client: Tes
 def test_a5_signed_out_everywhere_in_nexsuite_forgets_the_browsers_once_per_moment(
     client: TestClient, operator: Account, world: dict, fake: FakeSuite
 ) -> None:
-    """The emergency account (the operator here) keeps its password while connected: a browser known before nexsuite
+    """The emergency account (the operator here) keeps its password while connected: a browser known before the directory service
     signed the person out everywhere would otherwise still pass the lock and the brake per sender."""
     connect(client, world, operator)
     browser = _known("tester")
@@ -329,7 +329,7 @@ def test_a5_an_account_from_before_the_device_key_gets_one_at_its_next_sign_in(c
     assert _passes(browser, "anna") == 200
 
 
-# --- A7: pixels are counted before a picture is decoded ---------------------------------------------------------------
+# --- pixels are counted before a picture is decoded ---------------------------------------------------------------
 
 
 def _picture(kind: str, width: int, height: int) -> bytes:
@@ -394,7 +394,7 @@ def test_a7_a_preview_is_never_made_of_too_many_pixels(tmp_path, monkeypatch: py
     assert media_store._make_preview(source, target) is True and target.exists()
 
 
-# --- A13: control characters in mail addresses and names --------------------------------------------------------------
+# --- control characters in mail addresses and names --------------------------------------------------------------
 
 
 @pytest.mark.parametrize("address", ["anna\x00@example.com", "anna@exa\x1bmple.com", "anna\x7f@example.com",
@@ -446,14 +446,14 @@ def test_a13_spaces_teams_and_boards_refuse_every_control_character(client: Test
 
 def test_a13_names_keep_what_is_not_a_control_character(client: TestClient, operator: Account, space: int) -> None:
     """Emoji with a joiner and Persian with a non-joiner stay possible in names of spaces, teams and boards (format
-    characters are refused in display names only, decided for the family)."""
+    characters are refused in display names only)."""
     family, persian = "Familie \U0001F468\u200d\U0001F469\u200d\U0001F467", "می\u200cشود"
     assert client.post("/api/spaces", json={"name": family}).status_code == 201
     assert client.post("/api/teams", json={"name": persian, "members": [operator.id]}).status_code == 201
     assert client.post("/api/boards", json={"space_id": space, "title": "Ideen\twith a tab"}).status_code == 201
 
 
-# --- E25: the same password is no new one -----------------------------------------------------------------------------
+# --- the same password is no new one -----------------------------------------------------------------------------
 
 
 def test_e25_the_current_password_is_no_new_one_and_ends_nothing(client: TestClient, operator: Account) -> None:
@@ -465,7 +465,7 @@ def test_e25_the_current_password_is_no_new_one_and_ends_nothing(client: TestCli
         assert other.get("/api/auth/me").status_code == 401
 
 
-# --- G12: mail without a mail server is a setting, not a failing server ----------------------------------------------
+# --- mail without a mail server is a setting, not a failing server ----------------------------------------------
 
 
 def test_g12_a_test_mail_without_a_mail_server_is_409_and_no_error_in_the_log(
@@ -486,7 +486,7 @@ def test_g12_a_test_mail_without_a_mail_server_is_409_and_no_error_in_the_log(
         assert db.query(Invite).count() == 0
 
 
-# --- D3: team leads change their teams only when the operator allows it ------------------------------------------------
+# --- team leads change their teams only when the operator allows it ------------------------------------------------
 
 
 def test_d3_a_lead_changes_the_team_only_when_the_operator_allows_it(client: TestClient, operator: Account) -> None:
@@ -525,13 +525,12 @@ def test_d3_while_connected_nexsuite_keeps_the_teams_and_the_switch(client: Test
 
 
 def test_d3_an_installation_from_before_starts_with_the_switch_off(client: TestClient, operator: Account) -> None:
-    """Nothing is stored for it in an existing installation: the default answers, and it is off (decided
-    2026-10-06 for nexcanvas, also for installations from before)."""
+    """Nothing is stored for it in an existing installation: the default answers, and it is off."""
     with SessionLocal() as db:
         assert settings_service.get(db, "team_leads_edit") is False
 
 
-# --- A16: a blocked account hears so after its right password ---------------------------------------------------------
+# --- a blocked account hears so after its right password ---------------------------------------------------------
 
 
 def test_a16_a_blocked_account_hears_so_only_after_its_right_password(client: TestClient, operator: Account) -> None:

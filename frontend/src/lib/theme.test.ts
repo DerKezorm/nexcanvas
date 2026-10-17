@@ -1,4 +1,4 @@
-/** Light, dark or as the system: a new browser without a choice follows the system, as nexlore does. */
+/** Light, dark or as the system: a new browser without a choice follows the system does. */
 import { applyMode, storedMode, storedTheme } from './theme'
 
 function system(light: boolean) {

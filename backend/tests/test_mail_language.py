@@ -1,6 +1,6 @@
-"""Mails in the language of whoever receives them (Prüfgang 05.10.2026, decision 8): the receiver's account language,
+"""Mails in the language of whoever receives them: the receiver's account language,
 else their browser's at the last sign-in; else whoever sends the mail off (their account, their page, their browser);
-else the instance's (the first operator's, as nexcanvas has no language of its own); else English. ``de-AT`` counts as
+else the instance's (the first operator's has no language of its own); else English. ``de-AT`` counts as
 ``de``. The texts are compared word for word where a word is the proof."""
 
 from __future__ import annotations

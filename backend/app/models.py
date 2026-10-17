@@ -89,12 +89,12 @@ class Space(Base):
     name: Mapped[str] = mapped_column(String(80))
     color: Mapped[str] = mapped_column(String(16), default="#ff8a70")
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
-    #: The space's id in nexsuite while nexcanvas is connected to it; its rights come from there then.
+    #: The space's id in the directory service while nexcanvas is connected to it; its rights come from there then.
     external_id: Mapped[str] = mapped_column(String(40), default="")
     #: Set when a manager deleted the space; it lies in the bin with its boards for 30 days.
     deleted_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
-    #: While connected: since when nexsuite no longer gives this app the space (its tick taken away, or deleted there
-    #: after that). Its boards stay, only the operator sees it, marked, and may put it into the trash (B18).
+    #: While connected: since when the directory service no longer gives this app the space (its tick taken away, or
+    #: deleted there after that). Its boards stay, only the operator sees it, marked, and may put it into the trash.
     suite_dropped_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
 
 
@@ -114,9 +114,9 @@ class Account(Base):
     #: Argon2id. Empty for accounts that sign in through OIDC only.
     password_hash: Mapped[str] = mapped_column(String(255), default="")
     email: Mapped[str] = mapped_column(String(255), default="")
-    #: Where ``email`` came from: "" (an invitation, nexsuite, or from before this was kept) or ``provider`` (a sign-in
-    #: provider's address). An address from a provider goes with the account's last link (the shared sign-in
-    #: blueprint 01). ``server_default`` on this and the next two: 0.3 does not know the columns and still
+    #: Where ``email`` came from: "" (an invitation, the directory service, or from before this was kept) or
+    #: ``provider`` (a sign-in provider's address). An address from a provider goes with the account's last link (the
+    #: shared sign-in module). ``server_default`` on this and the next two: 0.3 does not know the columns and still
     #: writes accounts on a database this version made.
     email_source: Mapped[str] = mapped_column(String(16), default="", server_default="")
     #: The address a provider knows the account by, offered on the account page to an account with a password (it
@@ -125,27 +125,29 @@ class Account(Base):
     provider_email: Mapped[str] = mapped_column(String(255), default="", server_default="")
     provider_email_off: Mapped[str] = mapped_column(String(255), default="", server_default="")
     #: Before the sign-in provider list: the subject of the one provider of the settings, which became a link of the
-    #: entry ``oidc`` (``oidc_links``) and stays readable for one version as the way back. While connected to nexsuite
-    #: it holds the account's person there (``services/suite.py``), mirrored into the links of the coupled entry.
+    #: entry ``oidc`` (``oidc_links``) and stays readable for one version as the way back. While connected to the
+    #: directory service it holds the account's person there (``services/suite.py``), mirrored into the links of the
+    #: coupled entry.
     oidc_subject: Mapped[str] = mapped_column(String(255), default="")
     #: The interface language chosen in the account menu; empty: the browser's.
     language: Mapped[str] = mapped_column(String(16), default="")
-    #: The person in nexsuite this account belongs to (while connected) or belonged to before the last disconnect:
-    #: connecting again to the same nexsuite suggests that person, so an account nexsuite once brought is not made a
-    #: second time (Prüfgang B8). Empty for an account left out when connecting.
+    #: The person in the directory service this account belongs to (while connected) or belonged to before the last
+    #: disconnect: connecting again to the same directory service suggests that person, so an account the directory
+    #: service once brought is not made a second time. Empty for an account left out when connecting.
     suite_person: Mapped[str] = mapped_column(String(64), default="")
     #: While connected: the account's own link to a provider from before (authentik, Forgejo …), kept out of
-    #: ``oidc_subject`` so its subject can never pass for a person in nexsuite (``3`` there is somebody else); given
-    #: back on disconnecting (#job-172).
+    #: ``oidc_subject`` so its subject can never pass for a person in the directory service (``3`` there is somebody
+    #: else); given back on disconnecting.
     oidc_subject_local: Mapped[str] = mapped_column(String(255), default="")
     #: The browser's language at the last sign-in (``de``, ``en``): what a mail to the account is written in while
-    #: ``language`` is empty (Prüfgang 05.10.2026, decision 8).
+    #: ``language`` is empty.
     browser_language: Mapped[str] = mapped_column(String(16), default="")
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
     last_seen_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
     failed_logins: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
-    #: Set when nexsuite blocked the person (or does not know it any more): no sign-in, sessions end at once.
+    #: Set when the directory service blocked the person (or does not know it any more): no sign-in, sessions end at
+    #: once.
     blocked_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
     #: The second factor (``services/totp.py``): the seed encrypted with the server secret, empty while off; the
     #: recovery codes as a JSON list of SHA-256 hashes; the time step of the last code taken (no replay).
@@ -162,7 +164,8 @@ class Account(Base):
     #: password, a block or unblock, "sign out everywhere" and a reset second factor, so no browser from before counts
     #: as known any more. Empty (accounts from before it existed): no device is known until the next sign-in.
     device_key: Mapped[str] = mapped_column(String(64), default="")
-    #: The last "signed out everywhere" nexsuite reported for the person: a new moment forgets the known browsers.
+    #: The last "signed out everywhere" the directory service reported for the person: a new moment forgets the known
+    #: browsers.
     suite_signed_out: Mapped[str] = mapped_column(String(64), default="")
     #: Not stored. Set on the account an API token acts as when the token may see only some spaces.
     key_spaces: ClassVar[frozenset[int] | None] = None
@@ -187,7 +190,7 @@ def _first_device_key(_mapper: Any, _connection: Any, target: Account) -> None:
 @event.listens_for(Account.blocked_at, "set")
 def _forget_devices(target: Account, value: Any, old: Any, _initiator: Any) -> None:
     """A new password, a block or an unblock: the browsers known before are not known any more, whatever the way it
-    happens (here, by the operator, or from nexsuite)."""
+    happens (here, by the operator, or from the directory service)."""
     if value != old:
         target.device_key = new_device_key()
 
@@ -232,7 +235,7 @@ class OidcProvider(Base):
     auto_create: Mapped[bool] = mapped_column(Boolean, default=False)
     #: "The provider checks the second factor itself": on from the start.
     trusts_second_factor: Mapped[bool] = mapped_column(Boolean, default=True)
-    #: "" by hand, "authentik" made by the authentik button, "nexsuite" from the coupling.
+    #: "" by hand, "authentik" made by the authentik button, and the coupled value from the coupling.
     managed: Mapped[str] = mapped_column(String(20), default="")
     position: Mapped[int] = mapped_column(Integer, default=0)
     #: A callback path the provider knew before (a migration or a coupling sets it); "" is the standard one.
@@ -284,7 +287,7 @@ class Team(Base):
     """People who work together (planning, design, the shop floor …). A team is not a space: a space says who may see
     what, a team says who works together. A space can give a team a right, and then everybody in the team has it.
 
-    ``source`` says who keeps the members: nexcanvas itself, or later the family's admin app (``external_id`` is its
+    ``source`` says who keeps the members: nexcanvas itself, or later a separate admin app (``external_id`` is its
     id then). Only the source changes when that day comes, never the id. The same in every app of the family."""
 
     __tablename__ = "teams"
@@ -465,7 +468,7 @@ class Share(Base):
 
 
 class ShapePackage(Base):
-    """A package of shapes (block 4), installed for one space or, without a space, for the whole server. ``data`` is
+    """A package of shapes, installed for one space or, without a space, for the whole server. ``data`` is
     the package as ``services/shapepacks`` checked it; nothing else is ever kept."""
 
     __tablename__ = "shape_packages"
@@ -480,7 +483,7 @@ class ShapePackage(Base):
 
 
 class BoardTemplate(Base):
-    """A board kept as a starting point (block 5), for one space or, without a space, for the whole server. ``content``
+    """A board kept as a starting point, for one space or, without a space, for the whole server. ``content``
     is the picture as ``services/boards`` checks a new board's content: items, lines, background, shapes."""
 
     __tablename__ = "board_templates"

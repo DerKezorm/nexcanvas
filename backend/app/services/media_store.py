@@ -40,7 +40,7 @@ SHOWN = {
 IMAGES = {"jpeg", "png", "gif", "webp", "avif", "bmp"}
 MAX_NAME = 200
 #: Pixels a picture may have, the same line as for profile pictures: a PNG of a few hundred kilobytes can open as
-#: gigabytes (11,000 by 11,000 took the server of a sister app past 1 GB, Prüfgang 05.10.2026 A7).
+#: gigabytes (11,000 by 11,000 took the server of a sister app past 1 GB).
 MAX_PIXELS = avatars.MAX_PIXELS
 
 

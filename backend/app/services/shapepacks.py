@@ -1,4 +1,4 @@
-"""Shape packages (block 4): checking a package before it is kept.
+"""Shape packages: checking a package before it is kept.
 
 A package comes from somewhere else (a file someone was sent, an SVG converted in a browser), so nothing of it is
 taken as it is. Only the fields the format knows are copied, each against a rule: names as plain text, numbers as

@@ -1,4 +1,4 @@
-/** The account menu offers the languages by their names, an added one in its place (decided 06.10.2026). */
+/** The account menu offers the languages by their names, an added one in its place. */
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'

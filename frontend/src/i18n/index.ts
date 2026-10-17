@@ -1,5 +1,5 @@
 /**
- * Languages, as in nexlore. English and German ship with the app; the operator can add more as JSON files, which the
+ * Languages. English and German ship with the app; the operator can add more as JSON files, which the
  * server offers under `/api/locales`.
  *
  * English is always loaded and is the fallback: an added language may be incomplete, and whatever it leaves out

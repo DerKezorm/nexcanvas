@@ -41,7 +41,7 @@ export function BoardsPage() {
   const [renaming, setRenaming] = useState<Board | null>(null)
   const connected = useSuiteConnected()
   // A link to a space that is not there (any more), or not for this account, says so once the spaces are known,
-  // instead of silently showing all boards under the wrong address (Prüfgang E31).
+  // instead of silently showing all boards under the wrong address.
   const unknown = spaceId > 0 && boards.loaded && !space
   // Until then a link to a space shows nothing of its own, not "All boards" for a moment, in the page or the tab.
   const waiting = spaceId > 0 && !boards.loaded
@@ -56,7 +56,7 @@ export function BoardsPage() {
       <Sidebar />
       <main className="nc-scroll min-w-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-8">
-          {/* A phone has no side bar: the spaces sit here as a row (Prüfgang F3). */}
+          {/* A phone has no side bar: the spaces sit here as a row. */}
           <nav className="nc-scroll -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 md:hidden" aria-label={t('sidebar.spaces')}>
             <Link to="/" className={'shrink-0 rounded-full border px-3 py-1 text-xs ' + (!space ? 'border-accent-500 text-mist-100' : 'border-ink-700 text-mist-400')}>
               {t('boards.all')}
@@ -92,7 +92,7 @@ export function BoardsPage() {
                     {t('members.button', { count: space.people ?? space.members.length })}
                   </button>
                 )}
-                {/* nexsuite let it go: only the operator sees it now, and may put it into the trash (B18). */}
+                {/* The directory service let it go: only the operator sees it now, and may put it into the trash. */}
                 {space?.dropped && (
                   <span className="rounded-full border border-warn-500/40 px-2 py-0.5 text-[11px] font-medium text-warn-500" title={t('suite.droppedHint')} data-testid="space-dropped">
                     {t('suite.dropped')}
@@ -261,7 +261,7 @@ function BoardCard({ board, onRename }: { board: Board; onRename: () => void }) 
   )
 }
 
-/** Renaming a board: the field knows the server's limit, and a refusal says why and keeps what was typed (E21). */
+/** Renaming a board: the field knows the server's limit, and a refusal says why and keeps what was typed. */
 export function RenameDialog({ board, onClose }: { board: Board; onClose: () => void }) {
   const { t } = useTranslation()
   const boards = useBoards()
@@ -299,7 +299,7 @@ export function RenameDialog({ board, onClose }: { board: Board; onClose: () => 
 
 /**
  * Somebody without any space (new, or every right taken): what to do now, on the start page, not only in the dialog
- * for a new board (Prüfgang G5, as nextasks). Alone one makes a space; connected, rights come from nexsuite.
+ * for a new board. Alone one makes a space; connected, rights come from the directory service.
  */
 function NoSpaceHint() {
   const { t } = useTranslation()

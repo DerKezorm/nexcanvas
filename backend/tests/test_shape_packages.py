@@ -1,4 +1,4 @@
-"""Shape packages (block 4): who installs where, who sees what, and that only the checked format is ever kept."""
+"""Shape packages: who installs where, who sees what, and that only the checked format is ever kept."""
 
 from __future__ import annotations
 

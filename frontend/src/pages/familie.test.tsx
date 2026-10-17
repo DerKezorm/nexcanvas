@@ -1,8 +1,8 @@
 /**
- * Prüfgang 05.10.2026 for nexcanvas, block 4 (words and looks), as nextasks and nexbrand have them: the account list
- * (G6), readable letters and status colours in both themes (G7), worded backup buttons (G10), the family's names and
- * one way to write a moment (G11), the invitation page (E18, G4), limits said in the field (E21), links into nothing
- * (E31), the tab's title (F13) and a person without a space (G5).
+ * Words and looks the apps of the family share: the account list,
+ * readable letters and status colours in both themes, worded backup buttons, the family's names and
+ * one way to write a moment, the invitation page, limits said in the field, links into nothing,
+ * the tab's title and a person without a space.
  */
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
@@ -111,7 +111,7 @@ const accounts = [
   { id: 3, name: 'kim', display_name: '', avatar: null, role: 'member', sign_in: 'oidc', spaces: 0, locked: false, created_at: '', last_seen_at: null },
 ]
 
-describe('the account list (G6, H4)', () => {
+describe('the account list', () => {
   it('says the operator sees every space, names the account in each button and marks blocking as danger', async () => {
     const { AccountsCard } = await import('./settings/ServerCards')
     handler = (_m, path) => (path === '/api/accounts' ? { status: 200, body: accounts } : path === '/api/invites' ? { status: 200, body: [] } : undefined)
@@ -136,7 +136,7 @@ describe('the account list (G6, H4)', () => {
     expect([...kim.querySelectorAll('button')].every((b) => b.getAttribute('aria-label')?.startsWith('kim: '))).toBe(true)
   })
 
-  it('shows accounts connected to nexsuite as signing in through nexsuite', async () => {
+  it('shows accounts connected to the directory service as signing in through the directory service', async () => {
     const { AccountsCard } = await import('./settings/ServerCards')
     handler = (_m, path) => (path === '/api/accounts' ? { status: 200, body: accounts } : undefined)
     await render(<AccountsCard readOnly />)
@@ -158,7 +158,7 @@ describe('the account list (G6, H4)', () => {
   })
 })
 
-describe('the operator invites straight into a space (E18)', () => {
+describe('the operator invites straight into a space', () => {
   it('offers the spaces, sends space and right, and lists where an open invitation leads', async () => {
     const { AccountsCard } = await import('./settings/ServerCards')
     scene.spaces = [space(4, 'Ideen'), space(5, 'Studio')]
@@ -203,7 +203,7 @@ describe('the operator invites straight into a space (E18)', () => {
   })
 })
 
-describe('the invitation page (E18, G4)', () => {
+describe('the invitation page', () => {
   async function invitation(answer: Answer) {
     const { InvitePage } = await import('./AuthPages')
     scene.me = null
@@ -283,7 +283,7 @@ async function themeTokens(): Promise<{ dark: Record<string, string>; light: Rec
   return { dark, light: { ...dark, ...tokens(block(":root[data-theme='light'] {")) } }
 }
 
-describe('letters in circles and team squares in both themes (G7)', () => {
+describe('letters in circles and team squares in both themes', () => {
   it('read 4.5 to 1 or more for every person and team colour, measured with the theme tokens', async () => {
     const { dark, light } = await themeTokens()
     const colours = new Set([...COLORS, ...SPACE_COLORS])
@@ -362,7 +362,7 @@ describe('letters in circles and team squares in both themes (G7)', () => {
   })
 })
 
-describe('the backup list (G10, G11)', () => {
+describe('the backup list', () => {
   it('has worded buttons, each naming its backup, and a time without seconds', async () => {
     const { BackupsCard, useServerSettings } = await import('./settings/ServerCards')
     function Backups() {
@@ -383,7 +383,7 @@ describe('the backup list (G10, G11)', () => {
   })
 })
 
-describe('the family (G11, F13)', () => {
+describe('the family', () => {
   it('writes a moment one way, the log with seconds', () => {
     const when = '2026-10-04T20:35:59Z'
     expect(moment(when, 'de')).not.toMatch(/:\d\d:\d\d/)
@@ -391,7 +391,7 @@ describe('the family (G11, F13)', () => {
     expect(moment(when, 'de', true)).toMatch(/^\d{1,2}\.\d{1,2}\.2026, \d\d:\d\d:59$/)
   })
 
-  it('names the header like nexsuite, nextasks and nexbrand', async () => {
+  it('names the header like the other apps of the family', async () => {
     await i18n.changeLanguage('de')
     expect([i18n.t('app.home'), i18n.t('account.menu', { name: 'Robin' }), i18n.t('search.button'), i18n.t('theme.group')]).toEqual([
       'Zur Startseite', 'Konto von Robin', 'Suchen', 'Hell oder dunkel',
@@ -405,7 +405,7 @@ describe('the family (G11, F13)', () => {
   })
 })
 
-describe('links into nothing (E31) and a person without a space (G5)', () => {
+describe('links into nothing and a person without a space', () => {
   it('a space that is not there says so with the way to all boards', async () => {
     const { BoardsPage } = await import('./BoardsPage')
     scene.spaces = [space(4, 'Ideen')]
@@ -447,7 +447,7 @@ describe('links into nothing (E31) and a person without a space (G5)', () => {
   })
 })
 
-describe('limits said in the field (E21)', () => {
+describe('limits said in the field', () => {
   it('the display name field knows its limit and keeps what was typed when refused', async () => {
     const { AccountPage } = await import('./AccountPage')
     handler = (method, path) => {
@@ -486,14 +486,14 @@ describe('limits said in the field (E21)', () => {
   })
 })
 
-describe('the sign-in and invitation pages before the ways in are known (as nextasks 52237bf)', () => {
+describe('the sign-in and invitation pages before the ways in are known', () => {
   function hold(): () => void {
     let release = () => undefined as void
     held = new Promise<void>((done) => (release = done))
     return release
   }
 
-  it('the sign-in page shows no password form that connected turns into the nexsuite button', async () => {
+  it('the sign-in page shows no password form that connected turns into the directory service button', async () => {
     const { LoginPage } = await import('./AuthPages')
     scene.me = null
     scene.status = 'signedOut'
@@ -505,7 +505,7 @@ describe('the sign-in and invitation pages before the ways in are known (as next
     release()
     await settle()
     expect(box.querySelector('input[type="password"]')).toBeNull()
-    // The coupled entry of the provider list (blueprint 06).
+    // The coupled entry of the provider list.
     expect(box.querySelector('a[href^="/api/oidc/oidc/start"]')).not.toBeNull()
   })
 
@@ -607,8 +607,8 @@ describe('a refusal in the settings says the numbers it names (useAction)', () =
   })
 })
 
-describe('the second factor names the emergency codes only where there are any (H11)', () => {
-  it('alone without the sentence about nexsuite, connected with it', async () => {
+describe('the second factor names the emergency codes only where there are any', () => {
+  it('alone without the sentence about the directory service, connected with it', async () => {
     const { AccountPage } = await import('./AccountPage')
     handler = (_m, path) => (path === '/api/auth/methods' ? { status: 200, body: { password: true, providers: [] } } : undefined)
     await render(<AccountPage />, '/account?tab=security')
@@ -622,7 +622,7 @@ describe('the second factor names the emergency codes only where there are any (
   })
 })
 
-describe('the tab names the board (F13)', () => {
+describe('the tab names the board', () => {
   it('shows "title · nexcanvas" while a board is open', async () => {
     const { BoardPage } = await import('./BoardPage')
     vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }))

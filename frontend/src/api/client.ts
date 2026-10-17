@@ -151,15 +151,15 @@ export type Me = {
   second_factor_setup_required?: boolean
   upload_max_mb?: number
   preferences?: Preferences
-  /** Connected to nexsuite: accounts, teams, rights, sign-in (and mail) are kept there. */
+  /** Connected to the directory service: accounts, teams, rights, sign-in (and mail) are kept there. */
   suite?: '' | 'connecting' | 'connected'
   suite_mail?: boolean
-  /** Connected: where nexsuite opens (password, second factor and profile are changed there). */
+  /** Connected: where the directory service opens (password, second factor and profile are changed there). */
   suite_url?: string
   /** Connected: this account is the app's emergency account. */
   suite_emergency?: boolean
-  /** Whether a team this account leads may be changed by it: the operator always, a lead when the operator allows it
-   * (D3), nobody while nexsuite keeps the teams. */
+  /** Whether a team this account leads may be changed by it: the operator always, a lead when the operator allows it,
+   * nobody while the directory service keeps the teams. */
   may_edit_led_teams?: boolean
 }
 
@@ -186,9 +186,9 @@ export type SpaceInfo = {
   members: Member[]
   /** The teams with a right in the space. */
   teams: TeamGrantInfo[]
-  /** Its rights come from nexsuite. */
+  /** Its rights come from the directory service. */
   managed?: boolean
-  /** nexsuite no longer gives nexcanvas the space: only the operator sees it, and may put it into the trash (B18). */
+  /** The directory service no longer gives nexcanvas the space: only the operator sees it, and may put it into the trash. */
   dropped?: boolean
   /** Everybody who gets in, through an own right or a team, each once. */
   people?: number
@@ -233,7 +233,7 @@ export type MediaInfo = {
 }
 
 export type SetupState = { needs_setup: boolean; code_required: boolean; signed_in: boolean; version: string; min_password: number }
-/** `suite_url`: connected, where nexsuite opens, for "Sign in as someone else" (B11). */
+/** `suite_url`: connected, where the directory service opens, for "Sign in as someone else". */
 /** A button of the sign-in page: an active provider (the shared sign-in module, vendor/nexoidc). */
 export type ProviderButton = { slug: string; label: string }
 export type Methods = { password: boolean; providers: ProviderButton[]; suite?: boolean; suite_url?: string }
@@ -253,7 +253,7 @@ export type OidcProvider = {
   enabled: boolean
   auto_create: boolean
   trusts_second_factor: boolean
-  /** "" by hand, "authentik" through the button, "nexsuite" from the coupling. */
+  /** "" by hand, "authentik" through the button, and the coupled value from the coupling. */
   managed: string
   position: number
   redirect_uri: string

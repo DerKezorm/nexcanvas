@@ -130,7 +130,7 @@ def _open_share(db: Any, token: str) -> tuple[Share, Board]:
     space = db.get(Space, board.space_id) if board is not None else None
     if (
         share is None or board is None or board.deleted_at is not None
-        # The space in the bin (here, or deleted in nexsuite): its boards are gone for everybody (A8).
+        # The space in the bin (here, or deleted in the directory service): its boards are gone for everybody.
         or space is None or space.deleted_at is not None
         or not settings_service.get(db, "shares_allowed")
         or (share.expires_at is not None and share.expires_at <= utcnow())

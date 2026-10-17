@@ -1,6 +1,5 @@
-"""Connecting to nexsuite, connecting again, signing in through it: what the check of 05.10.2026 found in nextasks and
-nexbrand (the numbers are those of nexsuite/tools/pruefgang-2026-10-05/LISTE.md), each as it should be here too, and
-#job-172 (a left-out account never takes over a person). nexsuite is played by ``FakeSuite`` from ``test_suite``."""
+"""Connecting to the directory service, connecting again, signing in through it, and that a left-out account never takes
+over a person. The directory service is played by ``FakeSuite`` from ``test_suite``."""
 
 from __future__ import annotations
 
@@ -37,8 +36,8 @@ world = test_suite.world
 
 @pytest.fixture
 def provider() -> Any:
-    """The fake provider of the OIDC tests (``sso``) and, on the same network, nexsuite as the provider of the coupled
-    entry (``provider.suite``), with the client nexsuite hands out when pairing (``FakeSuite``)."""
+    """The fake provider of the OIDC tests (``sso``) and, on the same network, the directory service as the provider of the coupled
+    entry (``provider.suite``), with the client the directory service hands out when pairing (``FakeSuite``)."""
     for fake in oidc_helpers.fake_world():
         fake.suite = fake.network.add(  # type: ignore[attr-defined]
             oidc_helpers.FakeProvider(SUITE, client_id="nxs-client", client_secret="the-client-secret"))
@@ -88,7 +87,6 @@ def _again(client: TestClient) -> dict[str, Any]:
     return {a["name"]: a for a in found.json()["accounts"]}
 
 
-# --- B2 -------------------------------------------------------------------------------------------------------------
 
 
 def test_b2_abort_gives_up_only_a_connection_that_did_not_finish(client: TestClient, operator: Account, world: dict,
@@ -102,7 +100,6 @@ def test_b2_abort_gives_up_only_a_connection_that_did_not_finish(client: TestCli
     assert refused.status_code == 409 and _code(refused) == "managed_by_suite"
 
 
-# --- B9 -------------------------------------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(("what", "choice"), [("accounts", "99999"), ("accounts", "blocked"), ("spaces", "77777"),
@@ -128,7 +125,6 @@ def test_b9_a_choice_nexsuite_does_not_know_is_refused_before_anything_is_made(
     assert _row("anna").blocked_at is None and _row("anna").oidc_subject == ""
 
 
-# --- B8 -------------------------------------------------------------------------------------------------------------
 
 
 def test_b8_a_left_out_account_stays_blocked_when_connecting_again(client: TestClient, operator: Account,
@@ -164,7 +160,7 @@ def test_b8_a_person_deleted_in_nexsuite_is_not_brought_back(client: TestClient,
 def test_b8_an_account_nexsuite_brought_gets_its_own_person_again(client: TestClient, operator: Account,
                                                                    world: dict, fake: FakeSuite) -> None:
     connect(client, world, operator)
-    # Another app made a person "cleo" in nexsuite; the sync brings it here next to the left-out cleo.
+    # Another app made a person "cleo" in the directory service; the sync brings it here next to the left-out cleo.
     fake.people["60"] = {"id": "60", "name": "cleo", "display_name": "Cleo", "email": "", "operator": False,
                          "blocked": False}
     assert client.post("/api/suite/sync").status_code == 200
@@ -198,8 +194,8 @@ def test_b8_an_account_linked_to_authentik_and_left_out_is_no_person_nexsuite_kn
 
 def test_b21_a_connection_from_before_renames_only_accounts_nexsuite_knew(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite) -> None:
-    """Connected under bf64550: nothing kept ``suite_person``, and cleo, left out, kept its authentik link. A new
-    person "cleo" in nexsuite does not rename it, and after a disconnect it is no account that came from nexsuite."""
+    """Connected under an older version: nothing kept ``suite_person``, and cleo, left out, kept its authentik link. A new
+    person "cleo" in the directory service does not rename it, and after a disconnect it is no account that came from the directory service."""
     _own_link(world["cleo"].id, "authentik-hash-of-cleo")
     connect(client, world, operator)
     with SessionLocal() as db:  # as the commit before left it
@@ -260,7 +256,7 @@ def _signs_in_as(client: TestClient, provider: Any, subject: str) -> str:
 
 def test_collision_a_left_out_link_that_looks_like_a_person_is_not_that_person(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any) -> None:
-    """(A) cleo signed in through Forgejo as "3" before connecting and is left out; person 3 in nexsuite is erik."""
+    """(A) cleo signed in through Forgejo as "3" before connecting and is left out; person 3 in the directory service is erik."""
     _own_link(world["cleo"].id, "3")
     connect(client, world, operator)
     _provider_is_nexsuite()
@@ -344,7 +340,7 @@ def test_linking_is_refused_while_connected(client: TestClient, operator: Accoun
 
 def test_settled_a_person_blocked_there_and_renamed_since_keeps_its_account(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite) -> None:
-    """Connected under an earlier commit, erik blocked in nexsuite; nexsuite changed the display name since. The
+    """Connected under an earlier commit, erik blocked in the directory service; the directory service changed the display name since. The
     sign-in name still says it is erik's account: no erik2."""
     connect(client, world, operator)
     fake.people["3"]["blocked"] = True
@@ -369,7 +365,6 @@ def test_b8_an_earlier_person_counts_only_for_the_same_nexsuite(client: TestClie
     assert all(row["from_suite"] is False for row in rows.values())
 
 
-# --- B23 ------------------------------------------------------------------------------------------------------------
 
 
 def test_b23_the_choices_are_kept_while_connecting(client: TestClient, operator: Account, world: dict,
@@ -432,7 +427,6 @@ def test_b23_a_late_save_never_brings_back_what_finishing_cleared(client: TestCl
     assert _setting("suite_pending") is None
 
 
-# --- B24 ------------------------------------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(("refusal", "expected"), [("client_required", "not_suite"), ("suite_failed", "not_suite"),
@@ -475,7 +469,6 @@ def test_b24_an_answer_that_is_not_a_pairing_is_not_nexsuite(client: TestClient,
     assert _setting("suite_state") == ""
 
 
-# --- B21 ------------------------------------------------------------------------------------------------------------
 
 
 def test_b21_a_new_person_takes_the_name_of_a_deleted_one(client: TestClient, operator: Account, world: dict,
@@ -503,7 +496,7 @@ def test_b21_a_new_person_takes_the_name_of_a_deleted_one(client: TestClient, op
     text = logs.log_file().read_text(encoding="utf-8")
     assert "[abc u:anna2] | Board made by=anna2 id=4" in text and "u:anna]" not in text
     assert "name=anna2 count=1" in text and "name=anna " not in text
-    # The emergency account keeps its name whatever nexsuite does: it is its way in.
+    # The emergency account keeps its name whatever the directory service does: it is its way in.
     with SessionLocal() as db:
         keeper = db.get(Account, operator.id)
         assert keeper is not None and keeper.name == "tester"
@@ -516,11 +509,10 @@ def test_b21_a_new_person_takes_the_name_of_a_deleted_one(client: TestClient, op
         assert keeper is not None and keeper.name == "tester"
 
 
-# --- B20 ------------------------------------------------------------------------------------------------------------
 
 
 def _provider_is_nexsuite() -> None:
-    """Connected, nexsuite is the provider: the coupled entry ``oidc`` of the list (``provider.suite`` answers for
+    """Connected, the directory service is the provider: the coupled entry ``oidc`` of the list (``provider.suite`` answers for
     it in the tests)."""
     with SessionLocal() as db:
         entry = db.query(OidcProvider).filter_by(slug="oidc").one()
@@ -574,7 +566,6 @@ def test_b20_somebody_nexsuite_does_not_give_fetches_once_and_is_told_to_wait(
     assert _row("anna").oidc_subject == "2"
 
 
-# --- B26 ------------------------------------------------------------------------------------------------------------
 
 
 def test_b26_an_invitation_from_before_says_at_once_that_it_holds_no_more(client: TestClient, operator: Account,
@@ -588,7 +579,6 @@ def test_b26_an_invitation_from_before_says_at_once_that_it_holds_no_more(client
     assert "Studio" not in answer.text
 
 
-# --- G3 -------------------------------------------------------------------------------------------------------------
 
 
 def test_g3_everybody_connected_learns_where_nexsuite_opens(client: TestClient, operator: Account, world: dict,
@@ -600,11 +590,10 @@ def test_g3_everybody_connected_learns_where_nexsuite_opens(client: TestClient, 
         assert anna.get("/api/auth/me").json()["suite_url"] == SUITE
 
 
-# --- B10 ------------------------------------------------------------------------------------------------------------
 
 
 def _sign_in_from(browser: TestClient, fake_provider: Any, path: str, **claims: Any) -> Any:
-    """Signing in for the page ``path``: through nexsuite (the coupled entry) while connected, else through ``sso``."""
+    """Signing in for the page ``path``: through the directory service (the coupled entry) while connected, else through ``sso``."""
     connected = _setting("suite_state") == "connected"
     fake = fake_provider.suite if connected else fake_provider
     fake.person = {"sub": "person-1", "preferred_username": "alex", "email": "alex@example.com", **claims}
@@ -833,7 +822,7 @@ def test_b21_the_log_guard_lets_keyed_names_by(line: str) -> None:
 
 def test_b21_the_log_names_accounts_where_a_rename_finds_them() -> None:
     """``logs.rename_actor`` follows ``u:<name>``, ``name=<name>`` and ``by=<name>``: a log line that puts a name in
-    any other way would keep reading like whoever gets the name next (B21)."""
+    any other way would keep reading like whoever gets the name next."""
     loose = []
     for file in pathlib.Path(__file__).resolve().parents[1].joinpath("app").rglob("*.py"):
         loose += [f"{file.name}:{line}" for line in loose_names(file.read_text(encoding="utf-8"))]
@@ -848,13 +837,12 @@ def test_b24_a_code_too_long_is_a_wrong_code(client: TestClient, operator: Accou
     assert _setting("suite_state") == ""
 
 
-# --- #job-172a ---------------------------------------------------------------------------------------------------------
 
 
 def test_job172_a_left_out_account_with_an_old_subject_never_takes_over_a_person(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any) -> None:
     """cleo signed in through another provider as "3" before connecting and is left out; zoe as "2", left out too.
-    Persons 3 and 2 in nexsuite are erik and anna. Neither left-out account becomes the person, takes its address
+    Persons 3 and 2 in the directory service are erik and anna. Neither left-out account becomes the person, takes its address
     or name, or is let in; signing in as 3 and 2 is erik and anna."""
     zoe = make_account("zoe")
     with SessionLocal() as db:
@@ -884,7 +872,7 @@ def test_job172_a_left_out_account_with_an_old_subject_never_takes_over_a_person
         assert db.query(Account).filter(Account.oidc_subject == "3").count() == 1
 
 
-# --- B16, B24: what nexsuite answers since 3ef5282 ---------------------------------------------------------------------
+# --- what the directory service answers ---------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("code", ["app_still_connected", "app_not_reachable"])
@@ -892,7 +880,7 @@ def test_b24_a_pairing_nexsuite_refuses_for_an_older_connection_says_why(client:
                                                                          fake: FakeSuite, code: str) -> None:
     fake.pair_refused = code
     answer = client.post("/api/suite/start", json={"url": SUITE + "/", "code": "GOOD-CODE-1234"})
-    # Not "no nexsuite answers at this address": it is one, and it names what to do.
+    # Not "no the directory service answers at this address": it is one, and it names what to do.
     assert answer.status_code == 409 and _code(answer) == code
 
 
@@ -925,7 +913,7 @@ def test_b16_a_refused_display_name_does_not_stop_connecting(client: TestClient,
     assert _setting("suite_state") == "connected"
 
 
-# --- B11: the sign-in page while connected -------------------------------------------------------------------------
+# --- the sign-in page while connected -------------------------------------------------------------------------
 
 
 def test_b11_the_sign_in_page_learns_where_nexsuite_is_only_while_connected(client: TestClient, operator: Account,
@@ -937,7 +925,7 @@ def test_b11_the_sign_in_page_learns_where_nexsuite_is_only_while_connected(clie
         assert browser.get("/api/auth/methods").json()["suite_url"] == SUITE
 
 
-# --- B17: an operator role from nexsuite ends with the connection -----------------------------------------------------
+# --- an operator role from the directory service ends with the connection -----------------------------------------------------
 
 
 def _set(name: str, **values: Any) -> None:
@@ -1022,7 +1010,7 @@ def test_b17_only_the_operator_hears_who_stops_being_one(client: TestClient, ope
     assert set(seen) == {"state", "url"}
 
 
-# --- B18: a space nexsuite no longer gives ----------------------------------------------------------------------------
+# --- a space the directory service no longer gives ----------------------------------------------------------------------------
 
 
 def test_b18_a_space_nexsuite_let_go_is_marked_and_the_operator_puts_it_into_the_trash(
@@ -1086,7 +1074,7 @@ def test_b18_a_space_in_nexsuites_trash_stays_nexsuites_through_the_real_sync(cl
     connect(client, world, operator)
     made = client.post("/api/boards", json={"space_id": world["ideen"], "title": "Sammlung"})
     assert made.status_code == 201, made.text
-    # First its tick goes (marked), then it is deleted there: in nexsuite's trash it is nexsuite's again.
+    # First its tick goes (marked), then it is deleted there: in the directory service's trash it is the directory service's again.
     fake.ticked.discard("10")
     client.post("/api/suite/sync")
     assert next(s for s in client.get("/api/spaces").json() if s["id"] == world["ideen"])["dropped"] is True
@@ -1130,7 +1118,7 @@ def test_b18_the_operator_s_trash_empties_a_let_go_space_by_the_clock(client: Te
         assert db.get(Space, world["ideen"]) is None, "nexsuite says nothing about it: the clock here counts"
 
 
-# --- A10: a notice from nexsuite is taken once, and a strange signature is simply wrong ------------------------------
+# --- a notice from the directory service is taken once, and a strange signature is simply wrong ------------------------------
 
 
 def _signed_at(token: str, payload: dict[str, Any], stamp: int) -> tuple[bytes, dict[str, str]]:
@@ -1184,7 +1172,7 @@ def test_a10_a_signature_beyond_ascii_is_refused_not_a_failure(client: TestClien
             assert suite.check_notice(db, stamp, head["X-Nexsuite-Signature"], body) is None, ascii(stamp)
 
 
-# --- What nexsuite sends passes the checks typed input passes ----------------------------------------------------------
+# --- What the directory service sends passes the checks typed input passes ----------------------------------------------------------
 
 
 def test_cleaning_a_display_name_from_nexsuite_loses_control_and_format_characters(
@@ -1197,7 +1185,7 @@ def test_cleaning_a_display_name_from_nexsuite_loses_control_and_format_characte
 
 def test_cleaning_team_and_space_names_from_nexsuite_lose_control_characters(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite) -> None:
-    """nexsuite takes DEL and C1 in names; they came over raw. Typed here they are refused."""
+    """The directory service takes DEL and C1 in names; they came over raw. Typed here they are refused."""
     connect(client, world, operator)
     fake.teams["70"] = {"id": "70", "name": "Netz\x7fwerk\x9b31m", "color": "#123456", "lead": None, "members": ["1"]}
     fake.spaces["11"] = {"id": "11", "name": "Netz\x7fwerk\x9b31m", "color": "#123456",
@@ -1232,7 +1220,7 @@ def test_cleaning_an_address_from_nexsuite_that_fails_the_check_is_not_kept(
     assert _row("anna").email == "anna.berg@example.com"
 
 
-# --- Review of ba44488: a connection that fails at its last step, a person deleted before the update ---------------
+# --- A connection that fails at its last step, a person deleted before the update ---------------
 
 
 def _snapshot() -> tuple[dict[str, tuple[Any, ...]], dict[int, tuple[str, str]], dict[int, str]]:
@@ -1290,7 +1278,7 @@ def test_finish_again_after_a_failed_last_step_connects_once(client: TestClient,
 
 def test_abort_in_another_tab_waits_for_a_finish_under_way(client: TestClient, operator: Account, world: dict,
                                                            fake: FakeSuite, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Tab 1 connects and nexsuite is slow to confirm; tab 2 gives up meanwhile. The give-up waits for the finish and
+    """Tab 1 connects and the directory service is slow to confirm; tab 2 gives up meanwhile. The give-up waits for the finish and
     then finds the connection done (409), instead of forgetting it half way."""
     chosen = _choices(client, world)
     reached, go = threading.Event(), threading.Event()
@@ -1354,8 +1342,8 @@ def test_b8_an_account_nexsuite_brought_and_left_out_now_is_nobody_s_any_more(
 
 def test_settled_a_person_deleted_before_the_update_leaves_no_link_behind(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite) -> None:
-    """Connected under bf64550, anna's person was deleted in nexsuite and her account blocked. Her subject was
-    nexsuite's, not a link of her own: after a disconnect she has no link and signs in with her password again, and
+    """Connected under an older version, anna's person was deleted in the directory service and her account blocked. Her subject was
+    the directory service's, not a link of her own: after a disconnect she has no link and signs in with her password again, and
     connecting again says that her person is gone."""
     connect(client, world, operator)
     del fake.people["2"]
@@ -1371,7 +1359,7 @@ def test_settled_a_person_deleted_before_the_update_leaves_no_link_behind(
     assert rows["anna"]["gone"] is True and rows["anna"]["suggest"] == "skip"
 
 
-# --- Review of 4f54522: nexsuite took /finish, nexcanvas did not hear it ---------------------------------------------
+# --- The directory service took /finish, nexcanvas did not hear it ---------------------------------------------
 
 
 def _connected_here(world: dict) -> None:
@@ -1386,7 +1374,7 @@ def _connected_here(world: dict) -> None:
 
 def test_finish_whose_answer_got_lost_finishes_with_the_next_try(client: TestClient, operator: Account, world: dict,
                                                                 fake: FakeSuite, monkeypatch: pytest.MonkeyPatch) -> None:
-    """nexsuite took /finish, the answer never came. The next try sends only /finish again; nexsuite's
+    """The directory service took /finish, the answer never came. The next try sends only /finish again; the directory service's
     already_connected (asked with this app's token) is the confirmation."""
     chosen = _choices(client, world)
     real = fake.handle
@@ -1415,7 +1403,7 @@ def test_finish_whose_answer_got_lost_finishes_with_the_next_try(client: TestCli
 def test_finish_whose_local_commit_failed_finishes_with_the_next_try(client: TestClient, operator: Account,
                                                                    world: dict, fake: FakeSuite,
                                                                    monkeypatch: pytest.MonkeyPatch) -> None:
-    """nexsuite confirmed /finish, then writing it here failed (a full disk, a lock): nothing here changed, and the
+    """The directory service confirmed /finish, then writing it here failed (a full disk, a lock): nothing here changed, and the
     next try writes it."""
     chosen = _choices(client, world)
     real = settings_service.save
@@ -1464,7 +1452,7 @@ def test_the_proposal_says_when_something_was_made_in_nexsuite_already(client: T
     assert client.get("/api/suite/proposal").json()["made"] == 2, "ben as a person and the team Design"
 
 
-# --- Review of e709c94: once /finish went out, the choices of then hold ----------------------------------------------
+# --- Once /finish went out, the choices of then hold ----------------------------------------------
 
 
 def _lose_finish_once(fake: FakeSuite, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1485,7 +1473,7 @@ def test_after_finish_went_out_other_choices_are_refused_not_ignored(client: Tes
                                                                      monkeypatch: pytest.MonkeyPatch) -> None:
     """The answer to /finish got lost; the operator then tries to set anna to "leave out", or to change a team. Keeping
     that is refused (the assistant shows the choices of then, locked); finishing sends /finish again and applies the
-    choices of then, whatever comes along with it (decided 2026-10-07)."""
+    choices of then, whatever comes along with it."""
     chosen = _choices(client, world)
     _lose_finish_once(fake, monkeypatch)
     assert client.post("/api/suite/finish", json=chosen).status_code in (409, 502)
@@ -1512,7 +1500,7 @@ def _sent_and_lost(client: TestClient, world: dict, fake: FakeSuite, monkeypatch
 def test_after_reloading_the_assistant_shows_what_was_sent_and_finishes_with_it(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite,
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """R5: nexsuite has the connection, so it offers no space any more. The proposal still names the choices that
+    """R5: the directory service has the connection, so it offers no space any more. The proposal still names the choices that
     went out, with the names of their targets, and finishing with them works."""
     chosen = _sent_and_lost(client, world, fake, monkeypatch)
     found = client.get("/api/suite/proposal").json()
@@ -1533,7 +1521,7 @@ def test_an_account_made_after_sending_is_not_in_the_list_and_stops_nothing(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite,
         monkeypatch: pytest.MonkeyPatch) -> None:
     """R6: an account made here after /finish went out is not among the choices, and a finish that brings it along
-    still finishes; nothing is made for it in nexsuite."""
+    still finishes; nothing is made for it in the directory service."""
     chosen = _sent_and_lost(client, world, fake, monkeypatch)
     late = make_account("spaet")
     found = client.get("/api/suite/proposal").json()
@@ -1568,7 +1556,7 @@ def test_giving_up_before_finish_went_out_says_nothing_more(client: TestClient, 
     assert client.post("/api/suite/abort").status_code == 204
 
 
-# --- Review of 7afa9c1: what the plan has no place for ----------------------------------------------------------------
+# --- What the plan has no place for ----------------------------------------------------------------
 
 
 @pytest.mark.parametrize("way", ["at once", "after a lost answer"])
@@ -1576,8 +1564,8 @@ def test_giving_up_before_finish_went_out_says_nothing_more(client: TestClient, 
 def test_an_account_without_a_place_in_the_plan_is_blocked_like_one_left_out(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite, monkeypatch: pytest.MonkeyPatch,
         role: str, way: str) -> None:
-    """Made between pairing and finishing, or after /finish went out: no person in nexsuite, so no way in while
-    connected; never a password sign-in of its own beside nexsuite."""
+    """Made between pairing and finishing, or after /finish went out: no person in the directory service, so no way in while
+    connected; never a password sign-in of its own beside the directory service."""
     chosen = _choices(client, world)
     if way == "after a lost answer":
         _lose_finish_once(fake, monkeypatch)
@@ -1621,7 +1609,7 @@ def test_after_sending_a_chosen_person_deleted_in_nexsuite_still_shows_by_its_na
 
 def test_signing_in_through_nexsuite_leaves_the_address_to_the_directory(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any) -> None:
-    """The address of an account in nexsuite comes with the directory; what the token says at a sign-in through the
+    """The address of an account in the directory service comes with the directory; what the token says at a sign-in through the
     coupled entry is no provider address of its own (it would go with the account's last link)."""
     connect(client, world, operator)
     browser = oidc_helpers.fresh_browser(client)
@@ -1631,7 +1619,7 @@ def test_signing_in_through_nexsuite_leaves_the_address_to_the_directory(
     assert (anna.email, anna.email_source, anna.provider_email) == ("anna@example.com", "", "")
 
 
-# --- Who is which person: the links at nexsuite's entry (blueprint 06; the columns of 0.3 only for the way back) -----
+# --- Who is which person: the links at the directory service's entry -----
 
 
 def _links() -> list[tuple[str, str, str, str]]:
@@ -1656,14 +1644,14 @@ def _through(fake_provider: Any, slug: str, sub: str) -> str:
 
 def test_an_own_subject_never_passes_for_a_person_and_comes_back(client: TestClient, operator: Account, world: dict,
                                                                  fake: FakeSuite, provider: Any) -> None:
-    """dora came through the own provider as "3"; person 3 of nexsuite is erik."""
+    """dora came through the own provider as "3"; person 3 of the directory service is erik."""
     oidc_helpers.configure(client, provider, auto_create=True)
     assert _through(provider, "sso", "3") == "p3"
     connect(client, world, operator)
     links = _links()
     assert ("sso", "", "3", "p3") in links
     assert ("oidc", "nexsuite", "3", "erik") in links
-    # p3 became a person of its own in nexsuite when connecting ("new"); its own "3" never stands at nexsuite's entry.
+    # p3 became a person of its own in the directory service when connecting ("new"); its own "3" never stands at the directory service's entry.
     assert not [link for link in links if link[1] == "nexsuite" and link[3] == "p3" and link[2] == "3"]
     assert _through(provider.suite, "oidc", "3") == "erik"
     assert _through(provider, "sso", "3") == "?", "the own entry is off while coupled"
@@ -1705,7 +1693,7 @@ def test_a_renamed_person_stays_the_same_account(client: TestClient, operator: A
 
 def test_a_left_out_account_with_an_own_link_never_gets_a_person(client: TestClient, operator: Account,
                                                                  world: dict, fake: FakeSuite, provider: Any) -> None:
-    """cleo is left out when connecting; her own link is "2", which is anna's person in nexsuite."""
+    """cleo is left out when connecting; her own link is "2", which is anna's person in the directory service."""
     oidc_helpers.configure(client, provider, auto_create=False)
     with SessionLocal() as db:
         entry = db.query(OidcProvider).filter_by(slug="sso").one()
@@ -1721,7 +1709,7 @@ def test_a_left_out_account_with_an_own_link_never_gets_a_person(client: TestCli
 def test_the_way_back_to_0_3_finds_settings_and_columns_of_one_issuer(client: TestClient, operator: Account,
                                                                       world: dict, fake: FakeSuite,
                                                                       provider: Any) -> None:
-    """0.3 reads the persons in ``oidc_subject`` beside the issuer in its settings: coupled, both are nexsuite's;
+    """0.3 reads the persons in ``oidc_subject`` beside the issuer in its settings: coupled, both are the directory service's;
     uncoupled again, both are what was there before (here the one provider of 0.3 and cleo's subject at it)."""
     with SessionLocal() as db:
         settings_service.save(db, {"oidc_issuer": "https://own.example.com", "oidc_client_id": "own-client",
@@ -1769,7 +1757,7 @@ def _put_own(client: TestClient, entry: OidcProvider, provider: Any, **form: Any
 
 def test_coupling_and_uncoupling_bring_back_the_way_back_to_0_3_as_the_entry_says(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any) -> None:
-    """Coupled, the settings of 0.3 name nexsuite (the entry parked by the coupling is not written there); uncoupled,
+    """Coupled, the settings of 0.3 name the directory service (the entry parked by the coupling is not written there); uncoupled,
     they say what the own entry ``oidc`` says again: on, or empty while it is off."""
     entry = _own_entry_of_0_3(provider)
     own = _own_settings()
@@ -1792,7 +1780,7 @@ def test_coupling_and_uncoupling_bring_back_the_way_back_to_0_3_as_the_entry_say
 
 def test_a_sign_in_under_way_while_the_directory_or_the_connection_changes_ends_cleanly(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any) -> None:
-    """Started at nexsuite before a sync blocked the person, or before the operator disconnected: the way back is a
+    """Started at the directory service before a sync blocked the person, or before the operator disconnected: the way back is a
     refusal on the sign-in page, never an error page and never another account."""
     connect(client, world, operator)
     provider.suite.person = {"sub": "2", "preferred_username": "anna"}
@@ -1831,7 +1819,7 @@ def _coupled_unsettled(client: TestClient, world: dict, operator: Account, holde
 
 def test_a_person_held_by_several_accounts_goes_to_none_by_order_the_sign_in_name_decides(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any) -> None:
-    """Person 2 is anna in nexsuite; the operator's account has the smaller id. The migration links none of the two,
+    """Person 2 is anna in the directory service; the operator's account has the smaller id. The migration links none of the two,
     the first sync gives the person to the account with its sign-in name, as 0.3.0's own sync did."""
     assert operator.id < world["anna"].id
     _coupled_unsettled(client, world, operator, ["tester", "anna"])
@@ -1867,7 +1855,7 @@ def _list_state() -> Any:
 
 def test_a_change_of_the_list_while_coupled_does_not_write_over_the_settings_of_0_3(
         client: TestClient, operator: Account, world: dict, fake: FakeSuite, provider: Any) -> None:
-    """Coupled, the settings of 0.3 name nexsuite (``suite._old_settings``) and the way back is not written: a link the
+    """Coupled, the settings of 0.3 name the directory service (``suite._old_settings``) and the way back is not written: a link the
     sync makes for a new person is a change of the list, and it must leave them, the fingerprint and the anchor as
     they are (module README: while coupled ``way_back`` shows nothing and the app keeps its own rule)."""
     _own_entry_of_0_3(provider)

@@ -107,8 +107,8 @@ def _view(db: DbSession) -> SettingsOut:
 
 @router.get("", response_model=SettingsOut)
 def read(request: Request, _operator: OperatorAccount, db: DbSession) -> SettingsOut:
-    # Requests come through a proxy nexcanvas was not told about: the sign-in brake sees one sender for everybody
-    # (A5). The page names the setting.
+    # Requests come through a proxy nexcanvas was not told about: the sign-in brake sees one sender for everybody.
+    # The page names the setting.
     return _view(db).model_copy(update={"proxy_unknown": unknown_proxy_seen(request)})
 
 
@@ -118,8 +118,8 @@ def save(payload: SettingsIn, request: Request, operator: OperatorAccount, db: D
     sent = {key for key, value in payload.model_dump(exclude_unset=True).items()
             if value is not None and key != "confirm_address"}
     mail_managed = bool(settings_service.get(db, "suite_mail")) and any(k.startswith("smtp_") for k in sent)
-    # The public address too: nexsuite knows the app by it, and the return address of the sign-in hangs on it (A9).
-    # What team leads may as well: nexsuite keeps the teams and has its own switch for it (D3).
+    # The public address too: the directory service knows the app by it, and the return address of the sign-in hangs on
+    # it. What team leads may as well: the directory service keeps the teams and has its own switch for it.
     kept_there = {"password_login", "two_factor_required", "public_url", "team_leads_edit"}
     if suite.connected(db) and (sent & kept_there or mail_managed):
         raise error("managed_by_suite", "This is kept in nexsuite now.", 409)
@@ -132,7 +132,7 @@ def save(payload: SettingsIn, request: Request, operator: OperatorAccount, db: D
             except ValueError as exc:
                 raise error("invalid_url", "Enter an address starting with http:// or https://.", 422) from exc
             # Saving the address changes the return address of the sign-in: authentik, set up by the button, knows
-            # the old one. Ask first, save nothing (blueprint 04, card 1).
+            # the old one. Ask first, save nothing.
             question = authentik.public_url_guard(SqlStore(db), value, str(request.base_url),
                                                   confirm=payload.confirm_address)
             if question is not None:
@@ -149,7 +149,7 @@ def save(payload: SettingsIn, request: Request, operator: OperatorAccount, db: D
         elif key == "password_login" and not value:
             if not providers.public_list(SqlStore(db)):
                 # Without an active provider nobody but the operator could sign in any more, and invitations would
-                # fail (blueprint 01, "Passwort-Anmeldung").
+                # fail.
                 raise error("provider_first", "Set up a sign-in provider first.", 409)
         elif key == "upload_max_mb":
             value = min(int(value), get_settings().upload_max_mb)
@@ -170,11 +170,11 @@ def mail_test(payload: TestMailIn, operator: OperatorAccount, db: DbSession) -> 
     if not accounts.EMAIL_PATTERN.match(to):
         raise error("invalid_email", "This is not a mail address.", 422)
     # In the language of whoever receives it, as the invitation: an account with this address, else the operator's
-    # own language, else the page's, else English (decision 8 of 05.10.2026).
+    # own language, else the page's, else English.
     known = db.scalar(select(AccountRow).where(func.lower(AccountRow.email) == to.lower()).limit(1))
     language = mailer.language_for(db, known, *mailer.languages(operator, payload.language))
     try:
         mailer.send_test(db, to, language)
     except mailer.MailError as exc:
-        # No mail server is a setting, not a failing server: no gateway error, no ERROR in the log (G12).
+        # No mail server is a setting, not a failing server: no gateway error, no ERROR in the log.
         raise error(exc.code, str(exc), 409 if exc.code == "mail_off" else 502) from exc

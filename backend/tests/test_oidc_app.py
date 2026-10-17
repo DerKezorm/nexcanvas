@@ -1,5 +1,5 @@
 """nexcanvas' own side of sign-in through providers, around the shared contract tests (``tests/nexoidc``): the
-migration from the single provider of 0.3 (on its own and while coupled to nexsuite), the address a provider gives,
+migration from the single provider of 0.3 (on its own and while coupled to the directory service), the address a provider gives,
 the operator's account list and unlinking, the password switch, the attempt cookie of two instances on one host, and
 the log.
 """
@@ -165,7 +165,7 @@ def test_nothing_set_up_before_moves_nothing(client: TestClient, operator: Accou
 
 
 def _coupled_0_3(own: FakeProvider, suite_fake: FakeProvider) -> None:
-    """An installation coupled to nexsuite under 0.3.0: the settings hold nexsuite, the own provider waits in
+    """An installation coupled to the directory service under 0.3.0: the settings hold the directory service, the own provider waits in
     ``suite_saved``; anna and the operator are persons 2 and 1 there, anna's own authentik link waits apart."""
     make_account("anna")
     make_account("cleo")
@@ -211,7 +211,7 @@ def test_a_coupled_installation_moves_with_nexsuite_as_the_coupled_entry_and_the
     assert _links(parked.id) == [("own-anna", "anna"), ("own-cleo", "cleo")]
     with SessionLocal() as db:
         assert isinstance(settings_service.get(db, "suite_coupling"), dict)
-    # Signing in through nexsuite as person 2 is anna, through the old address.
+    # Signing in through the directory service as person 2 is anna, through the old address.
     suite_fake.person = {"sub": "2", "preferred_username": "anna"}
     browser = fresh_browser()
     target = location(browser.get("/api/oidc/oidc/start"))
@@ -219,7 +219,7 @@ def test_a_coupled_installation_moves_with_nexsuite_as_the_coupled_entry_and_the
     assert browser.get("/api/auth/me").json()["name"] == "anna"
     # A second start does nothing.
     assert oidc_store.migrate_settings(backup=False) is None and len(_entries()) == 2
-    # Disconnecting (nexsuite has forgotten the app): the own entry is back as "oidc", with its links.
+    # Disconnecting (the directory service has forgotten the app): the own entry is back as "oidc", with its links.
     monkeypatch.setattr(suite, "request", lambda *_a, **_k: (_ for _ in ()).throw(suite.SuiteError("suite_refused", "gone")))
     with SessionLocal() as db:
         suite.disconnect(db, tell=True)
@@ -235,7 +235,7 @@ def test_a_coupled_installation_moves_with_nexsuite_as_the_coupled_entry_and_the
     assert browser.get("/api/auth/me").json()["name"] == "cleo"
 
 
-# --- The address a provider gives (blueprint 01, "Wer ist das?", last paragraph) -------------------------------------
+# --- The address a provider gives -------------------------------------
 
 
 def test_an_account_through_the_provider_only_follows_its_address_never_one_of_another_account(
@@ -667,7 +667,7 @@ def test_removing_the_entry_and_another_issuer_both_empty_the_way_back_for_good(
             db.commit()
 
 
-# --- "Second factor required": not forced by a sign-in through a provider that checks it (decided 2026-10-10) -------
+# --- "Second factor required": not forced by a sign-in through a provider that checks it -------
 
 
 def _required_with_linked_password_account(

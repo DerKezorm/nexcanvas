@@ -170,8 +170,7 @@ def factor_missing(db: Session, account: Account) -> bool:
 def setup_required(db: Session, account: Account) -> bool:
     """The operator requires a second factor, and this password account has none yet. Such an account reaches its
     own account page and nothing else until it enrols. Accounts from OIDC bring their provider's, and so does a
-    session of a password account that signed in through a provider which checks the second factor itself (decided
-    2026-10-10: the same account signing in with its password is asked as before)."""
+    session of a password account that signed in through a provider which checks the second factor itself."""
     return factor_missing(db, account) and not account.provider_checked
 
 

@@ -1,4 +1,4 @@
-// A space nexsuite no longer gives nexcanvas (B18): only the operator sees it, marked in the side bar with what it
+// A space the directory service no longer gives nexcanvas: only the operator sees it, marked in the side bar with what it
 // means, and the space's menu offers the trash and nothing else.
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
@@ -55,7 +55,7 @@ afterEach(async () => {
   host.remove()
 })
 
-describe('a space nexsuite let go (B18)', () => {
+describe('a space the directory service let go', () => {
   it('is marked in the side bar with what it means, the others are not', async () => {
     const page = await mount(<Sidebar />)
     const marks = [...page.querySelectorAll('[data-testid="space-dropped"]')]

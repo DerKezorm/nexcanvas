@@ -49,7 +49,7 @@ MAX_TITLE = 200
 
 KINDS = frozenset({"note", "shape", "text", "ink", "image", "file", "link", "frame"})
 ID = re.compile(r"^[A-Za-z0-9_-]{6,40}$")
-#: The look of a board behind its items (block 3): a pattern and a colour, for everybody who has it open.
+#: The look of a board behind its items: a pattern and a colour, for everybody who has it open.
 PATTERNS = frozenset({"none", "dots", "grid", "lines", "mm", "iso"})
 NAMED_COLORS = frozenset({"auto", "paper", "cream", "chalk", "blueprint"})
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -98,7 +98,7 @@ def empty_doc() -> Doc:
     return doc
 
 
-#: A shape of a package as a board knows it (block 4): ``package/shape``.
+#: A shape of a package as a board knows it: ``package/shape``.
 DEF_KEY = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}/[a-z0-9][a-z0-9-]{0,39}$")
 MAX_DEFS = 300
 

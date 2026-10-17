@@ -1,13 +1,13 @@
 /**
  * Settings, Server, Sign-in: three cards one below the other, as the shared sign-in blueprint lays them out for every
- * nex app (part 04). Order, wording and behaviour come from there; the parts (card, switch, field, button, question)
+ * nex app. Order, wording and behaviour come from there; the parts (card, switch, field, button, question)
  * are nexcanvas' own.
  *
  * 1. Sign-in: password sign-in (locked on while no provider is active), the public address, the second factor.
  * 2. Sign-in providers: the list with its marks, the drag handle, and the form as a dialog.
  * 3. authentik in one step: address, token, "Set up", the blueprint, and the steps with the reason of a failure.
  *
- * Coupled (blueprint 06), sign-in comes through the coupling: card 1 says so, the list is only shown (the entries set
+ * Coupled, sign-in comes through the coupling: card 1 says so, the list is only shown (the entries set
  * aside with "off"), the authentik card is locked.
  */
 import { GripVertical, KeyRound, ShieldCheck, Sparkles } from 'lucide-react'
@@ -62,7 +62,7 @@ export function SignInCard({ server, anyActive, coupled }: { server: Server; any
   const { t } = useTranslation()
   const { me } = useAuth()
   const [address, setAddress] = useState<string | null>(null)
-  // The address changes what authentik knows (the button registered the old one): ask before saving (blueprint 04).
+  // The address changes what authentik knows (the button registered the old one): ask before saving.
   const [asking, setAsking] = useState<{ question: AddressQuestion; url: string } | null>(null)
   const s = server.settings
   if (!s) return null
@@ -75,7 +75,7 @@ export function SignInCard({ server, anyActive, coupled }: { server: Server; any
   return (
     <Card id="sign-in" icon={ShieldCheck} title={t('oidc.admin.signInTitle')}>
       {coupled ? (
-        // Kept in nexsuite while coupled: the switches and the address are nexsuite's (the server refuses them).
+        // Kept in the directory service while coupled: the switches and the address are the directory service's (the server refuses them).
         <p className="text-sm text-mist-400" data-testid="sign-in-coupled">{t('suite.managedSignIn')}</p>
       ) : (
         <>
@@ -492,9 +492,9 @@ export function AuthentikCard({
   const { t } = useTranslation()
   const [authentik, setAuthentik] = useState({ url: '', token: '' })
   const [steps, setSteps] = useState<AuthentikResult | null>(null)
-  // The button stopped before an issuer change and asks how many accounts would have to link again (Bauplan 03).
+  // The button stopped before an issuer change and asks how many accounts would have to link again.
   const [asking, setAsking] = useState<number | null>(null)
-  // "Use it only" asks too when the address changes what authentik knows (Bauplan 04, card 1 and 3).
+  // "Use it only" asks too when the address changes what authentik knows.
   const [askingAddress, setAskingAddress] = useState<AddressQuestion | null>(null)
   const [unusable, setUnusable] = useState(false)
   const [address, setAddress] = useState<AuthentikAddress | null>(null)
@@ -512,7 +512,7 @@ export function AuthentikCard({
   const stale = coupled ? null : authentikStale(address)
 
   const start = (confirmIssuerChange: boolean) => {
-    // What the last attempt said goes first: an old failure stood above the new answer (Prüfgang C4).
+    // What the last attempt said goes first: an old failure stood above the new answer.
     setSteps(null)
     setAsking(null)
     setUnusable(false)

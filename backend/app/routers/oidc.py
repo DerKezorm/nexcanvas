@@ -3,7 +3,7 @@
 The protocol, who an identity is, the provider list and the button live in the shared module ``vendor/nexoidc``
 (the blueprint "Anmeldung mit OIDC und authentik", the same in every nex app); this router puts nexcanvas around it:
 sessions, the sign-in brake, the password asked again before linking, the second factor, the page a direct link
-asked for (``next``), the coupling to nexsuite, and the error answers.
+asked for (``next``), the coupling to the directory service, and the error answers.
 
 The return leg is a browser redirect, not an API answer: the provider sends the browser back with GET, and a human
 sees whatever comes out. So every outcome of a callback ends in a redirect: to ``/`` (or the page asked for) with the
@@ -78,7 +78,7 @@ CODE_STEP = "/login?step=code"
 NOTICE_UNLINKED = "operator_unlinked"
 #: Codes that cost nothing to produce (a forged return, a braked sender): they do not count against the sender.
 FREE_REFUSALS = ("oidc_state_mismatch", "too_many_attempts", "oidc_not_configured")
-#: How long a sign-in waits for the directory fetch for a person not here yet (B20); a fetch gives up after 10 s.
+#: How long a sign-in waits for the directory fetch for a person not here yet; a fetch gives up after 10 s.
 SYNC_WAIT_SECONDS = 12.0
 #: The page a direct link asked for travels next to the attempt (the module's cookie knows nothing of it), at the same
 #: path and for as long; it is checked by ``safe_next`` going in and coming back.
@@ -139,7 +139,7 @@ def _base(request: Request) -> str:
 def _redirect(target: flow.Redirect, request: Request, *, landing: str | None = None) -> RedirectResponse:
     """The module's way on as a response: 303 (the browser loads the target with GET whatever way it came), the
     attempt cookie set or deleted where the module says. ``landing``: a refused sign-in keeps the page asked for, so a
-    second try still lands there (Prüfgang B10)."""
+    second try still lands there."""
     location = target.location
     if landing and location.startswith(current().login_page + "?"):
         location += f"&next={quote(landing, safe='')}"
@@ -268,7 +268,7 @@ async def start(
     next_path: Annotated[str | None, Query(alias="next")] = None,
 ) -> RedirectResponse:
     # Public: this is the sign-in button. Failures land on the sign-in page with a code. ``next`` is the page the
-    # button was pressed for (a direct link); only a page of nexcanvas' own goes along (Prüfgang B10).
+    # button was pressed for (a direct link); only a page of nexcanvas' own goes along.
     landing = safe_next(next_path)
     with store() as s:
         try:
@@ -290,8 +290,8 @@ async def start(
 
 
 async def _directory_once(subject: str) -> None:
-    """A person made in nexsuite a moment ago: the directory once, off the event loop and not waited on for longer
-    than a fetch may take (Prüfgang B20)."""
+    """A person made in the directory service a moment ago: the directory once, off the event loop and not waited on for
+    longer than a fetch may take."""
     try:
         await asyncio.wait_for(run_in_threadpool(suite.sync_for_unknown, subject), SYNC_WAIT_SECONDS)
     except TimeoutError:
@@ -310,14 +310,15 @@ async def _returned(slug: str, request: Request) -> RedirectResponse:
                 raise OidcError("too_many_attempts", "sender is braked")
             started = attempt.read(cookie)
             if started is not None and started.purpose == attempt.LINK and _coupled(s):
-                # Started before connecting and come back after: no link while nexsuite keeps who is who (B8). Said
-                # before the provider is asked: the own entries are set aside now.
+                # Started before connecting and come back after: no link while the directory service keeps who is who.
+                # Said before the provider is asked: the own entries are set aside now.
                 logger.warning("OIDC linking refused: connected to nexsuite meanwhile")
                 return _refused_as("managed_by_suite", cookie, request, None)
             arrival = await flow.finish(s, slug, cookie=cookie, params=dict(request.query_params))
             if arrival.started.purpose == "link":
                 if suite.connected(s.db) or arrival.provider.managed == MANAGED_NEXSUITE:
-                    # Started before connecting and come back after: no link while nexsuite keeps who is who (B8).
+                    # Started before connecting and come back after: no link while the directory service keeps who is
+                    # who.
                     logger.warning("OIDC linking refused: connected to nexsuite meanwhile")
                     return _refused_as("managed_by_suite", cookie, request, None)
                 current_account = session_account(s.db, request.cookies.get(SESSION_COOKIE))
@@ -326,14 +327,15 @@ async def _returned(slug: str, request: Request) -> RedirectResponse:
                 return _redirect(flow.arrived(arrival, flow.linked_page(arrival.provider.slug)), request)
             coupled_entry = arrival.provider.managed == MANAGED_NEXSUITE
             if coupled_entry and s.find_link(arrival.provider.id, arrival.identity.subject) is None:
-                # A person made in nexsuite a moment ago: the directory once, which links its new account.
+                # A person made in the directory service a moment ago: the directory once, which links its new account.
                 await _directory_once(arrival.identity.subject)
                 s.db.expire_all()
             try:
                 signed = oidc_accounts.sign_in(s, arrival)
             except OidcError as exc:
                 if coupled_entry and exc.code == "oidc_no_account":
-                    # Connected, accounts come from nexsuite, found by the person only; never by an address.
+                    # Connected, accounts come from the directory service, found by the person only; never by an
+                    # address.
                     logger.warning("OIDC sign-in refused: nexsuite gives this app no account for the person")
                     return _refused_as("suite_no_account", cookie, request, landing)
                 raise
@@ -394,12 +396,12 @@ async def link_start(
     with store() as s:
         row = s.db.get(AccountRow, account.id)
         assert row is not None
-        # The same brake as before start and return (blueprint 02, "Ablauf" 4): a braked sender links nothing.
+        # The same brake as before start and return: a braked sender links nothing.
         wait = brake.wait_seconds(_brake_key(request))
         if wait:
             raise error("too_many_attempts", "Too many attempts. Try again later.", 429, retry_after=wait)
         if _coupled(s):
-            # Connected, the provider is nexsuite and the link is the person: nothing to link here (B8).
+            # Connected, the provider is the directory service and the link is the person: nothing to link here.
             raise error("managed_by_suite", "This is kept in nexsuite now.", 409)
         if row.sign_in != SIGN_IN_PASSWORD:
             raise error("oidc_only_account", "This account has no password; it signs in through a provider.", 409)
@@ -423,7 +425,8 @@ async def link_start(
 def unlink(slug: Annotated[str, Path(max_length=40)], account: Account) -> None:
     with store() as s:
         if _coupled(s):
-            # Connected, the link is the person in nexsuite; unlinked, the next sync would make a second account (A9).
+            # Connected, the link is the person in the directory service; unlinked, the next sync would make a second
+            # account.
             raise error("managed_by_suite", "This is kept in nexsuite now.", 409)
         entry = s.provider_by_slug(slug)
         if entry is None:
@@ -481,7 +484,7 @@ def operator_unlink(
         if not removed:
             raise error("not_found", "Not found.", 404)
         if account_id != operator.id:
-            # Never unseen (blueprint 01): the account finds it under "New for you", with the provider's name.
+            # Never unseen: the account finds it under "New for you", with the provider's name.
             s.db.add(SpaceNotice(account_id=account_id, space_id=None, space_name="", kind=NOTICE_UNLINKED,
                                  actor=operator.name, actor_id=operator.id, subject=entry.label[:64]))
             s.db.commit()
@@ -512,7 +515,7 @@ def authentik_address(_operator: OperatorAccount, request: Request) -> dict[str,
 
 @router.post("/authentik/address", summary="Save the public address, asking first when it changes what authentik knows")
 def authentik_save_address(payload: AddressIn, operator: OperatorAccount, request: Request) -> dict[str, Any]:
-    # Kept in nexsuite while connected, as in the settings (``PUT /api/settings``).
+    # Kept in the directory service while connected, as in the settings (``PUT /api/settings``).
     with store() as s:
         suite.refuse_if_managed(s.db)
         try:

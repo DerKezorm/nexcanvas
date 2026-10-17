@@ -1,7 +1,7 @@
 /**
  * Who is signed in. `loading` until the server answered, `setup` while nexcanvas has no account yet, `signedOut`,
  * or `signedIn` with the account. A request that finds the session gone sends `SIGNED_OUT_EVENT`; then `ended` is set, so
- * the sign-in can say why (blocked, signed out everywhere; A8 of the check on 05.10.2026). While signed in, the page asks
+ * the sign-in can say why (blocked, signed out everywhere). While signed in, the page asks
  * after its session every `SESSION_MS` and whenever its tab shows again, so that this happens within seconds and not at
  * the next full load. A public page of a board (`/s/…`) does not ask: it needs no session.
  */
@@ -27,7 +27,7 @@ type Auth = {
 const Context = createContext<Auth | null>(null)
 
 /** How often an open page asks whether its session still holds: a block or "sign out everywhere" shows within seconds,
- * with the reason on the sign-in page (A8). The answer is small; only a 401 changes anything. */
+ * with the reason on the sign-in page. The answer is small; only a 401 changes anything. */
 export const SESSION_MS = 5_000
 
 export function AuthProvider({ children }: { children: ReactNode }) {

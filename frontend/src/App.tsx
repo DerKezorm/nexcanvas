@@ -17,7 +17,7 @@ import { NotFoundPage } from './components/NotFound'
 
 /** Everything behind the sign-in: without an account the page goes to the sign-in, and comes back after. An account
  * that still has to set up its second factor (the operator requires one) reaches its own account page only; before,
- * it saw an empty app with no way on (Prüfgang 04.10.2026, F1). */
+ * it saw an empty app with no way on. */
 function SignedIn({ children }: { children: ReactNode }) {
   const { status, me, ended } = useAuth()
   const location = useLocation()
@@ -73,7 +73,7 @@ export default function App() {
         <Route path="settings" element={<SettingsPage />} />
         <Route path="account" element={<AccountPage />} />
         <Route path="about" element={<AboutPage />} />
-        {/* An address no page answers to says so, instead of silently showing the overview (E31). */}
+        {/* An address no page answers to says so, instead of silently showing the overview. */}
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

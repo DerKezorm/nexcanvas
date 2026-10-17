@@ -150,7 +150,7 @@ class LogLine:
     request_id: str | None = None
     user: str | None = None
     #: ``time`` as a moment with its offset: the file has the server's clock (UTC in the container), the page shows
-    #: the reader's own time from this, written like every other moment (Prüfgang G11, as nexsuite).
+    #: the reader's own time from this, written like every other moment.
     at: str | None = None
 
 
@@ -193,7 +193,7 @@ _store_write: Callable[[str, datetime | None], None] | None = None
 
 
 def rename_actor(old: str, new: str) -> int:
-    """An account moved from ``old`` to ``new`` (``services/suite.py``, Prüfgang B21): its lines in the log name it so
+    """An account moved from ``old`` to ``new`` (``services/suite.py``): its lines in the log name it so
     too, as ``u:<name>`` and as ``name=<name>`` or ``by=<name>`` in a message (the only ways a log line names an
     account, ``tests/test_verbund.py`` makes sure), so nothing it did reads like whoever gets the old name. Under
     the handler's lock, so no line is written in between. Returns the places changed."""

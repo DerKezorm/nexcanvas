@@ -34,7 +34,7 @@ describe('shipped languages', () => {
     expect(dashed.map(([key]) => key)).toEqual([])
   })
 
-  it('say trash in English, never bin (decided 06.10.2026)', () => {
+  it('say trash in English, never bin', () => {
     expect([...english].filter(([, text]) => /\bbins?\b/i.test(text)).map(([key, text]) => `${key}: ${text}`)).toEqual([])
     // Floor: the trash is still spoken of, so the check above has something to look at.
     expect([...english].filter(([, text]) => /\btrash\b/i.test(text)).length).toBeGreaterThan(5)
@@ -47,7 +47,7 @@ describe('shipped languages', () => {
     }
   })
 
-  it('call the program version Version in German; Fassung is left for what is on a board (decided 06.10.2026)', () => {
+  it('call the program version Version in German; Fassung is left for what is on a board', () => {
     const about = [...german].filter(([key]) => key.startsWith('about.'))
     expect(about.filter(([, text]) => /Fassung/.test(text)).map(([key, text]) => `${key}: ${text}`)).toEqual([])
     expect(german.get('about.version')).toBe('Version')
@@ -74,18 +74,18 @@ describe('what is new', () => {
   const german = strings(whatsNewDe)
   const english = strings(whatsNewEn)
 
-  it('call the program version Version in German, in released entries too (decided 06.10.2026)', () => {
+  it('call the program version Version in German, in released entries too', () => {
     expect(german.filter((text) => PROGRAM_FASSUNG.test(text))).toEqual([])
     // Floor: the entries are read at all.
     expect(german.length).toBeGreaterThan(20)
   })
 
-  it('say trash in English (decided 06.10.2026)', () => {
+  it('say trash in English', () => {
     expect(english.filter((text) => /\bbins?\b/i.test(text))).toEqual([])
     expect(english.length).toBeGreaterThan(20)
   })
 
-  it('never name nexsuite, which is not released (as in the release notes), not even in a roundabout way', () => {
+  it('never name a companion app that is not released, not even in a roundabout way', () => {
     expect([...german, ...english].filter((text) => NAMES_THE_SUITE.test(text))).toEqual([])
     // "Verbund" as a word of its own; "verbunden" (connected, as a link) is a word like any other.
     expect(NAMES_THE_SUITE.test('Im Verbund kommen die Rechte von dort.')).toBe(true)
@@ -125,7 +125,7 @@ describe('what is new', () => {
   })
 })
 
-/** nexsuite named, also in other words ("Verbund" as a word of its own, "suite"). */
+/** The directory service named, also in other words ("Verbund" as a word of its own, "suite"). */
 const NAMES_THE_SUITE = /nexsuite|\bverbund\b|\bsuite\b|connected to/i
 
 type Texts = { settings: { title: string; tabs: Record<string, string>; parts: Record<string, string> }; me: { title: string; tabs: Record<string, string> } }

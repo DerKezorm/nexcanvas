@@ -85,7 +85,7 @@ export function templateDoc(id: TemplateId, t: Say): Doc {
   return { items, lines }
 }
 
-/** A template kept by a space or the server (block 5). */
+/** A template kept by a space or the server. */
 export interface OwnTemplate {
   key: number
   scope: 'space' | 'server'
@@ -94,7 +94,7 @@ export interface OwnTemplate {
   content: Doc
 }
 
-/** Every shipped template with its group: the first six as "start", then the catalogue of block 5. */
+/** Every shipped template with its group: the first six as "start", then the catalogue. */
 export const CATALOG: { id: string; category: Category }[] = [...TEMPLATES.map((id) => ({ id, category: 'start' as Category })), ...SHIPPED.map(({ id, category }) => ({ id, category }))]
 
 /** The board a shipped template builds, in the language of the page. */

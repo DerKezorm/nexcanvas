@@ -50,7 +50,7 @@ DEFAULTS: dict[str, Any] = {
     #: Tokens for programs such as n8n or nexdeck (``/api/v1``): closed until the operator opens it.
     "api_tokens_allowed": False,
     #: Whether the lead of a team changes its members: off unless the operator turns it on, also in installations from
-    #: before (Prüfgang 05.10.2026 D3, decided 2026-10-06). Taking somebody into a team gives them the team's rights in
+    #: before. Taking somebody into a team gives them the team's rights in
     #: every space.
     "team_leads_edit": False,
     #: Ask GitHub once a day whether a newer nexcanvas is out (services/updates). Only the question goes out, so on.
@@ -63,9 +63,9 @@ DEFAULTS: dict[str, Any] = {
     "smtp_user": "",
     "smtp_password_enc": "",
     "smtp_from": "",
-    #: nexsuite (``services/suite.py``): "" on its own, ``connecting``, ``connected``; its address, the app's token
-    #: (sealed), what pairing gave until the operator finishes, what was set before (for the way back), the person
-    #: whose own password sign-in stays (emergency account), the emergency code hashes, the last fetch.
+    #: the directory service (``services/suite.py``): "" on its own, ``connecting``, ``connected``; its address, the
+    #: app's token (sealed), what pairing gave until the operator finishes, what was set before (for the way back), the
+    #: person whose own password sign-in stays (emergency account), the emergency code hashes, the last fetch.
     "suite_state": "",
     "suite_url": "",
     "suite_token_enc": "",
@@ -80,12 +80,12 @@ DEFAULTS: dict[str, Any] = {
     "suite_emergency": [],
     "suite_mail": False,
     "suite_last_sync": None,
-    #: The address of the nexsuite of the last connection, kept after a disconnect: ``suite_person`` of the accounts
-    #: counts only when connecting to that one again (Prüfgang B8).
+    #: The address of the directory service of the last connection, kept after a disconnect: ``suite_person`` of the
+    #: accounts counts only when connecting to that one again.
     "suite_former_url": "",
     "suite_revision": 0,
     "suite_problem": "",
-    #: Reports nexsuite has not heard yet, with the address and key they go to (A11).
+    #: Reports the directory service has not heard yet, with the address and key they go to.
     "suite_owed": None,
 }
 

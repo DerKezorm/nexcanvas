@@ -162,7 +162,7 @@ export function LoginPage({ emergency = false }: { emergency?: boolean }) {
   // Password sign-in off: the form waits behind "Sign in as the operator with a password".
   const [operatorWay, setOperatorWay] = useState(false)
   const next = safeNext(params.get('next'))
-  /** Sent here from an open board whose session ended (blocked, signed out everywhere, E2). */
+  /** Sent here from an open board whose session ended (blocked, signed out everywhere). */
   const ended = params.get('ended') === '1'
 
   useEffect(() => {
@@ -172,8 +172,8 @@ export function LoginPage({ emergency = false }: { emergency?: boolean }) {
   if (status === 'loading') return null
   if (status === 'setup') return <Navigate to="/setup" replace />
   if (status === 'signedIn') return <Navigate to={next} replace />
-  // Nothing until the ways in are known: connected, the password form flashed up before the nexsuite button, and the
-  // emergency page first read as the usual one (as nextasks and nexbrand).
+  // Nothing until the ways in are known: connected, the password form flashed up before the directory service button, and the
+  // emergency page first read as the usual one.
   if (methods === null) return null
 
   const submit = async () => {
@@ -238,16 +238,15 @@ export function LoginPage({ emergency = false }: { emergency?: boolean }) {
   if (methods?.suite && !emergency) {
     return (
       <AuthFrame title={t('auth.login.title')} text={t('suite.loginText')}>
-        {/* Connected, a new password in nexsuite ends the sessions here too (B12). */}
+        {/* Connected, a new password in the directory service ends the sessions here too. */}
         {ended && <p className="mb-3 rounded-xl border border-warn-500/30 bg-warn-500/10 px-3 py-2 text-xs text-mist-200">{t('auth.login.endedSuite')}</p>}
         <Problem code={problem} fromAddress={fromAddress} />
-        {/* The coupled entry of the provider list (slug "oidc"); its button names nexsuite (blueprint 06: the app
-            names it). */}
+        {/* The coupled entry of the provider list (slug "oidc"); its button names the directory service. */}
         <a href={startAddress(methods.providers[0]?.slug ?? 'oidc', { next })} className="nc-btn nc-btn-accent flex h-10 w-full items-center justify-center">
           {t('suite.loginButton')}
         </a>
-        {/* Signing out here leaves nexsuite signed in, and the button would bring the same person back (B11). Who is
-            signed in there this page cannot tell without asking nexsuite, so it says it in general. */}
+        {/* Signing out here leaves the directory service signed in, and the button would bring the same person back. Who is
+            signed in there this page cannot tell without asking the directory service, so it says it in general. */}
         <div className="mt-4 space-y-1.5 text-xs text-mist-500" data-testid="still-signed-in">
           <p>{t('suite.stillSignedIn')}</p>
           {methods.suite_url && (
@@ -269,7 +268,7 @@ export function LoginPage({ emergency = false }: { emergency?: boolean }) {
     )
   }
 
-  // The emergency page speaks of nexsuite only while connected; alone it is the usual sign-in (H, b3).
+  // The emergency page speaks of the directory service only while connected; alone it is the usual sign-in (H, b3).
   const emergencyNow = emergency && !!methods?.suite
   // Blueprint 04: password form, below the line "or" a button per active provider. With the password sign-in off only
   // the buttons, and small at the bottom the operator's way in with the password.
@@ -323,7 +322,7 @@ export function InvitePage() {
   const { setMe, refresh } = useAuth()
   const navigate = useNavigate()
   const [state, setState] = useState<InviteState | null>(null)
-  /** Why the link does not hold: nexcanvas connected to nexsuite since (B26), expired (G4), or anything else (used,
+  /** Why the link does not hold: nexcanvas connected to the directory service since, expired, or anything else (used,
    * withdrawn, replaced). */
   const [invalid, setInvalid] = useState<'invalid' | 'expired' | 'suite' | null>(null)
   const [name, setName] = useState('')
@@ -350,14 +349,14 @@ export function InvitePage() {
   }
   // The ways in first, as on the sign-in page: no password form that turns out not to be one.
   if (!state || methods === null) return null
-  // Who invites, so the link is not taken for spam (E18, as nextasks).
+  // Who invites, so the link is not taken for spam.
   const by = state.by ? 'By' : ''
   const text = state.space
     ? t(`auth.invite.intoSpace${by}`, { space: state.space, role: t(`roles.${state.role}`), by: state.by })
     : t(`auth.invite.intoApp${by}`, { by: state.by })
 
   if (state.signed_in_as && !state.space) {
-    // A link for a new account, opened by somebody signed in already: there is nothing to join (F2).
+    // A link for a new account, opened by somebody signed in already: there is nothing to join.
     return (
       <AuthFrame title={t('auth.invite.title')} text={t('auth.invite.haveAccount', { name: state.signed_in_as })}>
         <Link to="/" className="nc-btn nc-btn-accent flex h-10 w-full items-center justify-center">
@@ -412,21 +411,21 @@ export function InvitePage() {
           }}
         >
           <Problem code={problem} />
-          {/* The rule up front, not after the first refusal (E18). */}
+          {/* The rule up front, not after the first refusal. */}
           <Field label={t('auth.invite.name')} value={name} onChange={setName} autoComplete="username" autoFocus hint={t('auth.invite.nameHint')} maxLength={64} />
           <Field label={t('auth.password')} value={password} onChange={setPassword} type="password" autoComplete="new-password" hint={t('auth.passwordHint')} />
           <Primary busy={busy}>{t('auth.invite.submit')}</Primary>
         </form>
         </>
       )}
-      {/* Through a sign-in provider (a1-9, C9, blueprint 04): the invitation is the permission for the new account,
+      {/* Through a sign-in provider : the invitation is the permission for the new account,
           it travels along to the provider. */}
       <ProviderButtons providers={methods?.providers ?? []} invite={token} withOr={!methods || methods.password} />
     </AuthFrame>
   )
 }
 
-/** The way back from a page behind a link that does not hold (G3). */
+/** The way back from a page behind a link that does not hold. */
 function BackLink() {
   const { t } = useTranslation()
   return (

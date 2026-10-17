@@ -9,8 +9,8 @@ connections and their rights.
 * **Every update is stored before it is passed on**, so nothing anybody saw can be lost by a crash.
 * **Session and rights are checked again** while a connection stays open, by a watcher of its own (a connection
   that only listens is checked too): every ``RECHECK_SECONDS``, and at once after a change that can take them
-  (``nudge``: a session ended, an account blocked, a right or team changed, a sync with nexsuite). Signed out,
-  blocked, deleted or taken out of the space, the connection is closed (Prüfgang 04.10.2026, A2/A3).
+  (``nudge``: a session ended, an account blocked, a right or team changed, a sync with the directory service). Signed
+  out, blocked, deleted or taken out of the space, the connection is closed.
 * **The room folds** the stored updates into the board every ``FOLD_AFTER`` updates and when the last one leaves.
 
 One process serves the rooms; nexcanvas runs one worker (the database is SQLite anyway).

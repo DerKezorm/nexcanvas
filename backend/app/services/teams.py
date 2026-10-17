@@ -1,6 +1,6 @@
-"""Teams: who works together. The same in every app of the family (nextasks has them too).
+"""Teams: who works together. The same in every app of the family.
 
-A team is kept by nexcanvas itself (``local``) or later by the family's admin app (``admin``). nexcanvas changes the
+A team is kept by nexcanvas itself (``local``) or later by a separate admin app (``admin``). nexcanvas changes the
 members of a local team only; an ``admin`` team follows its source.
 """
 
@@ -61,8 +61,7 @@ def is_member(db: Session, team_id: int, account_id: int) -> bool:
 
 def may_change(account: Account, team: Team, leads_edit: bool) -> bool:
     """The operator changes every team; the lead the members of a local team, when the operator allows leads to
-    (``team_leads_edit``, off from the start as in nextasks and nexbrand, also for installations from before:
-    decided 2026-10-06, D3)."""
+    (``team_leads_edit``, off from the start, also for installations from before)."""
     return account.role == OPERATOR or (leads_edit and team.lead_id == account.id and team.source == TEAM_LOCAL)
 
 

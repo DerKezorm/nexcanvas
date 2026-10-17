@@ -1,20 +1,22 @@
-"""nexcanvas hung on nexsuite: connecting, keeping the directory in step, running on its own again.
+"""nexcanvas hung on the directory service: connecting, keeping the directory in step, running on its own again.
 
-The contract is nexsuite's ``docs/connect.md``. In short:
+In short:
 
-* **Connecting** (the operator, here): the address of nexsuite and a one-time code made there. nexcanvas sends the code
-  with its own address and gets a client for signing in through nexsuite and a token to fetch the directory. Then the
-  operator matches every account here to a person there (or a new one), every space to a space there (or a new one),
-  and the local teams go along. Only then nexcanvas counts as connected: from now on people sign in through nexsuite.
-* **Keeping in step**: nexcanvas fetches the directory once a minute and whenever nexsuite says something changed
-  (``POST /api/suite/event``, signed with the token). Accounts follow their person (their link at nexsuite's entry of
-  the provider list, ``oidc_links``; ``suite_person`` says the same),
-  teams and spaces follow theirs (``external_id``). A blocked person is signed out at once. A space nexsuite no longer
-  gives this app keeps its boards, but nobody but the operator sees it.
-* **What is kept there** cannot be changed here: accounts, teams, rights in spaces from nexsuite, sign-in, mail.
-* **The way back**: the operator disconnects here (nexsuite forgets the app), or nexsuite disconnects the app, or, with
-  nexsuite out of reach, an emergency code does it. nexcanvas keeps everything it got and runs on its own again: the
-  operator's own sign-in with password stays throughout (the emergency account).
+* **Connecting** (the operator, here): the address of the directory service and a one-time code made there. nexcanvas
+sends the code with its own address and gets a client for signing in through the directory service and a token to fetch
+the directory. Then the operator matches every account here to a person there (or a new one), every space to a space
+there (or a new one), and the local teams go along. Only then nexcanvas counts as connected: from now on people sign in
+  through the directory service.
+* **Keeping in step**: nexcanvas fetches the directory once a minute and whenever the directory service says something
+changed (``POST /api/suite/event``, signed with the token). Accounts follow their person (their link at the directory
+  service's entry of the provider list, ``oidc_links``; ``suite_person`` says the same),
+  teams and spaces follow theirs (``external_id``). A blocked person is signed out at once. A space the directory
+  service no longer gives this app keeps its boards, but nobody but the operator sees it.
+* **What is kept there** cannot be changed here: accounts, teams, rights in spaces from the directory service, sign-in,
+mail.
+* **The way back**: the operator disconnects here (the directory service forgets the app), or the directory service
+disconnects the app, or, with the directory service out of reach, an emergency code does it. nexcanvas keeps everything
+it got and runs on its own again: the operator's own sign-in with password stays throughout (the emergency account).
 """
 
 from __future__ import annotations
@@ -65,7 +67,7 @@ from . import accounts, logs, settings_service
 logger = logging.getLogger("nexcanvas.suite")
 
 KIND = "nexcanvas"
-#: What nexcanvas takes from nexsuite. Links between the apps come later; until then they are not claimed.
+#: What nexcanvas takes from the directory service. Links between the apps come later; until then they are not claimed.
 CAPABILITIES = ["people", "teams", "spaces", "mail"]
 TIMEOUT = 10.0
 #: A notice older than this is refused (against a notice caught and sent again later).
@@ -74,15 +76,16 @@ TOKEN_CONTEXT = "suite-token"
 SECRET_CONTEXT = "oidc-client-secret"
 SMTP_KEYS = ("smtp_host", "smtp_port", "smtp_security", "smtp_user", "smtp_password_enc", "smtp_from")
 OIDC_KEYS = ("oidc_issuer", "oidc_client_id", "oidc_client_secret_enc", "oidc_provider_name", "oidc_auto_create")
-#: The name on the button of the coupled entry in the provider list (the app decides it, blueprint 06).
+#: The name on the button of the coupled entry in the provider list (the app decides it).
 ENTRY_LABEL = "nexsuite"
 
 _sync_lock = threading.RLock()
-#: Keeping the choices of a connection under way and finishing it do not cross (B23); two finishes neither.
+#: Keeping the choices of a connection under way and finishing it do not cross; two finishes neither.
 _connect_lock = threading.RLock()
-#: What nexsuite answers to a pairing; anything else came from something that is not nexsuite (B24).
+#: What the directory service answers to a pairing; anything else came from something that is not the directory service.
 PAIR_CODES = frozenset({"pair_code_invalid", "too_many_attempts", "invalid_url", "unknown_app", "suite_unreachable",
-                        # An older connection of this address that still holds, or that nexsuite cannot ask about.
+                        # An older connection of this address that still holds, or that the directory service cannot ask
+                        # about.
                         "app_still_connected", "app_not_reachable"})
 #: Set by the tests: a notice fetches the directory before it answers.
 INLINE = False
@@ -91,7 +94,7 @@ INLINE = False
 class SuiteError(Exception):
     def __init__(self, code: str, text: str, status: int = 502, http: int = 0) -> None:
         super().__init__(text)
-        #: ``http``: the status nexsuite (or whatever answered) gave, when it answered at all.
+        #: ``http``: the status the directory service (or whatever answered) gave, when it answered at all.
         self.code, self.text, self.status, self.http = code, text, status, http
 
 
@@ -113,8 +116,8 @@ def _token(db: Session) -> str:
 
 
 def operators_from_suite(db: Session) -> list[Account]:
-    """The operators here whose role came from nexsuite only: they were none before connecting, or were made while
-    connected (B17, decided 05.10.2026). Never the emergency account. A connection from before the roles were kept
+    """The operators here whose role came from the directory service only: they were none before connecting, or were
+    made while connected. Never the emergency account. A connection from before the roles were kept
     names nobody: what they were is not known."""
     saved = settings_service.get(db, "suite_saved") or {}
     roles = saved.get("roles") if isinstance(saved, dict) else None
@@ -126,7 +129,7 @@ def operators_from_suite(db: Session) -> list[Account]:
 
 
 def roles_kept(db: Session) -> bool:
-    """Whether the connection kept the roles from before it (made since B17). Without them a disconnect changes no
+    """Whether the connection kept the roles from before it. Without them a disconnect changes no
     role, and the dialog says so and names the operators who stay (``operators_staying``)."""
     saved = settings_service.get(db, "suite_saved") or {}
     return isinstance(saved, dict) and isinstance(saved.get("roles"), dict)
@@ -159,7 +162,7 @@ def view(db: Session) -> dict[str, Any]:
 
 
 def refuse_if_managed(db: Session) -> None:
-    """For the routes that change what nexsuite keeps (accounts, teams, rights, sign-in)."""
+    """For the routes that change what the directory service keeps (accounts, teams, rights, sign-in)."""
     if connected(db):
         from ..errors import error
 
@@ -169,9 +172,10 @@ def refuse_if_managed(db: Session) -> None:
 def refuse_unless_keeper(db: Session, account: Account, code: str = "disconnect_in_suite",
                          text: str = "Disconnect in nexsuite, or sign in with the emergency account.") -> None:
     """Disconnecting from the app's side is for the emergency account (its password is checked here). Whoever comes
-    through nexsuite disconnects in nexsuite, where the own password is checked; here nobody would ask for it (A5).
-    The same for carrying a backup away or deleting one: the archive holds the emergency account's password hash and
-    second factor with the key to open it, a way to that account for whoever was never asked for a password."""
+    through the directory service disconnects in the directory service, where the own password is checked; here nobody
+    would ask for it. The same for carrying a backup away or deleting one: the archive holds the emergency account's
+    password hash and second factor with the key to open it, a way to that account for whoever was never asked for a
+    password."""
     if connected(db) and account.id != int(settings_service.get(db, "suite_emergency_account") or 0):
         from ..errors import error
 
@@ -179,13 +183,13 @@ def refuse_unless_keeper(db: Session, account: Account, code: str = "disconnect_
 
 
 def dropped(db: Session, space: Space | None) -> bool:
-    """A space nexsuite gave this app once and no longer does, while connected (B18)."""
+    """A space the directory service gave this app once and no longer does, while connected."""
     return space is not None and bool(space.external_id) and space.suite_dropped_at is not None and connected(db)
 
 
 def refuse_if_space_managed(db: Session, space_id: int, account: Account | None = None) -> None:
-    """The rights of a space nexsuite gives this app are kept there. With ``account``: a space it may not even read
-    answers as if there were none (404), not "kept in nexsuite" (A14)."""
+    """The rights of a space the directory service gives this app are kept there. With ``account``: a space it may not
+    even read answers as if there were none (404), not "kept in the directory service"."""
     from . import rights
 
     space = db.get(Space, space_id)
@@ -200,11 +204,11 @@ def refuse_if_space_managed(db: Session, space_id: int, account: Account | None 
         raise error("managed_by_suite", "This is kept in nexsuite now.", 409)
 
 
-# --- Talking to nexsuite ----------------------------------------------------------------------------------------------
+# --- Talking to the directory service ---------------------------------------------------------------------------------
 
 
 def request(method: str, url: str, *, token: str = "", body: Any = None) -> Any:
-    """One call to nexsuite's app API; replaced in the tests. Errors as ``SuiteError``."""
+    """One call to the directory service's app API; replaced in the tests. Errors as ``SuiteError``."""
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     try:
         with httpx.Client(timeout=TIMEOUT, follow_redirects=False) as client:
@@ -218,7 +222,7 @@ def request(method: str, url: str, *, token: str = "", body: Any = None) -> Any:
             code = ""
         if code == "app_unknown":
             raise SuiteError("suite_refused", "nexsuite does not know this app any more.", 409)
-        # Some other 401 (a proxy asking for a sign-in, ...): not a reason to cut the connection for good (A13).
+        # Some other 401 (a proxy asking for a sign-in, ...): not a reason to cut the connection for good.
         raise SuiteError("suite_failed", "nexsuite refused.", 409)
     if answer.status_code >= 400:
         try:
@@ -235,7 +239,7 @@ def request(method: str, url: str, *, token: str = "", body: Any = None) -> Any:
 
 
 def picture(url: str, token: str) -> bytes:
-    """A profile picture from nexsuite; replaced in the tests. Errors as ``SuiteError``."""
+    """A profile picture from the directory service; replaced in the tests. Errors as ``SuiteError``."""
     try:
         with httpx.Client(timeout=TIMEOUT, follow_redirects=False) as client:
             answer = client.get(url, headers={"Authorization": f"Bearer {token}"})
@@ -247,7 +251,7 @@ def picture(url: str, token: str) -> bytes:
 
 
 def _take_picture(db: Session, row: Account, pid: str, stamp: Any, token: str) -> None:
-    """The profile picture is kept in nexsuite: fetched once per change, gone when it is gone there."""
+    """The profile picture is kept in the directory service: fetched once per change, gone when it is gone there."""
     from . import avatars
 
     if not stamp:
@@ -286,12 +290,13 @@ class Proposal:
     accounts: list[dict[str, Any]]
     spaces: list[dict[str, Any]]
     candidates: list[dict[str, Any]]
-    #: The teams here and the teams in nexsuite to match them to (by name), so none is brought twice.
+    #: The teams here and the teams in the directory service to match them to (by name), so none is brought twice.
     teams: list[dict[str, Any]] = field(default_factory=list)
     team_candidates: list[dict[str, Any]] = field(default_factory=list)
     #: The choices kept from before the assistant was closed (``keep_choices``), or None.
     chosen: dict[str, Any] | None = None
-    #: How many people, teams and spaces an earlier try made in nexsuite already: they stay there on giving up.
+    #: How many people, teams and spaces an earlier try made in the directory service already: they stay there on giving
+    #: up.
     made: int = 0
     #: A /finish went out whose answer did not come: its choices hold, others are refused (``connection_sent``).
     sent: bool = False
@@ -306,11 +311,12 @@ def start(db: Session, url: str, code: str, redirect_uri: str, own_url: str) -> 
     if connected(db):
         raise SuiteError("already_connected", "nexcanvas is already connected.", 409)
     if state(db) == "connecting":
-        # A second pairing would leave the first, half app in nexsuite for good (B6): resume it or give it up.
+        # A second pairing would leave the first, half app in the directory service for good: resume it or give it up.
         raise SuiteError("connecting_already", "A connection is under way: resume it or give it up.", 409)
     base = clean_url(url)
     if not 4 <= len(code.strip()) <= 40:
-        # Too short or too long to be a code: said as a wrong code, not as a wrong address (B24); nexsuite is not asked.
+        # Too short or too long to be a code: said as a wrong code, not as a wrong address; the directory service is not
+        # asked.
         raise SuiteError("pair_code_invalid", "This code is not valid. Make a new one in nexsuite.", 409)
     try:
         made = request("POST", base + "/api/connect/v1/pair", body={
@@ -318,12 +324,12 @@ def start(db: Session, url: str, code: str, redirect_uri: str, own_url: str) -> 
             "capabilities": CAPABILITIES, "redirect_uri": redirect_uri,
         })
     except SuiteError as exc:
-        # Another app at that address (its own refusal would read like one of nexcanvas') or nexsuite under a path it
-        # does not have: say that the address is wrong (B24).
+        # Another app at that address (its own refusal would read like one of nexcanvas') or the directory service under
+        # a path it does not have: say that the address is wrong.
         if exc.code in PAIR_CODES:
             raise
         if exc.http == 422:
-            # nexsuite did not take the code as it came (too long, wrong characters): a wrong code too.
+            # The directory service did not take the code as it came (too long, wrong characters): a wrong code too.
             raise SuiteError("pair_code_invalid", "This code is not valid. Make a new one in nexsuite.", 409) from exc
         raise _not_suite() from exc
     if not isinstance(made, dict) or not all(made.get(key) for key in ("token", "client_id", "client_secret",
@@ -354,12 +360,12 @@ def proposal(db: Session) -> Proposal:
     by_name = {_fold(p["name"]): p["id"] for p in people}
     by_id = {str(p["id"]): p["id"] for p in people}
     everybody = {str(p["id"]) for p in seen["people"]}
-    # The person an account had in this very nexsuite before a disconnect (B8 c): not one from another nexsuite,
-    # whose ids mean other people.
+    # The person an account had in this very directory service before a disconnect: not one from another directory
+    # service, whose ids mean other people.
     same_suite = str(settings_service.get(db, "suite_former_url") or "") == str(settings_service.get(db, "suite_url"))
     operator = operator_id(db)
     # Every suggestion at most once: a second account with the same address or name is suggested as new, never as
-    # the same person (Prüfgang 04.10.2026, A7). The operator's own account goes first, then those nexsuite once
+    # the same person. The operator's own account goes first, then those the directory service once
     # brought, so their own person is theirs and not taken by an account with a name alike.
     rows = sorted(db.scalars(select(Account)),
                   key=lambda row: (row.id != operator, not (same_suite and row.suite_person), row.id))
@@ -376,8 +382,8 @@ def proposal(db: Session) -> Proposal:
             guess = None
         if guess:
             taken.add(guess)
-        # Blocked here (left out last time, blocked or deleted in nexsuite): it stays blocked unless the operator
-        # chooses otherwise, never let in again by a suggestion (B8 a, b).
+        # Blocked here (left out last time, blocked or deleted in the directory service): it stays blocked unless the
+        # operator chooses otherwise, never let in again by a suggestion.
         suggest = guess or ("skip" if blocked else "new")
         accounts_out.append({"id": row.id, "name": row.name, "display_name": row.display_name, "email": row.email,
                              "role": row.role, "suggest": suggest, "blocked": blocked,
@@ -398,8 +404,9 @@ def proposal(db: Session) -> Proposal:
     chosen = pending.get("chosen") or None
     sent = pending.get("sent") or {}
     if "chosen" in sent:
-        # /finish went out: the choices that went with it, as they were, with their targets by name (nexsuite offers
-        # no space once it has the connection). Accounts, spaces and teams that came here since are not among them.
+        # /finish went out: the choices that went with it, as they were, with their targets by name (the directory
+        # service offers no space once it has the connection). Accounts, spaces and teams that came here since are not
+        # among them.
         picked, names = sent["chosen"], sent.get("names") or {}
         accounts_out = [entry for entry in accounts_out if str(entry["id"]) in picked["accounts"]]
         spaces_out = [entry for entry in spaces_out if str(entry["id"]) in picked["spaces"]]
@@ -429,7 +436,7 @@ def _sent_already() -> SuiteError:
 
 def keep_choices(db: Session, chosen: dict[str, Any]) -> None:
     """The operator's choices so far and the step, kept with the connection under way: closing the assistant or
-    reloading the page resumes there instead of at the suggestions (B23). Checked and written under the lock a
+    reloading the page resumes there instead of at the suggestions. Checked and written under the lock a
     finish takes, so a late save never brings back what finishing cleared."""
     with _connect_lock:
         db.expire_all()
@@ -437,7 +444,7 @@ def keep_choices(db: Session, chosen: dict[str, Any]) -> None:
             raise SuiteError("not_connecting", "Start with the address and the code.", 409)
         pending = dict(settings_service.get(db, "suite_pending") or {})
         if pending.get("sent"):
-            # The choices of the /finish that went out hold; another one would only seem kept (review of e709c94).
+            # The choices of the /finish that went out hold; another one would only seem kept.
             raise _sent_already()
         pending["chosen"] = chosen
         settings_service.save(db, {"suite_pending": pending})
@@ -459,7 +466,7 @@ def _suggest(rows: list[dict[str, Any]], candidates: list[dict[str, Any]]) -> li
 
 
 def _alone(db: Session, space_id: int) -> str:
-    """A space of one person and no team (a personal one) is suggested to stay here, not to become shared (B7)."""
+    """A space of one person and no team (a personal one) is suggested to stay here, not to become shared."""
     members = db.scalar(select(func.count()).select_from(Membership).where(Membership.space_id == space_id)) or 0
     grants = db.scalar(select(func.count()).select_from(TeamGrant).where(TeamGrant.space_id == space_id)) or 0
     return "keep" if members == 1 and grants == 0 else ""
@@ -471,7 +478,7 @@ def operator_id(db: Session) -> int:
 
 
 def _no_twice(choices: dict[int, str], what: str) -> None:
-    """A person, space or team in nexsuite gets at most one counterpart here (A7)."""
+    """A person, space or team in the directory service gets at most one counterpart here."""
     chosen = [choice for choice in choices.values() if choice not in ("new", "skip", "keep")]
     twice = sorted({choice for choice in chosen if chosen.count(choice) > 1})
     if twice:
@@ -482,15 +489,15 @@ def finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces_
            teams_map: dict[int, str] | None = None) -> list[dict[str, str]]:
     """Applies the operator's choices: ``person id`` | ``new`` | ``skip`` per account, ``space id`` | ``new`` |
     ``keep`` (stays here, rights kept here) per space, ``team id`` | ``new`` per team. Then nexcanvas signs in
-    through nexsuite and fetches the directory."""
+    through the directory service and fetches the directory."""
     with _connect_lock:
         db.expire_all()
         return _finish(db, operator, accounts_map, spaces_map, teams_map)
 
 
 def _known(choices: dict[Any, str], known: set[str], what: str, also: tuple[str, ...]) -> None:
-    """Every choice names something nexsuite has (B9): an id it does not know would leave the account blocked and
-    bring the person twice with the next connection."""
+    """Every choice names something the directory service has: an id it does not know would leave the account blocked
+    and bring the person twice with the next connection."""
     for choice in choices.values():
         if choice not in also and str(choice) not in known:
             raise SuiteError(f"{what}_unknown", f"A {what} you chose is not in nexsuite (any more). Look at the "
@@ -504,10 +511,10 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
     teams_map = teams_map or {}
     sent = (settings_service.get(db, "suite_pending") or {}).get("sent")
     if sent:
-        # /finish went out before and its answer did not come, or writing it here failed: nexsuite may have the
-        # connection already and refuse everything else. Only /finish again, with what was matched then. What came
+        # /finish went out before and its answer did not come, or writing it here failed: the directory service may have
+        # the connection already and refuse everything else. Only /finish again, with what was matched then. What came
         # with this request does not count: the choices are fixed since (keeping others is refused, the assistant
-        # shows these locked), and accounts made or deleted meanwhile change nothing (decided 2026-10-07).
+        # shows these locked), and accounts made or deleted meanwhile change nothing.
         return _confirm(db, _token(db), sent)
     _no_twice(accounts_map, "person")
     _no_twice(spaces_map, "space")
@@ -517,7 +524,8 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
     new_people: list[dict[str, str]] = []
 
     def remember(key: str, value: dict[str, str]) -> None:
-        """What was made in nexsuite, kept at once: a retry after a failure uses it instead of making it again."""
+        """What was made in the directory service, kept at once: a retry after a failure uses it instead of making it
+        again."""
         made_before[key] = value
         pending = dict(settings_service.get(db, "suite_pending") or {})
         pending["made"] = dict(made_before)
@@ -525,7 +533,7 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
         db.commit()
     accounts_here = {row.id: row for row in db.scalars(select(Account))}
     seen = request("GET", _api(db, "/directory"), token=token)
-    # Checked before anything is made in nexsuite or changed here.
+    # Checked before anything is made in the directory service or changed here.
     _known(accounts_map, {str(p["id"]) for p in seen["people"] if not p.get("blocked")}, "person", ("new", "skip"))
     _known(spaces_map, {str(c["id"]) for c in seen.get("candidates") or []}, "space", ("new", "keep"))
     _known(teams_map, {str(t["id"]) for t in seen.get("teams") or []}, "team", ("new",))
@@ -547,14 +555,14 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
             choice = made["id"]
         else:
             if row.email and not addresses.get(str(choice)):
-                # Matched to a person without an address: the one from here goes along instead of getting lost (B7).
+                # Matched to a person without an address: the one from here goes along instead of getting lost.
                 try:
                     request("POST", _api(db, f"/people/{int(choice)}/email"), token=token, body={"email": row.email})
                 except SuiteError:
                     logger.info("nexsuite did not take the address name=%s", row.name)
             if row.display_name and not shown_names.get(str(choice)):
                 # The same for the display name: the sync after connecting would otherwise take the person's empty
-                # one, and the account would lose the name it had here (nexsuite 3ef5282). A refusal stops nothing.
+                # one, and the account would lose the name it had here. A refusal stops nothing.
                 try:
                     request("POST", _api(db, f"/people/{int(choice)}/name"), token=token,
                             body={"display_name": row.display_name})
@@ -576,13 +584,13 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
                     "name": team.name, "color": team.color, "members": members, "lead": lead})["id"])}
                 remember(f"team:{team.id}", made)
         else:
-            # The same team in nexsuite: its members here come along, it is not made a second time (B2).
+            # The same team in the directory service: its members here come along, it is not made a second time.
             made = request("POST", _api(db, f"/teams/{int(choice)}/join"), token=token,
                            body={"members": members, "lead": lead})
         team_of[team.id] = str(made["id"])
-    # Nothing here changes before nexsuite has confirmed the connection (``/finish``): only what was made there is
-    # kept on the way (``remember``). A failure at any step, the last one too, leaves the accounts, teams and spaces as
-    # they were, and giving up leaves nothing half connected (review of ba44488).
+    # Nothing here changes before the directory service has confirmed the connection (``/finish``): only what was made
+    # there is kept on the way (``remember``). A failure at any step, the last one too, leaves the accounts, teams and
+    # spaces as they were, and giving up leaves nothing half connected.
     space_of: dict[int, str] = {}
     for space_id, choice in spaces_map.items():
         space = db.get(Space, space_id)
@@ -601,18 +609,18 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
                 remember(f"space:{space.id}", made)
             space_of[space.id] = made["id"]
         else:
-            # Matched: the rights it has here come along, nexsuite keeps the higher where it has one (B1).
+            # Matched: the rights it has here come along, the directory service keeps the higher where it has one.
             request("POST", _api(db, f"/spaces/{int(choice)}/tick"), token=token,
                     body={"people": people, "teams": teams})
             space_of[space.id] = str(int(choice))
-    # Kept before /finish goes out: nexsuite may take it and the answer never come back (a lost answer, or writing
-    # here fails afterwards). The next try sends only /finish again and applies this (review of 4f54522).
+    # Kept before /finish goes out: the directory service may take it and the answer never come back (a lost answer, or
+    # writing here fails afterwards). The next try sends only /finish again and applies this.
     plan = {"operator": operator.id, "people": {str(k): v for k, v in person_of.items()},
             "teams": {str(k): v for k, v in team_of.items()}, "spaces": {str(k): v for k, v in space_of.items()},
             "skip": [k for k, v in accounts_map.items() if v == "skip"], "new_people": new_people,
             "chosen": _as_sent(accounts_map, spaces_map, teams_map),
-            # The targets by name, for showing the choices after a reload: nexsuite offers no space once it has
-            # the connection.
+            # The targets by name, for showing the choices after a reload: the directory service offers no space once it
+            # has the connection.
             "names": {
                 "people": [{"id": str(p["id"]), "name": p.get("name") or "",
                             "display_name": p.get("display_name") or "", "email": p.get("email") or ""}
@@ -628,9 +636,10 @@ def _finish(db: Session, operator: Account, accounts_map: dict[int, str], spaces
 
 
 def _confirm(db: Session, token: str, plan: dict[str, Any]) -> list[dict[str, str]]:
-    """Sends ``/finish`` and, once nexsuite has the connection, applies what was matched, here in one transaction with
-    the settings (``settings_service.save`` commits). nexsuite's ``already_connected`` to it, asked with this app's own
-    token, says it took an earlier ``/finish`` whose answer got lost: that is the confirmation too."""
+    """Sends ``/finish`` and, once the directory service has the connection, applies what was matched, here in one
+    transaction with the settings (``settings_service.save`` commits). The directory service's ``already_connected`` to
+    it, asked with this app's own token, says it took an earlier ``/finish`` whose answer got lost: that is the
+    confirmation too."""
     person_of = {int(k): str(v) for k, v in plan["people"].items()}
     team_of = {int(k): str(v) for k, v in plan["teams"].items()}
     space_of = {int(k): str(v) for k, v in plan["spaces"].items()}
@@ -648,15 +657,15 @@ def _confirm(db: Session, token: str, plan: dict[str, Any]) -> list[dict[str, st
         if space is not None:
             space.external_id = external
     for account_id, row in accounts_here.items():
-        # Which accounts nexsuite knows from now on, by its person (B8, B21): the matched and the made ones, linked to
-        # it at nexsuite's entry below. One left out is nobody's there and is never renamed for it; an own link it has
-        # (authentik) stays with its own provider, set aside while coupled.
+        # Which accounts the directory service knows from now on, by its person: the matched and the made ones, linked
+        # to it at the directory service's entry below. One left out is nobody's there and is never renamed for it; an
+        # own link it has (authentik) stays with its own provider, set aside while coupled.
         person = person_of.get(account_id)
         _way_back(row, person)
         row.suite_person = person or ""
         # Left out, or made here after the choices (between pairing and finishing, or after /finish went out): no
-        # person in nexsuite, so no way in while connected, and never a sign-in with a password of its own beside
-        # nexsuite. Never the emergency account (review of 7afa9c1).
+        # person in the directory service, so no way in while connected, and never a sign-in with a password of its own
+        # beside the directory service. Never the emergency account.
         if person is None and account_id != operator_id and row.blocked_at is None:
             row.blocked_at = utcnow()
             if str(account_id) not in chosen_accounts:
@@ -667,18 +676,18 @@ def _confirm(db: Session, token: str, plan: dict[str, Any]) -> list[dict[str, st
             team.source, team.external_id = TEAM_ADMIN, external
     pending = settings_service.get(db, "suite_pending") or {}
     values = settings_service.get_all(db)
-    # nexsuite becomes the provider: the coupled entry ``oidc`` of the list, the own entries set aside until the
-    # disconnect (blueprint 06, ``nexoidc.coupling``). One transaction with everything above: the store only flushes.
+    # The directory service becomes the provider: the coupled entry ``oidc`` of the list, the own entries set aside
+    # until the disconnect. One transaction with everything above: the store only flushes.
     joined = _couple(db, pending, [(account_id, person) for account_id, person in person_of.items()
                                    if account_id in accounts_here])
     settings_service.save(db, {
-        # What it was before, for the way back; the roles too, so that an operator role only nexsuite gave goes with
-        # the connection (B17). An account made while connected was none before: a member.
+        # What it was before, for the way back; the roles too, so that an operator role only the directory service gave
+        # goes with the connection. An account made while connected was none before: a member.
         "suite_saved": {**{key: values[key] for key in (*OIDC_KEYS, *SMTP_KEYS, "password_login")},
                         "roles": {str(row.id): row.role for row in accounts_here.values()}},
         "suite_coupling": joined,
-        # The way back to 0.3 (one version): its settings name nexsuite, as its own connecting wrote them, so that
-        # the persons in ``oidc_subject`` (``_way_back``) belong to the issuer beside them.
+        # The way back to 0.3 (one version): its settings name the directory service, as its own connecting wrote them,
+        # so that the persons in ``oidc_subject`` (``_way_back``) belong to the issuer beside them.
         **_old_settings(pending),
         "password_login": False,
         "suite_pending": None,
@@ -698,7 +707,7 @@ def _store(db: Session) -> Any:
 
 def _couple(db: Session, pending: dict[str, Any], people: list[tuple[int, str]]) -> dict[str, Any]:
     """The coupled entry with each matched or made account linked to its person, the own entries set aside; what is
-    needed to put them back. A /finish that is applied again (its answer lost before, B23) finds the coupling made and
+    needed to put them back. A /finish that is applied again (its answer lost before) finds the coupling made and
     keeps it."""
     store = _store(db)
     kept = settings_service.get(db, "suite_coupling")
@@ -711,7 +720,7 @@ def _couple(db: Session, pending: dict[str, Any], people: list[tuple[int, str]])
         client_secret=decrypt_secret(str(pending.get("secret_enc", "")), SECRET_CONTEXT),
         label=ENTRY_LABEL,
         people=people,
-        # nexcanvas never asked a code after nexsuite: nexsuite checks the second factor (blueprint 06).
+        # nexcanvas never asked a code after the directory service: the directory service checks the second factor.
         trusts_second_factor=True,
     )
     return joined.as_dict()
@@ -770,9 +779,10 @@ def settle_unsettled(db: Session, store: Any, entry: OidcProvider, seen: dict[st
 
 
 def _theirs_back(db: Session) -> list[Account]:
-    """The accounts nexsuite knew (their links at its entry) sign in here again, with their password when they have
-    one (B8); each keeps its person for connecting again to the same nexsuite. The columns of 0.3 go back as 0.3 put
-    them back (the way back): the person out of ``oidc_subject``, an own subject from ``oidc_subject_local`` in."""
+    """The accounts the directory service knew (their links at its entry) sign in here again, with their password when
+    they have one; each keeps its person for connecting again to the same directory service. The columns of 0.3 go back
+    as 0.3 put them back (the way back): the person out of ``oidc_subject``, an own subject from ``oidc_subject_local``
+    in."""
     entry = _coupled_entry(db)
     theirs: list[Account] = []
     if entry is not None:
@@ -809,10 +819,11 @@ def _uncouple(db: Session) -> None:
 
 
 def abort(db: Session) -> bool:
-    """Gives up a connection that did not finish; nexsuite is asked to forget the app. A finished connection is not
-    given up this way: nexsuite would keep the app while it ran on its own, without anybody's password (B2). Under the
-    lock a finish holds: a give-up from another tab waits for it and then finds the connection done. True when
-    /finish had gone out and nexsuite could not be told: it may list the app as connected still."""
+    """Gives up a connection that did not finish; the directory service is asked to forget the app. A finished
+    connection is not given up this way: the directory service would keep the app while it ran on its own, without
+    anybody's password. Under the lock a finish holds: a give-up from another tab waits for it and then finds the
+    connection done. True when /finish had gone out and the directory service could not be told: it may list the app as
+    connected still."""
     with _connect_lock:
         db.expire_all()
         if state(db) == "connected":
@@ -840,10 +851,10 @@ def _open_mail(token: str, sealed: str) -> dict[str, Any]:
 
 
 def _claim_name(db: Session, wanted: str, present: set[str], keeper: int, renamed: list[tuple[str, str]]) -> str:
-    """The name for an account nexsuite brings: the person's own. An account holding it whose person nexsuite knew
-    (``suite_person``; never one left out when connecting, whatever link it has) and has deleted since (it stays
-    here, blocked, with its boards) moves to the next free name, so a new person of that name is called as in nexsuite
-    and not ``name2`` (B21). What still names it by its name follows in the same
+    """The name for an account the directory service brings: the person's own. An account holding it whose person the
+    directory service knew (``suite_person``; never one left out when connecting, whatever link it has) and has deleted
+    since (it stays here, blocked, with its boards) moves to the next free name, so a new person of that name is called
+    as in the directory service and not ``name2``. What still names it by its name follows in the same
     transaction (the notices it caused or concerned; the log after the commit, in ``renamed``), so nothing it did
     reads like the new person's. Never the emergency account: its name is its way in."""
     base = re.sub(r"[^a-z0-9._-]", "", wanted.lower())[:60] or "person"
@@ -869,11 +880,11 @@ def _free_name(db: Session, wanted: str, own_id: int | None = None) -> str:
 
 
 def sync(db: Session) -> bool:
-    """Fetches the directory and makes nexcanvas match it. False when nexsuite could not be asked."""
+    """Fetches the directory and makes nexcanvas match it. False when the directory service could not be asked."""
     if not connected(db):
         return False
     with _sync_lock:
-        # A disconnect waits for a sync and the other way round; disconnected meanwhile, nothing is applied (B5).
+        # A disconnect waits for a sync and the other way round; disconnected meanwhile, nothing is applied.
         db.expire_all()
         if not connected(db):
             return False
@@ -892,17 +903,17 @@ def sync(db: Session) -> bool:
         return True
 
 
-#: How long after a fetch for a person not known here another sign-in of that person fetches again (B20).
+#: How long after a fetch for a person not known here another sign-in of that person fetches again.
 UNKNOWN_SECONDS = 10.0
 _unknown_tried: dict[str, float] = {}
 _unknown_lock = threading.Lock()
 
 
 def sync_for_unknown(subject: str) -> None:
-    """A person signs in through nexsuite but has no account here yet (made there a moment ago): the directory is
-    fetched once now instead of turning the person away (B20). Once per person within ``UNKNOWN_SECONDS``, so sign-ins
-    of somebody nexsuite does not give this app never become a stream of fetches. Blocking: run it off the event
-    loop."""
+    """A person signs in through the directory service but has no account here yet (made there a moment ago): the
+    directory is fetched once now instead of turning the person away. Once per person within ``UNKNOWN_SECONDS``, so
+    sign-ins of somebody the directory service does not give this app never become a stream of fetches. Blocking: run it
+    off the event loop."""
     from ..db import SessionLocal
 
     now = time.monotonic()
@@ -917,7 +928,7 @@ def sync_for_unknown(subject: str) -> None:
 
 
 def _moment(text: Any) -> datetime:
-    """A time nexsuite sent; now when it cannot be read."""
+    """A time the directory service sent; now when it cannot be read."""
     try:
         moment = datetime.fromisoformat(str(text))
     except ValueError:
@@ -926,22 +937,23 @@ def _moment(text: Any) -> datetime:
 
 
 def shown_name(value: object) -> str:
-    """A display name from nexsuite, by the rule for names typed here: no control (Cc, C1 too) or format (Cf)
-    characters, blanks gathered, at most 80 characters (A13)."""
+    """A display name from the directory service, by the rule for names typed here: no control (Cc, C1 too) or format
+    (Cf) characters, blanks gathered, at most 80 characters."""
     text = "".join(char for char in str(value or "") if unicodedata.category(char) not in ("Cc", "Cf"))
     return " ".join(text.split())[:80]
 
 
 def plain_name(value: object, before: str = "") -> str:
-    """A team or space name from nexsuite, by the rule for names typed here: no control character (Cc: C0, DEL and
-    C1, which nexsuite takes), blanks gathered, at most 80 characters (A13). Nothing left: the name it had."""
+    """A team or space name from the directory service, by the rule for names typed here: no control character (Cc: C0,
+    DEL and C1, which the directory service takes), blanks gathered, at most 80 characters. Nothing left: the name it
+    had."""
     text = "".join(char for char in str(value or "") if unicodedata.category(char) != "Cc")
     return " ".join(text.split())[:80] or before or "?"
 
 
 def suite_email(person: dict[str, Any] | None) -> str:
-    """A person's address from nexsuite, only when it passes the check addresses typed here pass (no control
-    character, one line); otherwise none."""
+    """A person's address from the directory service, only when it passes the check addresses typed here pass (no
+    control character, one line); otherwise none."""
     email = str((person or {}).get("email") or "").strip()[:255]
     plain = not any(unicodedata.category(char) in ("Cc", "Cf") for char in email)
     return email if email and plain and accounts.EMAIL_PATTERN.match(email) else ""
@@ -952,13 +964,13 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
     signed_out: list[int] = []
     entry = _coupled_entry(db)
     if entry is None:
-        # Connected without nexsuite's entry in the provider list cannot happen through the coupling; nothing is
-        # matched by guessing then.
+        # Connected without the directory service's entry in the provider list cannot happen through the coupling;
+        # nothing is matched by guessing then.
         logger.error("Connected to nexsuite, but its sign-in entry is missing; the directory was not applied")
         return
     store = _store(db)
-    # Which account is which person: its link at nexsuite's entry (one identity per account and provider). Never the
-    # columns of 0.3, and never a link of an own entry: a subject "3" there is somebody else.
+    # Which account is which person: its link at the directory service's entry (one identity per account and provider).
+    # Never the columns of 0.3, and never a link of an own entry: a subject "3" there is somebody else.
     settle_unsettled(db, store, entry, seen)
     by_subject: dict[str, Account] = {}
     for link in store.links_of_provider(entry.id):
@@ -981,19 +993,21 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
             _way_back(row, pid)
         row.display_name = shown_name(person.get("display_name"))
         row.email = suite_email(person)
-        # nexsuite's address, not one a provider of its own gave (that one would go with the account's last link).
+        # The directory service's address, not one a provider of its own gave (that one would go with the account's last
+        # link).
         row.email_source = ""
         if person.get("email") and not row.email:
             logger.warning("An address from nexsuite refused, the account keeps none name=%s", row.name)
         if row.id != keeper:
-            # Signs in through nexsuite (password and second factor are set there); the own password stays kept
-            # for a disconnect. Only the emergency account keeps signing in here.
+            # Signs in through the directory service (password and second factor are set there); the own password stays
+            # kept for a disconnect. Only the emergency account keeps signing in here.
             row.sign_in = SIGN_IN_OIDC
-        # nexsuite knows this account by its person (also one connected before this was kept, B8, B21).
+        # The directory service knows this account by its person (also one connected before this was kept).
         row.suite_person = pid
         _take_picture(db, row, pid, person.get("avatar"), token)
         if person.get("signed_out"):
-            # Signed out everywhere in nexsuite (or a new password there): the sessions here from before end too.
+            # Signed out everywhere in the directory service (or a new password there): the sessions here from before
+            # end too.
             ended = db.execute(delete(AuthSession).where(AuthSession.account_id == row.id,
                                                          AuthSession.created_at < _moment(person["signed_out"])))
             if ended.rowcount:
@@ -1001,7 +1015,7 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
             moment = str(person["signed_out"])[:64]
             if moment != row.suite_signed_out:
                 # And the browsers known before: their device cookies no longer count, as after "sign out
-                # everywhere" here. Once per new moment: a sync that brings the same one changes nothing (A5).
+                # everywhere" here. Once per new moment: a sync that brings the same one changes nothing.
                 row.suite_signed_out = moment
                 row.device_key = new_device_key()
         if row.id != keeper:
@@ -1013,8 +1027,8 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
         elif not blocked and row.blocked_at is not None:
             row.blocked_at = None
         account_of[pid] = row.id
-    # People nexsuite no longer has can no longer sign in here; the emergency account neither, as when blocked there
-    # (Prüfgang D8, decided 04.10.2026). Disconnecting lets it in again.
+    # People the directory service no longer has can no longer sign in here; the emergency account neither, as when
+    # blocked there. Disconnecting lets it in again.
     for subject, row in by_subject.items():
         if subject not in account_of and row.blocked_at is None:
             row.blocked_at = utcnow()
@@ -1060,9 +1074,9 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
         _set_grants(db, space.id,
                     {account_of[g["id"]]: g["role"] for g in item.get("people", []) if g["id"] in account_of},
                     {team_of[g["id"]]: g["role"] for g in item.get("teams", []) if g["id"] in team_of})
-    # A space nexsuite no longer gives this app: its boards stay, only the operator sees them, marked "no longer in
-    # nexsuite", and may put it into the trash here (B18). One in nexsuite's bin is still nexsuite's: it comes
-    # back or goes for good from there, never by the clock or the bin here (E1, E3).
+    # A space the directory service no longer gives this app: its boards stay, only the operator sees them, marked "no
+    # longer in the directory service", and may put it into the trash here. One in the directory service's bin is still
+    # the directory service's: it comes back or goes for good from there, never by the clock or the bin here.
     binned = {str(item.get("id")) for item in seen.get("bin") or []}
     for sid, space in spaces.items():
         if sid in binned:
@@ -1072,8 +1086,8 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
             if space.suite_dropped_at is None and sid not in binned:
                 space.suite_dropped_at = utcnow()
                 logger.info("Space no longer given by nexsuite id=%s", space.id)
-    # Deleted in nexsuite: into this bin too, with nexsuite's date, so both empty after the same 30 days. A restore
-    # there brings it back above (it is given again).
+    # Deleted in the directory service: into this bin too, with the directory service's date, so both empty after the
+    # same 30 days. A restore there brings it back above (it is given again).
     for item in seen.get("bin") or []:
         space = spaces.get(str(item.get("id")))
         if space is not None and space.deleted_at is None:
@@ -1094,8 +1108,8 @@ def _apply(db: Session, seen: dict[str, Any], token: str) -> None:
             "suite_mail": True,
         })
     else:
-        # nexsuite has no mail server: then neither has the app (the own one is kept for a disconnect). The mail
-        # server is nexsuite's to set either way, never half here, half there.
+        # The directory service has no mail server: then neither has the app (the own one is kept for a disconnect). The
+        # mail server is the directory service's to set either way, never half here, half there.
         settings_service.save(db, {"smtp_host": "", "smtp_user": "", "smtp_password_enc": "", "smtp_from": "",
                                    "suite_mail": True})
     settings_service.save(db, {"suite_emergency": list(seen.get("emergency") or [])})
@@ -1134,21 +1148,21 @@ def _set_grants(db: Session, space_id: int, people: dict[int, str], teams: dict[
 
 
 #: Signatures of the notices taken in the last ``NOTICE_SECONDS``, with the moment they run out: the same notice
-#: twice is refused (A10).
+#: twice is refused.
 _notices_seen: dict[str, float] = {}
 _notices_lock = threading.Lock()
 
 
 def check_notice(db: Session, stamp: str, signature: str, body: bytes) -> dict[str, Any] | None:
-    """A notice from nexsuite, when it carries the right signature, is fresh (neither older nor further ahead than
-    ``NOTICE_SECONDS``) and was not taken before; None otherwise."""
+    """A notice from the directory service, when it carries the right signature, is fresh (neither older nor further
+    ahead than ``NOTICE_SECONDS``) and was not taken before; None otherwise."""
     if not connected(db) or not stamp.isascii() or not stamp.isdigit() or len(stamp) > 12:
         return None
     now = time.time()
     if abs(now - int(stamp)) > NOTICE_SECONDS:
         return None
     expected = hmac.new(_token(db).encode(), stamp.encode() + b"." + body, hashlib.sha256).hexdigest()
-    # Compared as bytes: a signature with characters beyond ASCII is simply wrong, not a failure of the server (A10).
+    # Compared as bytes: a signature with characters beyond ASCII is simply wrong, not a failure of the server.
     if not hmac.compare_digest(expected.encode(), signature.encode("utf-8", "replace")):
         return None
     try:
@@ -1178,10 +1192,10 @@ def _forget(db: Session) -> None:
 
 def disconnect(db: Session, *, tell: bool = True) -> tuple[list[str], list[str], list[str]]:
     """Runs on its own again with everything it got. Returns the names of accounts without a password (they need
-    one from the operator to sign in), of those blocked (in nexsuite, or left out): they stay blocked until the
-    operator unblocks them here (B4), and of those whose operator role came from nexsuite only and is gone now (B17).
-    Every way of disconnecting comes here: the operator's, the emergency code, and nexsuite's own notice. Never while
-    a sync runs (B5)."""
+    one from the operator to sign in), of those blocked (in the directory service, or left out): they stay blocked until
+    the operator unblocks them here, and of those whose operator role came from the directory service only and is gone
+    now. Every way of disconnecting comes here: the operator's, the emergency code, and the directory service's own
+    notice. Never while a sync runs."""
     with _sync_lock:
         return _disconnect(db, tell=tell)
 
@@ -1191,14 +1205,14 @@ def _disconnect(db: Session, *, tell: bool) -> tuple[list[str], list[str], list[
         try:
             request("POST", _api(db, "/leave"), token=_token(db))
         except SuiteError as exc:
-            # nexsuite has forgotten the app already: nothing to tell. Out of reach: the plain way would leave it
-            # holding an app that runs on its own, and make the emergency codes pointless (A11).
+            # The directory service has forgotten the app already: nothing to tell. Out of reach: the plain way would
+            # leave it holding an app that runs on its own, and make the emergency codes pointless.
             if exc.code != "suite_refused":
                 raise SuiteError("suite_unreachable_disconnect",
                                  "nexsuite does not answer. Disconnect with an emergency code, or try again when it is "
                                  "back.", 409) from exc
     saved = settings_service.get(db, "suite_saved") or {}
-    # Before the sign-in goes back: an operator role only nexsuite gave ends with the connection (B17).
+    # Before the sign-in goes back: an operator role only the directory service gave ends with the connection.
     back = []
     for row in operators_from_suite(db):
         row.role = MEMBER
@@ -1223,7 +1237,8 @@ def _disconnect(db: Session, *, tell: bool) -> tuple[list[str], list[str], list[
         space.suite_dropped_at = None
     keeper = db.get(Account, int(settings_service.get(db, "suite_emergency_account") or 0))
     if keeper is not None and keeper.blocked_at is not None:
-        # Blocked because nexsuite blocked or deleted the person: with nexsuite gone, it is the way in again (D8).
+        # Blocked because the directory service blocked or deleted the person: with the directory service gone, it is
+        # the way in again.
         keeper.blocked_at = None
         logger.warning("Emergency account let in again on disconnecting name=%s", keeper.name)
         db.flush()
@@ -1246,8 +1261,8 @@ def emergency_ok(db: Session, code: str) -> bool:
 
 
 def report(db: Session, kind: str, who: str) -> None:
-    """Tells nexsuite something for its log. Out of reach, the report waits and goes with a later round, with the
-    address and key of the moment, also after an emergency disconnect (A11)."""
+    """Tells the directory service something for its log. Out of reach, the report waits and goes with a later round,
+    with the address and key of the moment, also after an emergency disconnect."""
     owed = dict(settings_service.get(db, "suite_owed") or {})
     url = str(settings_service.get(db, "suite_url") or "")
     token = str(settings_service.get(db, "suite_token_enc") or "")
@@ -1261,12 +1276,12 @@ def report(db: Session, kind: str, who: str) -> None:
     deliver(db)
 
 
-#: Reports kept for nexsuite while it is out of reach; the oldest go first when there are more.
+#: Reports kept for the directory service while it is out of reach; the oldest go first when there are more.
 OWED_MAX = 50
 
 
 def deliver(db: Session) -> None:
-    """Sends what nexsuite still has to hear (each round of the background loop, connected or not)."""
+    """Sends what the directory service still has to hear (each round of the background loop, connected or not)."""
     owed = settings_service.get(db, "suite_owed") or {}
     reports = list(owed.get("reports") or [])
     if not reports:
@@ -1278,7 +1293,7 @@ def deliver(db: Session) -> None:
             request("POST", str(owed["url"]).rstrip("/") + "/api/connect/v1/report", token=token, body=item)
         except SuiteError as exc:
             if exc.code == "suite_refused":
-                break  # nexsuite has forgotten the app: nobody left to tell
+                break  # The directory service has forgotten the app: nobody left to tell
             left = reports[index:]
             logger.info("nexsuite not told yet about %s (out of reach), tried again later", item.get("kind"))
             break

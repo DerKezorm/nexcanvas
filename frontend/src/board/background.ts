@@ -1,5 +1,5 @@
 /**
- * The look behind a board's items (block 3): a pattern and a colour, chosen per board and the same for everybody who
+ * The look behind a board's items: a pattern and a colour, chosen per board and the same for everybody who
  * has it open. Without a choice of its own a board follows the account's default (dots or nothing).
  *
  * The pattern lives in board units: it moves and grows with panning and zooming, so it reads as paper, and snapping

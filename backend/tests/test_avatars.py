@@ -82,7 +82,7 @@ def test_only_pictures_come_in(client: TestClient, account: object) -> None:
 
 
 def test_seen_by_everybody_on_the_server(client: TestClient, account: object) -> None:
-    """Colleagues know each other, as in nextasks: no space needs to be shared."""
+    """Colleagues know each other: no space needs to be shared."""
     anna, bob, carl = person("anna"), person("bob"), person("carl")
     assert anna.put("/api/auth/avatar", content=photo()).status_code == 200
     address = f"/api/avatars/{me(anna)['id']}"

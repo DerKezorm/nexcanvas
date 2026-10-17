@@ -71,7 +71,7 @@ export function Sidebar() {
       <section className="px-2.5 py-2.5">
         <div className="flex items-center justify-between px-1.5">
           <span className="rounded-full bg-ink-850 px-3 py-1 text-[11px] font-semibold tracking-wider text-mist-100 uppercase">{t('sidebar.spaces')}</span>
-          {/* Connected to nexsuite: spaces are made there. */}
+          {/* Connected to the directory service: spaces are made there. */}
           {me?.suite !== 'connected' && (
             <button type="button" className="rounded p-1 text-mist-500 hover:bg-ink-850 hover:text-mist-100" title={t('sidebar.newSpace')} aria-label={t('sidebar.newSpace')} onClick={() => shell.newSpace()}>
               <Plus className="h-4 w-4" />
@@ -96,7 +96,7 @@ export function Sidebar() {
                   <Link to={`/?space=${space.id}`} className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-[13px] font-semibold text-mist-100">
                     <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: space.color }} />
                     <span className="truncate">{space.name}</span>
-                    {/* nexsuite let it go: only the operator sees it now (B18). */}
+                    {/* The directory service let it go: only the operator sees it now. */}
                     {space.dropped && <span className="shrink-0 rounded-full border border-warn-500/40 px-1.5 text-[10px] font-medium text-warn-500" title={t('suite.droppedHint')} data-testid="space-dropped">{t('suite.dropped')}</span>}
                     <span data-contrast="counter" className="ml-auto text-[11px] font-normal text-mist-500 tabular-nums opacity-0 group-hover:opacity-100">{inside.length}</span>
                   </Link>

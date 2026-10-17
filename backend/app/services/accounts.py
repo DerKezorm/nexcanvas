@@ -41,7 +41,7 @@ logger = logging.getLogger("nexcanvas.auth")
 
 NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]{1,63}$")
 #: Enough to catch a typo, not a validation of the address: the mail server has the last word.
-#: No control character (NUL, ESC, DEL and C1 went through into the mail before, A13), and ``\Z``: ``$`` lets a
+#: No control character (NUL, ESC, DEL and C1 went through into the mail before), and ``\Z``: ``$`` lets a
 #: closing line break pass.
 _PART = r"[^@\s<>,;\x00-\x1f\x7f-\x9f]+"
 EMAIL_PATTERN = re.compile(rf"^{_PART}@{_PART}\.{_PART}\Z")
@@ -178,7 +178,7 @@ def authenticate(db: Session, name: str, password: str, device: int | None = Non
     Failures from that browser do not count towards the lock.
 
     A blocked account hears that it is blocked and whom to ask, but only after its right password; a wrong one answers
-    as for anybody (Prüfgang 05.10.2026 A16, as decided for the family). The caller counts it for the brakes like a
+    as for anybody. The caller counts it for the brakes like a
     failure. The same for the emergency account while connected (``/notzugang`` signs in here too).
     """
     account = by_name(db, name)
@@ -201,7 +201,7 @@ def authenticate(db: Session, name: str, password: str, device: int | None = Non
                 note_failure(db, account)
             raise AccountError("wrong_credentials", "Name or password is wrong.", 401)
         if account.blocked_at is not None:
-            # The right password: it hears that it is blocked and whom to ask (A16). The count of failures stays.
+            # The right password: it hears that it is blocked and whom to ask. The count of failures stays.
             logger.warning("Sign-in refused, account blocked name=%s", account.name)
             raise AccountError("account_blocked", "This account is blocked. Ask the operator to unblock it.", 403)
         if not account.totp_secret_enc:
@@ -219,7 +219,7 @@ def change_password(db: Session, account: Account, current: str, new: str) -> No
     if not verify_password(current, account.password_hash):
         raise AccountError("wrong_password", "The current password is wrong.", 401)
     if new == current:
-        # Taken before, and it ended the other sessions as if something had changed (Prüfgang E25).
+        # Taken before, and it ended the other sessions as if something had changed.
         raise AccountError("password_unchanged", "The new password is the same as the current one.", 422)
     account.password_hash = hash_password(new)
     db.commit()

@@ -1,4 +1,4 @@
-"""Own templates (block 5): who keeps them where, who sees them, and that only a board's checked content is kept."""
+"""Own templates: who keeps them where, who sees them, and that only a board's checked content is kept."""
 
 from __future__ import annotations
 

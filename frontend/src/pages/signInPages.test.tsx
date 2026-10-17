@@ -1,5 +1,5 @@
 /**
- * The pages a person meets around sign-in providers, as the shared sign-in blueprint lays them out (part 04): the
+ * The pages a person meets around sign-in providers, as the shared sign-in blueprint lays them out: the
  * sign-in page with a button per provider below "or" (only the buttons and the operator's way when the password is
  * off), the code step after a provider that is not trusted with the second factor, an error from the address only as a
  * fixed sentence, the invitation's "Continue with …", the account page's row per provider, and the address a provider

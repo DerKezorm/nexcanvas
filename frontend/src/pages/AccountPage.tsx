@@ -166,7 +166,7 @@ export function AccountPage() {
               }}
             >
               <div className="min-w-0 flex-1">
-                {/* The server's limit (80), so a longer name cannot be typed; a refusal leaves the field as it is (E21). */}
+                {/* The server's limit (80), so a longer name cannot be typed; a refusal leaves the field as it is. */}
                 <Field label={t('me.profile.displayName')} value={shownAs} onChange={setShownAs} autoComplete="name" maxLength={80} />
               </div>
               <button type="submit" disabled={busy || shownAs.trim() === (me.display_name ?? '')} className="h-10 rounded-full bg-accent-500 px-4 text-sm font-semibold text-on-accent hover:bg-accent-400 disabled:opacity-40">
@@ -190,7 +190,7 @@ export function AccountPage() {
               )}
             </dl>
             {/* A provider knows the account by another address: offered, taken only when the account says so
-                (blueprint 01; an account through providers only follows it by itself). */}
+. */}
             {me.provider_email && (
               <div data-testid="mail-offer" className="mt-4 rounded-xl border border-accent-500/35 bg-accent-500/10 px-3.5 py-3 text-sm">
                 <p className="text-mist-200">{t('me.emailOffer', { address: me.provider_email })}</p>
@@ -242,7 +242,7 @@ export function AccountPage() {
               </Section>
             )}
 
-            {/* Connected, password and second factor of whoever signs in through nexsuite live there, with the way to it (G3). */}
+            {/* Connected, password and second factor of whoever signs in through the directory service live there, with the way to it. */}
             {me.suite === 'connected' && me.sign_in !== 'password' && (
               <Section icon={KeyRound} title={t('me.password.title')}>
                 <div className="space-y-2">
@@ -253,12 +253,12 @@ export function AccountPage() {
             )}
 
             <Section icon={ShieldCheck} title={t('twofactor.title')}>
-              {/* Connected: who signs in through nexsuite sets the second factor there; only the emergency account keeps its own here. */}
+              {/* Connected: who signs in through the directory service sets the second factor there; only the emergency account keeps its own here. */}
               {me.suite === 'connected' && me.sign_in !== 'password' ? <Managed text={t('suite.managedTwoFactor')} /> : <SecondFactor me={me} />}
             </Section>
 
-            {/* A row per active provider with its state and "Link" or "Unlink" (blueprint 04). Connected, the person is
-                nexsuite's and nothing is linked here. */}
+            {/* A row per active provider with its state and "Link" or "Unlink". Connected, the person is
+                the directory service's and nothing is linked here. */}
             {me.suite !== 'connected' && providers !== null && (providers.length > 0 || me.sign_in === 'oidc') && (
               <Section icon={Shield} title={t('oidc.account.title')}>
                 <p className="mb-3 text-sm text-mist-400">{t('oidc.account.text')}</p>
@@ -345,7 +345,7 @@ export function AccountPage() {
 /** Below this many recovery codes the account is told to make new ones. */
 const LOW_CODES = 3
 
-/** The way to nexsuite, where what is kept there is changed (G3). */
+/** The way to the directory service, where what is kept there is changed. */
 function SuiteLink({ url }: { url?: string }) {
   const { t } = useTranslation()
   if (!url) return null
@@ -400,7 +400,7 @@ function SecondFactor({ me }: { me: Me }) {
 
   return (
     <div className="space-y-3 text-sm" data-testid="second-factor">
-      {/* The emergency codes are told apart only where there are any: connected to nexsuite (H11). */}
+      {/* The emergency codes are told apart only where there are any: connected to the directory service. */}
       <p className="text-mist-400" data-testid="second-factor-lead">
         {me.suite === 'connected' ? `${t('twofactor.lead')} ${t('twofactor.leadSuite')}` : t('twofactor.lead')}
       </p>

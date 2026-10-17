@@ -129,7 +129,7 @@ class MemberIn(BaseModel):
 @router.get("/spaces/{space_id}/members", summary="Who is in the space, and the open invitations")
 def members(space_id: SpaceId, account: Account, db: DbSession) -> dict[str, Any]:
     # Everybody in the space sees who else is (all see all), with the teams that have a right; changing it and the
-    # open invitations are the managers' (Prüfgang D3: readers and writers saw a form that only failed).
+    # open invitations are the managers' (readers and writers saw a form that only failed).
     space = db.get(Space, space_id)
     if space is None or space.deleted_at is not None:
         raise error("not_found", "No such space.", 404)
@@ -157,15 +157,15 @@ def members(space_id: SpaceId, account: Account, db: DbSession) -> dict[str, Any
                    "people": len(in_teams[team.id])} for grant, team in grants],
         "count": len(everybody),
         "invites": [_invite_view(invite, db) for invite in invites if not accounts.expired(invite)] if managing else [],
-        # Invitations by name not answered yet: seen and withdrawn by the managers (F2).
+        # Invitations by name not answered yet: seen and withdrawn by the managers.
         "asked": [{"id": notice.id, "name": person.name, "role": notice.role, "at": notice.created_at.isoformat()}
                   for notice, person in db.execute(
                       select(SpaceNotice, AccountRow).join(AccountRow, AccountRow.id == SpaceNotice.account_id)
                       .where(SpaceNotice.space_id == space.id, SpaceNotice.kind == notices.INVITE,
                              SpaceNotice.done_at.is_(None)).order_by(AccountRow.name))] if managing else [],
         "role": rights.role_in(db, account, space.id),
-        # Connected to nexsuite: the accounts come from there (no invitation links), and so do the rights of a space
-        # nexsuite gives this app.
+        # Connected to the directory service: the accounts come from there (no invitation links), and so do the rights
+        # of a space the directory service gives this app.
         "suite": suite.connected(db),
         "managed": bool(space.external_id) and suite.connected(db),
     }
@@ -332,7 +332,7 @@ class InviteIn(BaseModel):
     send: bool = False
     #: The language the inviter's page shows: the mail's, when neither the receiver nor the inviter has one.
     language: str = Field(default="", max_length=16)
-    #: Into nexcanvas and straight into this space with ``role`` (operator, E18); left out: into nexcanvas only.
+    #: Into nexcanvas and straight into this space with ``role`` (operator); left out: into nexcanvas only.
     space: int | None = Field(default=None, ge=1)
 
 
@@ -354,7 +354,7 @@ def _create(db: DbSession, request: Request, by: AccountRow, space: Space | None
         raise error("invalid_email", "Sending needs a mail address.", 422)
     if payload.send:
         if not mailer.configured(db):
-            # No mail server is a setting, not a failing server: said before anything is made or counted (G12).
+            # No mail server is a setting, not a failing server: said before anything is made or counted.
             raise error("mail_off", "No mail server is set up.", 409)
         # A mail goes out under the operator's mail server: never with a link to an address the request made up
         # (the Host header), and not without end.
@@ -365,7 +365,7 @@ def _create(db: DbSession, request: Request, by: AccountRow, space: Space | None
             raise error("too_many_attempts", "Too many invitation mails. Try again later.", 429)
         brake.failed(key)
     if email:
-        # One open invitation per address and place: a second one replaces the first (Prüfgang F2), so no old link
+        # One open invitation per address and place: a second one replaces the first, so no old link
         # stays valid beside the new one.
         place = Invite.space_id == space.id if space else Invite.space_id.is_(None)
         for old in db.scalars(select(Invite).where(func.lower(Invite.email) == email.lower(), place)):
@@ -383,7 +383,7 @@ def _create(db: DbSession, request: Request, by: AccountRow, space: Space | None
         try:
             # Named as others see the inviter; the link says until when it works (g3-6, b3-20). In the language of
             # whoever receives it: an account that has the address already, else the inviter's, else the language of
-            # the inviter's page (decision 8 of 05.10.2026).
+            # the inviter's page.
             known = db.scalar(select(AccountRow).where(func.lower(AccountRow.email) == email.lower()).limit(1))
             language = mailer.language_for(db, known, *mailer.languages(by, payload.language))
             mailer.send_invite(db, email, link, by=by.display_name or by.name, space=space.name if space else None,
@@ -409,7 +409,7 @@ def invite_to_space(space_id: SpaceId, payload: InviteIn, request: Request, acco
 
 @router.get("/invites", summary="Open invitations, with the space they bring into if any (operator)")
 def list_invites(_operator: OperatorAccount, db: DbSession) -> list[dict[str, Any]]:
-    # Those into a space are listed too, with its name: the operator makes them here as well (E18). One into a space
+    # Those into a space are listed too, with its name: the operator makes them here as well. One into a space
     # in the trash is no way in any more and is left out.
     names = {row[0]: row[1] for row in db.execute(select(Space.id, Space.name).where(Space.deleted_at.is_(None)))}
     return [{**_invite_view(invite, db), "space": names.get(invite.space_id) if invite.space_id else None}
@@ -425,7 +425,7 @@ def invite(payload: InviteIn, request: Request, operator: OperatorAccount, db: D
         if payload.role:
             raise error("invalid_role", "A right needs a space.", 422)
         return _create(db, request, operator, None, payload)
-    # Straight into a space as well (E18): the same checks as an invitation from the space's members dialog.
+    # Straight into a space as well: the same checks as an invitation from the space's members dialog.
     space = _space(db, operator, payload.space)
     if payload.role not in SPACE_ROLES:
         raise error("invalid_role", "Unknown right.", 422)
@@ -450,7 +450,7 @@ def _valid(db: DbSession, token: str) -> Invite:
     row = accounts.find_invite(db, token)
     if row is None:
         # A link that expired says so; everything else (used, withdrawn, replaced by a newer one, or its sender no
-        # longer manages the space) gets the one answer naming them (Prüfgang G4, as nextasks).
+        # longer manages the space) gets the one answer naming them.
         if accounts.invite_expired(db, token):
             raise error("invite_expired", "This invitation has expired.", 404)
         raise error("invite_invalid", "This invitation is not valid any more.", 404)
@@ -461,8 +461,8 @@ def _valid(db: DbSession, token: str) -> Invite:
 def invite_state(token: Token, request: Request, db: DbSession) -> dict[str, Any]:
     row = _valid(db, token)
     if suite.connected(db):
-        # Connected, people and rights come from nexsuite: a link from before is no way in, and the page says so at
-        # once instead of naming a space and a right as if it held (Prüfgang B26).
+        # Connected, people and rights come from the directory service: a link from before is no way in, and the page
+        # says so at once instead of naming a space and a right as if it held.
         raise error("invite_suite", "nexcanvas is connected to nexsuite now; this invitation is not valid any more.",
                     404)
     space = db.get(Space, row.space_id) if row.space_id else None
@@ -471,7 +471,7 @@ def invite_state(token: Token, request: Request, db: DbSession) -> dict[str, Any
     return {
         "space": space.name if space else None,
         "role": row.space_role or None,
-        # Who invites, as others see them (E18): a link from nobody one knows is easily taken for spam.
+        # Who invites, as others see them: a link from nobody one knows is easily taken for spam.
         "by": (by.display_name or by.name) if by else None,
         "min_password": MIN_PASSWORD,
         "signed_in_as": signed_in.name if signed_in else None,
@@ -509,7 +509,7 @@ def accept(token: Token, payload: AcceptIn, request: Request, response: Response
 
 @router.post("/invite/{token}/join", summary="Accept an invitation with the signed-in account")
 def join(token: Token, account: Account, db: DbSession) -> dict[str, Any]:
-    # Connected, rights come from nexsuite: an invitation from before is no way in (A9).
+    # Connected, rights come from the directory service: an invitation from before is no way in.
     suite.refuse_if_managed(db)
     row = _valid(db, token)
     if row.space_id is None:

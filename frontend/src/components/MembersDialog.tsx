@@ -34,7 +34,7 @@ export function MembersDialog({ space, onClose }: { space: Space; onClose: () =>
   const [inviteRole, setInviteRole] = useState<Role>('write')
   const [days, setDays] = useState<(typeof DAYS)[number]>('7')
   const [email, setEmail] = useState('')
-  // An address typed in is meant to get the link (Prüfgang F2: the box was off, and nothing went out).
+  // An address typed in is meant to get the link (the box was off, and nothing went out).
   const [send, setSend] = useState(true)
   const { directory } = useDirectory()
   const [made, setMade] = useState<NewInvite | null>(null)
@@ -62,9 +62,9 @@ export function MembersDialog({ space, onClose }: { space: Space; onClose: () =>
 
   const manages = data?.role === 'manage'
   const operator = me?.role === 'operator'
-  /** A space nexsuite gives this app: its rights are kept there, here they are only shown. */
+  /** A space the directory service gives this app: its rights are kept there, here they are only shown. */
   const locked = Boolean(data?.managed)
-  /** Readers and writers see who is in, managers (and the operator) change it (Prüfgang D3). */
+  /** Readers and writers see who is in, managers (and the operator) change it. */
   const mayChange = !locked && (manages || operator)
   const managers = data?.members.filter((member) => member.role === 'manage').length ?? 0
   const known = (name: string) => space.members.find((m) => m.name === name)

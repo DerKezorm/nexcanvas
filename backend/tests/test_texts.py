@@ -1,10 +1,10 @@
-"""The page's sentences for the server's error codes (Prüfgang H3, H18): every code the server sends has one in both
+"""The page's sentences for the server's error codes: every code the server sends has one in both
 shipped languages, every sentence belongs to a code something still sends, and no API message is the code with its
-underscores gone. As nextasks ``tests/test_texts.py``.
+underscores gone.
 
 The codes are read from the source: ``error("code", ...)``, the typed errors (``BoardError("code")`` and the like),
 the middleware's refusals, the keeper check and the sign-in redirects (``?error=code``). A code built at run time or
-passed on from nexsuite is named in ``BUILT`` with where it comes from.
+passed on from the directory service is named in ``BUILT`` with where it comes from.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 APP = ROOT / "backend" / "app"
 FRONTEND = ROOT / "frontend" / "src"
 
-#: Codes put together at run time or passed on from nexsuite, with their source.
+#: Codes put together at run time or passed on from the directory service, with their source.
 BUILT = {
     # services/suite.py: f"{what}_twice", f"{what}_unknown" for person, space, team
     "person_twice", "space_twice", "team_twice", "person_unknown", "space_unknown", "team_unknown",
@@ -47,7 +47,7 @@ def _sources(folder: Path, suffixes: tuple[str, ...]) -> str:
 def server_codes() -> set[str]:
     from app.services import suite
 
-    # services/suite.py PAIR_CODES: nexsuite's own codes, passed on when it refuses to pair; read from there, so a
+    # services/suite.py PAIR_CODES: the directory service's own codes, passed on when it refuses to pair; read from there, so a
     # code added to the list needs its sentence too.
     return set(RAISED.findall(_sources(APP, (".py",)))) | BUILT | set(suite.PAIR_CODES)
 
@@ -66,7 +66,7 @@ def shared_texts(language: str) -> dict[str, str]:
 def test_the_scan_finds_the_codes_it_should() -> None:
     codes = server_codes()
     # One of each way in: error(), a typed error, a refusal of the middleware, the keeper check, a sign-in redirect,
-    # a code a function hands back for a redirect, and a nexsuite refusal.
+    # a code a function hands back for a redirect, and a directory service refusal.
     assert {"not_found", "invalid_title", "client_required", "backups_emergency_only", "oidc_only_account",
             "managed_by_suite", "token_invalid", "display_name_too_long"} <= codes
     # A floor: the scan reads the whole server, not one file.

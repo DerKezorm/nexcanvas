@@ -202,7 +202,7 @@ def test_a_blocked_account_reads_nothing_with_its_token(client: TestClient, oper
         token = make_token(browser)
     with new_client() as program:
         assert program.get("/api/v1/me", headers=bearer(token)).status_code == 200
-        with SessionLocal() as db:  # blocked here or in nexsuite (Prüfgang 04.10.2026, A4)
+        with SessionLocal() as db:  # blocked here or in the directory service
             db.get(Account, anna.id).blocked_at = utcnow()  # type: ignore[union-attr]
             db.commit()
         assert program.get("/api/v1/me", headers=bearer(token)).status_code == 401

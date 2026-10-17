@@ -1,5 +1,5 @@
 """Helpers for nexcanvas' own tests around sign-in through a provider (the landing page, addresses, invitations into
-spaces, the operator's list, the coupling to nexsuite, the migration). The provider is the fake of the shared
+spaces, the operator's list, the coupling to the directory service, the migration). The provider is the fake of the shared
 contract tests (``tests/nexoidc``, ``oidc_fakes``): real RS256 tokens, discovery, keys, token and userinfo answered in
 memory, never the network.
 """

@@ -1,7 +1,7 @@
 /**
- * Teams: who works together, the same in every app of the family (nextasks has them too). The operator makes them;
- * the lead of a team changes its members when the operator allows it (off from the start, D3). A space gives a team a right, and then everybody in it has that right.
- * Everybody on the server sees everybody, as in nextasks.
+ * Teams: who works together, the same in every app of the family. The operator makes them;
+ * the lead of a team changes its members when the operator allows it (off from the start). A space gives a team a right, and then everybody in it has that right.
+ * Everybody on the server sees everybody.
  */
 import { Mail, Plus, Trash2, UsersRound } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
@@ -56,7 +56,7 @@ export function TeamsCard() {
   const { directory, reload, person } = useDirectory()
   const [editing, setEditing] = useState<Team | 'new' | null>(null)
   const teams = directory?.teams ?? []
-  // Whether leads change their teams: the operator's switch (D3). Connected, nexsuite decides.
+  // Whether leads change their teams: the operator's switch. Connected, the directory service decides.
   const [leadsEdit, setLeadsEdit] = useState<boolean | null>(null)
   const switching = useAction()
   useEffect(() => {

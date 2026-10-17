@@ -156,11 +156,11 @@ export function BoardPage() {
   }, [id, known])
   const fetched = answer?.id === id ? answer.board : null
   const board = known ?? (fetched && fetched !== 'missing' ? fetched : undefined)
-  // The tab names the board (F13); one that is not there names nothing.
+  // The tab names the board; one that is not there names nothing.
   useTitle(board && !board.deleted ? board.title : null)
   if (!board && fetched !== 'missing') return <main className="nc-board flex-1" />
   if (!board || board.deleted) {
-    // In the family's words, with the way to all boards (E31).
+    // In the family's words, with the way to all boards.
     return (
       <main className="nc-scroll min-w-0 flex-1 overflow-y-auto px-4">
         <NotFound text={t('board.missing')} />
@@ -1475,7 +1475,7 @@ function Editor({ board }: { board: Board }) {
               onBlur={() => {
                 const wanted = title.trim()
                 if (!wanted || wanted === board.title) return setTitle(null)
-                // A refusal says why and keeps what was typed in the field (E21).
+                // A refusal says why and keeps what was typed in the field.
                 boards.patch(board.id, { title: wanted }).then(
                   () => setTitle(null),
                   (error) => setNotice(problemText(error)),
@@ -1982,7 +1982,7 @@ function LinkDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (url: stri
 }
 
 /**
- * The board was closed by the server: said plainly, not only as a small word in the head row (Prüfgang E2). A lost
+ * The board was closed by the server: said plainly, not only as a small word in the head row. A lost
  * right may be a lost session (blocked, signed out everywhere): then the sign-in says so.
  */
 function BoardClosed({ code, spaceId }: { code: number | null; spaceId: number | null }) {

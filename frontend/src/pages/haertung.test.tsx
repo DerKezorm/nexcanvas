@@ -1,6 +1,6 @@
 /**
- * Prüfgang 05.10.2026 for nexcanvas on its own: the hint about a proxy nobody named (A5), the switch for team leads
- * (D3), an open page that asks after its session every five seconds (A8), and the sentences for the new refusals.
+ * The hint about a proxy nobody named, the switch for team leads,
+ * an open page that asks after its session every five seconds, and the sentences for the new refusals.
  */
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
@@ -68,7 +68,7 @@ async function render(node: React.ReactNode, at = '/'): Promise<void> {
   await settle()
 }
 
-describe('the proxy hint (A5)', () => {
+describe('the proxy hint', () => {
   it('names the setting while a proxy stands in front unnamed', async () => {
     const { ProxyHint } = await import('./settings/ServerCards')
     handler = (_m, path) => (path === '/api/settings' ? { status: 200, body: { proxy_unknown: true } } : undefined)
@@ -87,7 +87,7 @@ describe('the proxy hint (A5)', () => {
   })
 })
 
-describe('team leads (D3)', () => {
+describe('team leads', () => {
   const directory = {
     me: 2,
     people: [
@@ -146,13 +146,13 @@ describe('team leads (D3)', () => {
     expect(box.textContent).toContain(errorText('managed_by_suite'))
   })
 
-  it('names a team only in the hint in every space, as in nextasks', () => {
+  it('names a team only in the hint in every space', () => {
     expect(i18n.getFixedT('de')('teams.leadsSwitchHint')).toContain('in allen Bereichen')
     expect(i18n.getFixedT('en')('teams.leadsSwitchHint')).toContain('in every space')
   })
 })
 
-describe('an open page asks after its session (A8)', () => {
+describe('an open page asks after its session', () => {
   function Where() {
     const location = useLocation()
     return <span data-testid="where">{location.pathname + location.search}</span>

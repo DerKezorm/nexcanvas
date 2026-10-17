@@ -1,4 +1,4 @@
-/** A field with its name above it, and a problem as a red box: the pieces of the account page, as in nexlore. */
+/** A field with its name above it, and a problem as a red box: the pieces of the account page. */
 import { useId } from 'react'
 
 export function Field({
@@ -18,7 +18,7 @@ export function Field({
   autoComplete?: string
   autoFocus?: boolean
   hint?: string
-  /** The server's limit, so a longer text cannot be typed at all (Prüfgang E21). */
+  /** The server's limit, so a longer text cannot be typed at all. */
   maxLength?: number
 }) {
   // The hint describes the field; it is not part of its name.

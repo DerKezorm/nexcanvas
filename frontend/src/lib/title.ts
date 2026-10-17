@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 
-/** The browser tab says where one is: "Ideen · nexcanvas" instead of "nexcanvas" on every page (F13, as nexbrand). */
+/** The browser tab says where one is: "Ideen · nexcanvas" instead of "nexcanvas" on every page. */
 export function pageTitle(text: string | null | undefined): string {
   const name = (text ?? '').trim()
   return name ? `${name} · nexcanvas` : 'nexcanvas'

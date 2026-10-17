@@ -1,7 +1,7 @@
-// Connecting to nexsuite and living with it, as nextasks and nexbrand learnt it in the check of 05.10.2026: what the
-// assistant says about each account (B8, B16), that it keeps the choices (B23), says what takes a moment (B25), loads
-// the lists anew when nexsuite lost something chosen (B9), fits a phone (G9); the disconnect dialog (B17); the
-// sign-in page (B11, B12), an old invitation (B26), the account page (G3), the mail card (G8), the backups (B15).
+// Connecting to the directory service and living with it: what the
+// assistant says about each account, that it keeps the choices, says what takes a moment, loads
+// the lists anew when the directory service lost something chosen, fits a phone; the disconnect dialog; the
+// sign-in page, an old invitation, the account page, the mail card, the backups.
 import { act, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -152,8 +152,8 @@ function button(container: ParentNode, text: string): HTMLButtonElement | undefi
 
 const robin = { id: 1, name: 'robin', display_name: 'Robin Keller', role: 'operator', suite: '', sign_in: 'password', email: '', avatar: null, whats_new_seen: '' }
 
-/** Three accounts: robin (its person in nexsuite has no display name), jona (left out last time, blocked), and mila
- * (nexsuite brought it before a disconnect, and its person is gone there since). */
+/** Three accounts: robin (its person in the directory service has no display name), jona (left out last time, blocked), and mila
+ * (the directory service brought it before a disconnect, and its person is gone there since). */
 function connecting() {
   server.answers['GET /api/suite'] = { state: 'connecting', url: 'https://suite.example.com', last_sync: null, problem: '', emergency_codes: 0, mail: false }
   server.answers['GET /api/suite/proposal'] = {
@@ -201,8 +201,8 @@ afterEach(async () => {
   vi.unstubAllGlobals()
 })
 
-describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
-  it('marks blocked rows, those nexsuite brought and those whose person is gone, and names what changes', async () => {
+describe('the assistant', () => {
+  it('marks blocked rows, those the directory service brought and those whose person is gone, and names what changes', async () => {
     connecting()
     const page = await mount(<SuiteCard />)
     await click(button(page, 'Continue connecting'))
@@ -214,7 +214,7 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     expect(row(page, 'jona').textContent).not.toContain('Taken over')
     expect(badges('mila')).toEqual(['blocked', 'came from nexsuite'])
     expect(row(page, 'mila').textContent).toContain('Its person was deleted in nexsuite.')
-    // Robin's person has no display name there: connecting gives it the one from here (B16), so nothing changes.
+    // Robin's person has no display name there: connecting gives it the one from here, so nothing changes.
     expect(row(page, 'robin').textContent).not.toContain('Display name becomes')
     await choose(row(page, 'jona').querySelector('select'), '6')
     expect(row(page, 'jona').textContent).toContain('Blocked. Taken over, the account can sign in again.')
@@ -222,7 +222,7 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     expect(row(page, 'jona').textContent).toContain('Address becomes jona.new@example.com')
   })
 
-  it('keeps the choices and the step, and comes back to them (B23)', async () => {
+  it('keeps the choices and the step, and comes back to them', async () => {
     connecting()
     const page = await mount(<SuiteCard />)
     await click(button(page, 'Continue connecting'))
@@ -244,7 +244,7 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     expect(row(again, 'mila').querySelector('select')!.value).toBe('new')
   })
 
-  it('never brings back a kept "leave out" for the own account (B23)', async () => {
+  it('never brings back a kept "leave out" for the own account', async () => {
     connecting()
     server.answers['GET /api/suite/proposal'] = { ...proposal(), chosen: { accounts: { '1': 'skip', '4': '6', '7': 'new' }, spaces: {}, teams: {}, step: 2 } }
     const page = await mount(<SuiteCard />)
@@ -256,7 +256,7 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     expect(row(page, 'mila').querySelector('select')!.value).toBe('new')
   })
 
-  it('says what stays in nexsuite on giving up, only once something was made there', async () => {
+  it('says what stays in the directory service on giving up, only once something was made there', async () => {
     connecting()
     const page = await mount(<SuiteCard />)
     await click(button(page, 'Continue connecting'))
@@ -264,7 +264,7 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     expect(page.querySelector('[data-testid="suite-made"]')).toBeNull()
     await click(button(page, 'Next'))
     await settle()
-    // The last step fails half way: ben is a person in nexsuite now.
+    // The last step fails half way: ben is a person in the directory service now.
     server.refuse['POST /api/suite/finish'] = { status: 502, code: 'suite_unreachable' }
     server.answers['GET /api/suite/proposal'] = { ...proposal(), made: 1 }
     await click(button(page, 'Connect'))
@@ -275,7 +275,7 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     )
   })
 
-  it('locks the choices once the connection went out to nexsuite, and says so', async () => {
+  it('locks the choices once the connection went out to the directory service, and says so', async () => {
     connecting()
     const page = await mount(<SuiteCard />)
     await click(button(page, 'Continue connecting'))
@@ -284,7 +284,7 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     expect(row(page, 'jona').querySelector('select')!.disabled).toBe(false)
     await click(button(page, 'Next'))
     await settle()
-    // The answer to the last step got lost: nexsuite may have the connection.
+    // The answer to the last step got lost: the directory service may have the connection.
     server.refuse['POST /api/suite/finish'] = { status: 502, code: 'suite_unreachable' }
     server.answers['GET /api/suite/proposal'] = { ...proposal(), made: 1, sent: true }
     await click(button(page, 'Connect'))
@@ -297,7 +297,7 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     expect(row(page, 'jona').querySelector('select')!.disabled).toBe(true)
   })
 
-  it('shows after a reload exactly the choices that went out, locked, though nexsuite offers no space any more', async () => {
+  it('shows after a reload exactly the choices that went out, locked, though the directory service offers no space any more', async () => {
     connecting()
     server.answers['GET /api/suite/proposal'] = {
       ...proposal(),
@@ -322,7 +322,7 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     expect(calls('PUT /api/suite/choices')).toHaveLength(0)
   })
 
-  it('says after giving up when nexsuite may still list nexcanvas, and only then', async () => {
+  it('says after giving up when the directory service may still list nexcanvas, and only then', async () => {
     connecting()
     server.answers['POST /api/suite/abort'] = { kept_in_suite: true }
     const page = await mount(<SuiteCard />)
@@ -343,7 +343,7 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     expect(again.querySelector('[data-testid="suite-kept"]')).toBeNull()
   })
 
-  it('says what takes a moment and connects once for two clicks (B25)', async () => {
+  it('says what takes a moment and connects once for two clicks', async () => {
     connecting()
     const page = await mount(<SuiteCard />)
     await click(button(page, 'Continue connecting'))
@@ -363,7 +363,7 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     expect(calls('POST /api/suite/finish')).toHaveLength(1)
   })
 
-  it('says that nexsuite is being asked while pairing (B25)', async () => {
+  it('says that the directory service is being asked while pairing', async () => {
     server.answers['GET /api/suite'] = { state: '', url: '', last_sync: null, problem: '', emergency_codes: 0, mail: false }
     connecting()
     server.answers['GET /api/suite'] = { state: '', url: '', last_sync: null, problem: '', emergency_codes: 0, mail: false }
@@ -380,7 +380,7 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     await settle()
   })
 
-  it('loads the lists anew when nexsuite lost a person that was chosen (B9)', async () => {
+  it('loads the lists anew when the directory service lost a person that was chosen', async () => {
     connecting()
     const page = await mount(<SuiteCard />)
     await click(button(page, 'Continue connecting'))
@@ -390,7 +390,7 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     await settle()
     server.refuse['POST /api/suite/finish'] = { status: 409, code: 'person_unknown' }
     const before = calls('GET /api/suite/proposal').length
-    // The person is gone from nexsuite meanwhile.
+    // The person is gone from the directory service meanwhile.
     server.answers['GET /api/suite/proposal'] = { ...proposal(), people: [{ id: '1', name: 'robin', display_name: '', email: 'robin@example.com' }] }
     await click(button(page, 'Connect'))
     await settle()
@@ -399,7 +399,7 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
     expect(row(page, 'jona').querySelector('select')!.value).toBe('skip')
   })
 
-  it('puts each choice under its name on a phone, never over it (G9)', async () => {
+  it('puts each choice under its name on a phone, never over it', async () => {
     connecting()
     const page = await mount(<SuiteCard />)
     await click(button(page, 'Continue connecting'))
@@ -415,7 +415,7 @@ describe('the assistant (B8, B16, B9, B23, B25, G9)', () => {
   })
 })
 
-describe('the pairing code (B24)', () => {
+describe('the pairing code', () => {
   it('takes no more than a code can be', async () => {
     server.answers['GET /api/suite'] = { state: '', url: '', last_sync: null, problem: '', emergency_codes: 0, mail: false }
     const page = await mount(<SuiteCard />)
@@ -441,7 +441,7 @@ describe('the pairing code (B24)', () => {
   })
 })
 
-describe('disconnecting (B17)', () => {
+describe('disconnecting', () => {
   const connected = { state: 'connected', url: 'https://suite.example.com', last_sync: null, problem: '', emergency_codes: 2, mail: false }
 
   it('names who stops being an operator, and says so afterwards', async () => {
@@ -469,7 +469,7 @@ describe('disconnecting (B17)', () => {
     )
   })
 
-  it('says to make the emergency codes before they are needed (G3)', async () => {
+  it('says to make the emergency codes before they are needed', async () => {
     auth.me = { ...robin, suite: 'connected', suite_emergency: true }
     server.answers['GET /api/suite'] = { ...connected, emergency_codes: 0 }
     const page = await mount(<SuiteCard />)
@@ -477,8 +477,8 @@ describe('disconnecting (B17)', () => {
   })
 })
 
-describe('signing in and old links (B11, B12, B26)', () => {
-  it('names a new password in nexsuite among the reasons a session ended', async () => {
+describe('signing in and old links', () => {
+  it('names a new password in the directory service among the reasons a session ended', async () => {
     auth.status = 'signedOut'
     server.answers['GET /api/auth/methods'] = { password: false, providers: [{ slug: 'oidc', label: 'nexsuite' }], suite: true, suite_url: 'https://suite.example.com' }
     const page = await mount(<LoginPage />, '/login?ended=1')
@@ -492,7 +492,7 @@ describe('signing in and old links (B11, B12, B26)', () => {
     expect(page.textContent).not.toContain('nexsuite')
   })
 
-  it('says that nexsuite may still be signed in and offers someone else through it (B11)', async () => {
+  it('says that the directory service may still be signed in and offers someone else through it', async () => {
     auth.status = 'signedOut'
     server.answers['GET /api/auth/methods'] = { password: false, providers: [{ slug: 'oidc', label: 'nexsuite' }], suite: true, suite_url: 'https://suite.example.com' }
     const page = await mount(<LoginPage />, '/login?next=%2Fb%2F5')
@@ -502,7 +502,7 @@ describe('signing in and old links (B11, B12, B26)', () => {
     expect(other.href).toBe('https://suite.example.com/')
     expect(other.target).toBe('_blank')
     expect(box.textContent).toContain('Sign out there, then use “Sign in with nexsuite” here.')
-    // The button keeps the page asked for (B10).
+    // The button keeps the page asked for.
     const signIn = [...page.querySelectorAll('a')].find((a) => a.textContent === 'Sign in with nexsuite')!
     expect(signIn.getAttribute('href')).toBe('/api/oidc/oidc/start?next=%2Fb%2F5')
   })
@@ -513,7 +513,7 @@ describe('signing in and old links (B11, B12, B26)', () => {
     expect(page.textContent).toContain('nexcanvas is connected to nexsuite now')
   })
 
-  it('tells a person nexsuite made a moment ago to try again (B20)', async () => {
+  it('tells a person the directory service made a moment ago to try again', async () => {
     auth.status = 'signedOut'
     server.answers['GET /api/auth/methods'] = { password: false, providers: [{ slug: 'oidc', label: 'nexsuite' }], suite: true, suite_url: 'https://suite.example.com' }
     const page = await mount(<LoginPage />, '/login?error=suite_no_account')
@@ -521,8 +521,8 @@ describe('signing in and old links (B11, B12, B26)', () => {
   })
 })
 
-describe('where things live while connected (G3, G8, B15)', () => {
-  it('gives the way to nexsuite for profile, password and second factor', async () => {
+describe('where things live while connected', () => {
+  it('gives the way to the directory service for profile, password and second factor', async () => {
     auth.me = { ...robin, role: 'member', suite: 'connected', sign_in: 'oidc', suite_url: 'https://suite.example.com' }
     const profile = await mount(<AccountPage />, '/account')
     expect(profile.querySelector<HTMLAnchorElement>('[data-testid="suite-link"]')!.href).toBe('https://suite.example.com/')
@@ -532,12 +532,12 @@ describe('where things live while connected (G3, G8, B15)', () => {
     expect(security.querySelector('[data-testid="suite-link"]')).not.toBeNull()
   })
 
-  it('names no way to nexsuite on its own', async () => {
+  it('names no way to the directory service on its own', async () => {
     const page = await mount(<AccountPage />, '/account?tab=security')
     expect(page.querySelector('[data-testid="suite-link"]')).toBeNull()
   })
 
-  it('shows the mail server from nexsuite in words, never a raw value or a dash', async () => {
+  it('shows the mail server from the directory service in words, never a raw value or a dash', async () => {
     const settings = { smtp_host: 'smtp.example.com', smtp_port: 25, smtp_security: 'none', smtp_user: '', smtp_from: 'boards@example.com' }
     const card = { settings, save: async () => undefined, busy: false, problem: null, done: null } as never
     const page = await mount(<MailCard server={card} readOnly />)
@@ -550,11 +550,11 @@ describe('where things live while connected (G3, G8, B15)', () => {
     expect(shown).not.toContain('none')
     expect(shown).toContain('nicht gesetzt')
     expect(shown).not.toMatch(/[–—]/)
-    // Host and port in the one row its label names, as in nexbrand and nextasks.
+    // Host and port in the one row its label names.
     expect(shown).toContain('Server und Portsmtp.example.com:25')
   })
 
-  it('says when nexsuite has no mail server, once', async () => {
+  it('says when the directory service has no mail server, once', async () => {
     const settings = { smtp_host: '', smtp_port: 587, smtp_security: 'starttls', smtp_user: '', smtp_from: '' }
     const card = { settings, save: async () => undefined, busy: false, problem: null, done: null } as never
     const page = await mount(<MailCard server={card} readOnly />)
@@ -567,7 +567,7 @@ describe('where things live while connected (G3, G8, B15)', () => {
   const settings = { backup_schedule: 'daily', backup_keep: 7 }
   const backupsServer = { settings, save: async () => undefined, busy: false, problem: null, done: null } as never
 
-  it('says why restoring is missing while connected, and to an operator from nexsuite why the rest is too (B15)', async () => {
+  it('says why restoring is missing while connected, and to an operator from the directory service why the rest is too', async () => {
     auth.me = { ...robin, suite: 'connected', sign_in: 'oidc', suite_emergency: false }
     const operator = await mount(<BackupsCard server={backupsServer} />)
     expect(operator.textContent).toContain(
