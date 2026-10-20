@@ -1,0 +1,39 @@
+import { alignOf, boldOf, lookKey, lookStyle, toggled } from './textLook'
+import type { NoteItem, ShapeItem, TextItem } from './types'
+
+const box = { id: 'item01', x: 0, y: 0, w: 100, h: 40 }
+const text = (more: Partial<TextItem> = {}): TextItem => ({ ...box, kind: 'text', text: 'Hi', size: 'm', color: 'auto', ...more })
+const shape: ShapeItem = { ...box, kind: 'shape', shape: 'rect', fill: 'blue', stroke: 'none', text: 'A' }
+const note: NoteItem = { ...box, kind: 'note', text: 'B', color: 'yellow' }
+
+describe('the look of words', () => {
+  it('sits on the left, on a shape in the middle, unless chosen', () => {
+    expect(alignOf(text())).toBe('left')
+    expect(alignOf(note)).toBe('left')
+    expect(alignOf(shape)).toBe('center')
+    expect(alignOf({ ...shape, align: 'right' })).toBe('right')
+    expect(lookStyle(text({ align: 'center' })).textAlign).toBe('center')
+  })
+
+  it('is bold for large texts until someone switches it off', () => {
+    expect(boldOf(text({ size: 'xl' }))).toBe(true)
+    expect(boldOf(text({ size: 'xl', bold: false }))).toBe(false)
+    expect(toggled(text({ size: 'l' }), 'bold')).toEqual({ bold: false })
+    expect(toggled(text(), 'bold')).toEqual({ bold: true })
+  })
+
+  it('underlines and strikes through at once', () => {
+    expect(lookStyle(text({ underline: true, strike: true, italic: true }))).toMatchObject({ textDecorationLine: 'underline line-through', fontStyle: 'italic' })
+    expect(lookStyle(text()).textDecorationLine).toBeUndefined()
+  })
+
+  it('knows its keys', () => {
+    const key = (k: string, more = {}) => lookKey({ key: k, ctrlKey: true, metaKey: false, shiftKey: false, altKey: false, ...more })
+    expect(key('b')).toBe('bold')
+    expect(key('I')).toBe('italic')
+    expect(key('u')).toBe('underline')
+    expect(key('X', { shiftKey: true })).toBe('strike')
+    expect(key('x')).toBeNull()
+    expect(lookKey({ key: 'b', ctrlKey: false, metaKey: false, shiftKey: false, altKey: false })).toBeNull()
+  })
+})

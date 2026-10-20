@@ -323,3 +323,19 @@ def test_brought_onto_a_board_with_a_background_of_its_own_it_keeps_its_own(clie
     plain = board(client, space, "Plain")
     client.post(f"/api/boards/{plain['id']}/import", content=exported)
     assert picture(client, plain["id"])["background"] == {"pattern": "grid", "color": "paper"}
+
+
+def test_a_timer_travels_as_it_was_set_not_running(client: TestClient, operator: Account, space: int) -> None:
+    made = board(client, space, "Stunde", {"items": [
+        {"id": "timer001", "kind": "timer", "x": 0, "y": 0, "w": 240, "h": 150, "title": "Gruppenarbeit",
+         "duration": 600, "ends": 1_800_000_000_000, "sound": False},
+    ]})
+    exported = client.get(f"/api/boards/{made['id']}/export").content
+    canvas = json.loads(exported)
+    # JSON Canvas has no card for it, so it goes with what only nexcanvas reads.
+    assert canvas["nodes"] == [] and canvas["nexcanvas"]["items"][0]["kind"] == "timer"
+    answer = client.post("/api/boards/from-file", params={"space_id": space}, content=exported)
+    assert answer.status_code == 201, answer.text
+    timer = picture(client, answer.json()["board"]["id"])["items"][0]
+    assert timer["kind"] == "timer" and timer["title"] == "Gruppenarbeit" and timer["duration"] == 600
+    assert timer["sound"] is False and "ends" not in timer and "left" not in timer

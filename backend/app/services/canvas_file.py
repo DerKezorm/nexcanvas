@@ -131,7 +131,8 @@ def to_canvas(picture: dict[str, Any], media: dict[str, Media]) -> tuple[dict[st
 
     for item in picture.get("items", []):
         kind = item.get("kind")
-        if kind == "ink":
+        if kind in ("ink", "timer"):
+            # Drawings and timers have no card in JSON Canvas: they travel with what only nexcanvas reads.
             hidden_items.append({key: value for key, value in item.items() if key != "z"})
             continue
         node: dict[str, Any] = {"id": item["id"]}
@@ -430,10 +431,14 @@ def import_into(
 
     hidden = canvas.get("nexcanvas") if isinstance(canvas.get("nexcanvas"), dict) else {}
     for raw in (hidden.get("items") or [])[:MAX_CARDS] if isinstance(hidden.get("items"), list) else []:
-        extra = _clean_extra(raw, "ink")
-        if extra is None or not isinstance(raw.get("points"), list):
+        extra = _clean_extra(raw, "ink|timer")
+        if extra is None or (extra["kind"] == "ink" and not isinstance(raw.get("points"), list)):
             result.skipped += 1
             continue
+        if extra["kind"] == "timer":
+            # A timer comes as it was set, not running: its time belonged to the board it ran on.
+            extra.pop("ends", None)
+            extra.pop("left", None)
         # Drawn on a page of a PDF that came along: it stays on that page; else it is a drawing like any other.
         on = extra.pop("on", None)
         if isinstance(on, dict) and ids.get(str(on.get("item", ""))):

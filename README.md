@@ -50,6 +50,13 @@ your own: save a board as a template, with its content or only the skeleton.*
   stays with that page.
 - **Frames and scenes.** A frame is a named area that takes along what lies in it. The scene list jumps from frame
   to frame, and presenting shows one frame after the other on the whole screen, also on a public page.
+- **Hidden frames.** A frame can hide what lies in it, such as the answers to a task, until it is time. Whoever may
+  only read never gets it from the server: not live, not in previews, search, export, the public page or the API.
+  Whoever may write sees a cover (the content is in their browser all the same); whoever hid it and those who
+  manage the space see inside and show it again.
+- **Timers.** A countdown as an object on the board, prepared beforehand and the same for everybody, with a short
+  sound at the end.
+- **Text.** Notes, shapes and texts align left, centred or right, and go bold, italic, underlined or struck through.
 - **A shape library like Visio's.** Over 350 shapes of its own in packages: basic shapes, flowchart, BPMN, UML and
   software, floor plan (to scale), house and electrics, project management, network, signs and arrows, plus the
   Lucide icons in themed packages. A board carries the drawings of the shapes it uses, so it looks the same on a
@@ -183,7 +190,7 @@ With an image: `docker compose pull && docker compose up -d`. Built from source:
 
 nexlore keeps notes, nexcanvas draws. Between them, and with Obsidian, boards travel as JSON Canvas
 ([jsoncanvas.org](https://jsoncanvas.org)): notes, texts and shapes become text cards, photos and files file cards,
-links link cards, frames groups, lines between two things edges. Drawings and lines with a free end are kept in a
+links link cards, frames groups, lines between two things edges. Drawings, timers and lines with a free end are kept in a
 `nexcanvas` block the others leave alone. Coming in, a text card becomes a note in the nearest of the seven colours,
 a group a frame, and a file card the photo or file of that name from the archive.
 

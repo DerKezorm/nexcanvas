@@ -1,4 +1,28 @@
 {
+  "0.5.0": {
+    "lead": "Für den Unterricht und für Workshops: Rahmen, deren Inhalt erst einmal versteckt bleibt, Timer auf dem Board und mehr Möglichkeiten für Text.",
+    "sections": [
+      {
+        "title": "Inhalt eines Rahmens verstecken",
+        "where": "Rahmen auswählen, Knopf mit dem durchgestrichenen Auge in der Leiste darüber",
+        "body": "Ein Rahmen kann seinen Inhalt verstecken, etwa die Lösungen zu einer Aufgabe, bis es Zeit dafür ist. Wer nur lesen darf, bekommt den Inhalt gar nicht erst: nicht live auf dem Board, nicht in der Vorschau, der Suche, dem Export, auf der öffentlichen Seite oder über die API. Wer schreiben darf, sieht eine Abdeckung; technisch liegt der Inhalt dort aber im Browser. Hineinsehen und den Inhalt wieder zeigen kann, wer den Rahmen versteckt hat, und wer den Bereich verwaltet."
+      },
+      {
+        "title": "Timer auf dem Board",
+        "where": "Werkzeugleiste, Foto, Datei oder Link, Timer",
+        "body": "Ein Timer ist ein Objekt wie eine Notiz: Name und Dauer per Doppelklick, dann Starten, Anhalten, Zurücksetzen und eine Minute mehr oder weniger. Er läuft für alle gleich, weil der Server die Uhrzeit vorgibt, und gibt am Ende einen kurzen Ton, den man je Timer abschalten kann. So lassen sich Timer für eine Stunde vorher vorbereiten. Wer nur lesen darf, sieht ihn laufen, bedient ihn aber nicht."
+      },
+      {
+        "title": "Mehr Möglichkeiten für Text",
+        "where": "Notiz, Form oder Text auswählen, Knopf „Text“ in der Leiste darüber",
+        "body": "Notizen, Formen und Texte lassen sich links, mittig oder rechts ausrichten, fett, kursiv, unterstrichen oder durchgestrichen setzen. Das gilt jeweils für den ganzen Text. Mit Strg B, Strg I, Strg U und Strg Umschalt X geht es auch über die Tastatur, beim Schreiben ebenso wie mit einer Auswahl."
+      }
+    ],
+    "smallTitle": "Außerdem",
+    "small": [
+      "Timer und versteckte Rahmen kommen beim Export als JSON Canvas mit; ein Timer kommt dabei so an, wie er eingestellt war, nicht laufend."
+    ]
+  },
   "0.4.2": {
     "lead": "Eine kleine Korrektur für den Betrieb hinter einem Reverse Proxy.",
     "sections": [

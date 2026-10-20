@@ -29,7 +29,7 @@ from ..deps import Account, DbSession, client_ip
 from ..errors import detail, error
 from ..models import MANAGE, Board, Media, Share, Space, utcnow
 from ..security import Brake, hash_password, verify_password
-from ..services import live, rights, settings_service
+from ..services import hiding, live, rights, settings_service
 from .media import deliver
 
 logger = logging.getLogger("nexcanvas.shares")
@@ -152,7 +152,8 @@ def _picture(db: Any, board: Board) -> dict[str, Any]:
     current = live.picture(board.id)
     if current is None:
         current = db.scalar(select(Board.snapshot).where(Board.id == board.id)) or {"items": [], "lines": []}
-    return current
+    # A public page has readers only: hidden content never goes out, nor its photos and files.
+    return hiding.visible(current)
 
 
 def _page(db: Any, share: Share, board: Board) -> dict[str, Any]:

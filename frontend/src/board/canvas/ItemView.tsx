@@ -4,12 +4,14 @@ import { useTranslation } from 'react-i18next'
 
 import { useMediaUrl } from './media'
 import { ItemActions, PdfPage } from './PdfPage'
+import { TimerCard } from './TimerCard'
 
 import { shapePath, shapeTextBox } from '../geometry'
 import { LibShape } from '../library/LibShape'
 import { useLibrary } from '../library/registry'
 import { inkPath } from '../ink'
 import { NOTE_COLORS, paint, textOn } from '../palette'
+import { justifyOf, lookKey, lookStyle, toggled, type Worded } from '../textLook'
 import type { FileItem, FrameItem, Item, TextSize } from '../types'
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -61,9 +63,9 @@ export const ItemView = memo(function ItemView({ item, editing, onText, onDone, 
   )
 })
 
-function Editor({ id, value, onChange, onDone, className, style }: { id: string; value: string; onChange: (v: string) => void; onDone: () => void; className: string; style?: React.CSSProperties }) {
+function Editor({ id, value, onChange, onDone, className, style, item }: { id: string; value: string; onChange: (v: string) => void; onDone: () => void; className: string; style?: React.CSSProperties; item?: Worded }) {
   const ref = useRef<HTMLTextAreaElement>(null)
-  const { textOf, watchText } = useContext(ItemActions)
+  const { textOf, watchText, patch } = useContext(ItemActions)
   // The field holds its own words (not React's state), and it follows the shared text directly: someone else's
   // words are put in at the moment they arrive, before the next key, with the caret moved along with the words before
   // it. So what the field shows is always what the shared text holds, and a key typed here is always a change of
@@ -101,6 +103,13 @@ function Editor({ id, value, onChange, onDone, className, style }: { id: string;
         if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
           e.preventDefault()
           onDone()
+          return
+        }
+        // Ctrl B, I, U (Shift X) while writing switch the look of all the item's words, as the bar above does.
+        const look = item && lookKey(e)
+        if (item && look && look !== 'align') {
+          e.preventDefault()
+          patch(item.id, toggled(item, look))
         }
       }}
       onPointerDown={(e) => e.stopPropagation()}
@@ -175,12 +184,13 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
   switch (item.kind) {
     case 'note': {
       const size = noteFont(item.text, item.w)
+      const look = lookStyle(item)
       return (
         <div className="nc-note-text flex h-full w-full rounded-[3px] p-[7%] shadow-[0_6px_16px_-6px_rgba(0,0,0,0.45)]" style={{ background: NOTE_COLORS[item.color] }}>
           {editing ? (
-            <Editor id={item.id} value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="nc-note-text h-full w-full leading-snug" style={{ fontSize: size, color: '#1c1917' }} />
+            <Editor id={item.id} item={item} value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="nc-note-text h-full w-full leading-snug" style={{ fontSize: size, color: '#1c1917', ...look }} />
           ) : (
-            <div className="h-full w-full overflow-hidden leading-snug break-words whitespace-pre-wrap" style={{ fontSize: size, color: '#1c1917' }}>
+            <div className="h-full w-full overflow-hidden leading-snug break-words whitespace-pre-wrap" style={{ fontSize: size, color: '#1c1917', ...look }}>
               {item.text || <span className="opacity-40">{t('canvas.notePlaceholder')}</span>}
             </div>
           )}
@@ -199,16 +209,17 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
         const longest = Math.max(4, ...shown.split(/\s+/).map((word) => word.length))
         const size = inside ? Math.max(10, Math.min(18, (box.h * item.h) / 2.6, (box.w * item.w) / (longest * 0.62))) : 14
         const quiet = def.quiet && !item.text && !editing
+        const look = lookStyle(item)
         return (
           <>
             <LibShape def={def} w={item.w} h={item.h} colors={{ fill: item.fill, line: item.stroke }} />
             {!quiet && (
               <div
-                className="absolute flex items-center justify-center text-center font-medium"
-                style={{ left: box.x * item.w, top: box.y * item.h, width: box.w * item.w, height: box.h * item.h, color, fontSize: size, lineHeight: 1.2 }}
+                className="absolute flex items-center"
+                style={{ left: box.x * item.w, top: box.y * item.h, width: box.w * item.w, height: box.h * item.h, color, fontSize: size, lineHeight: 1.2, justifyContent: justifyOf(item), ...look }}
               >
                 {editing ? (
-                  <Editor id={item.id} value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="h-full w-full text-center font-medium" style={{ color, fontSize: size, lineHeight: 1.2 }} />
+                  <Editor id={item.id} item={item} value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="h-full w-full" style={{ color, fontSize: size, lineHeight: 1.2, ...look }} />
                 ) : (
                   <span className="pointer-events-none line-clamp-4 px-1 whitespace-pre-wrap" data-measure={def.measure && !item.text ? '' : undefined}>
                     {shown}
@@ -222,6 +233,7 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
       const tb = shapeTextBox(item.shape, item.w, item.h)
       const color = textOn(item.fill)
       const size = Math.max(12, Math.min(22, Math.min(item.w, item.h) / 4.5))
+      const look = lookStyle(item)
       return (
         <>
           <svg className="absolute inset-0 overflow-visible" width={item.w} height={item.h} aria-hidden="true">
@@ -237,9 +249,9 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
             {item.fill === 'none' && item.stroke === 'none' && <path d={shapePath(item.shape, item.w, item.h)} fill="none" stroke="var(--color-ink-600)" strokeDasharray="4 4" />}
             {item.fill === 'none' && <path d={shapePath(item.shape, item.w, item.h)} fill="none" stroke="transparent" strokeWidth={14} vectorEffect="non-scaling-stroke" style={{ pointerEvents: 'stroke' }} />}
           </svg>
-          <div className="absolute flex items-center justify-center text-center font-medium" style={{ left: tb.x, top: tb.y, width: tb.w, height: tb.h, color, fontSize: size, lineHeight: 1.2 }}>
+          <div className="absolute flex items-center" style={{ left: tb.x, top: tb.y, width: tb.w, height: tb.h, color, fontSize: size, lineHeight: 1.2, justifyContent: justifyOf(item), ...look }}>
             {editing ? (
-              <Editor id={item.id} value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="h-full w-full text-center font-medium" style={{ color, fontSize: size, lineHeight: 1.2, paddingTop: Math.max(0, tb.h / 2 - size * 0.7) }} />
+              <Editor id={item.id} item={item} value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="h-full w-full" style={{ color, fontSize: size, lineHeight: 1.2, paddingTop: Math.max(0, tb.h / 2 - size * 0.7), ...look }} />
             ) : (
               <span className="pointer-events-none line-clamp-4 px-1 break-words whitespace-pre-wrap">{item.text}</span>
             )}
@@ -249,14 +261,14 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
     }
     case 'text': {
       const size = TEXT_SIZES[item.size]
-      const style = { fontSize: size, color: paint(item.color), fontWeight: item.size === 'xl' || item.size === 'l' ? 700 : 400, lineHeight: 1.25, fontFamily: item.hand ? 'var(--font-hand)' : undefined }
+      const style = { fontSize: size, color: paint(item.color), lineHeight: 1.25, fontFamily: item.hand ? 'var(--font-hand)' : undefined, ...lookStyle(item) }
       return (
         <div ref={box} className="relative min-h-[1.25em] w-full">
           <div className={'break-words whitespace-pre-wrap ' + (editing ? 'invisible' : '')} style={style}>
             {(item.text || ' ') + (item.text.endsWith('\n') ? ' ' : '')}
             {!item.text && !editing && <span className="opacity-40">{t('canvas.textPlaceholder')}</span>}
           </div>
-          {editing && <Editor id={item.id} value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="absolute inset-0 h-full w-full overflow-hidden p-0" style={style} />}
+          {editing && <Editor id={item.id} item={item} value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="absolute inset-0 h-full w-full overflow-hidden p-0" style={style} />}
         </div>
       )
     }
@@ -305,6 +317,8 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
       )
     case 'frame':
       return <Frame item={item} editing={editing} onDone={onDone} />
+    case 'timer':
+      return <TimerCard item={item} editing={editing} onDone={onDone} />
     case 'link':
       return (
         <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-ink-600 bg-ink-850 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6)]">

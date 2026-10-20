@@ -13,6 +13,11 @@
  * its own.
  *
  * Undo and redo are Yjs's own and only ever take back what this tab did, never another person's work.
+ *
+ * Who may only read gets a document of the server's own for readers (without what is hidden in a frame), which the
+ * server makes anew for every room. So a reader's tab starts again with an empty document whenever the connection was
+ * lost after the board arrived, and every tab does when the server says the right changed between reading and writing
+ * (4409): the old document would not fit the new one.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -40,6 +45,8 @@ const WORDED = new Set(['note', 'shape', 'text'])
 const EMPTY: Doc = { items: [], lines: [] }
 /** Changes closer together than this are one step for undo (a drag, a word typed). */
 const CAPTURE_MS = 600
+/** The server closed because the right changed between reading and writing: start again with an empty document. */
+const START_AGAIN = 4409
 
 function sameJson(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
@@ -78,8 +85,10 @@ function diffInto(text: Y.Text, before: string, after: string): void {
   if (endAfter > start) text.insert(start, after.slice(start, endAfter))
 }
 
-export function useLiveDoc(boardId: string, me: { name: string; color: string }) {
-  const ydoc = useMemo(() => new Y.Doc(), [])
+export function useLiveDoc(boardId: string, me: { name: string; color: string }, reader = false) {
+  const [ydoc, setYdoc] = useState(() => new Y.Doc())
+  const readerRef = useRef(reader)
+  readerRef.current = reader
   const items = useMemo(() => ydoc.getMap<unknown>('items'), [ydoc])
   const lines = useMemo(() => ydoc.getMap<unknown>('lines'), [ydoc])
   const texts = useMemo(() => ydoc.getMap<Y.Text>('texts'), [ydoc])
@@ -151,10 +160,27 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string })
       if (state === 'connected') setStatus('live')
       else if (state === 'disconnected') setStatus((old) => (old === 'gone' ? old : 'offline'))
     })
+    let arrived = false
     live.on('sync', (isSynced: boolean) => {
-      if (isSynced) setSynced(true)
+      if (isSynced) {
+        arrived = true
+        setSynced(true)
+      }
     })
     live.on('connection-close', (event: CloseEvent | null) => {
+      const again = event?.code === START_AGAIN
+      if (again || (readerRef.current && arrived)) {
+        // A fresh document and a fresh connection; the old picture stays in view until the new one arrives, except
+        // when the right changed (a writer's next change must not be measured against the old document).
+        live.shouldConnect = false
+        live.disconnect()
+        if (again) {
+          current.current = EMPTY
+          setDoc(EMPTY)
+        }
+        setYdoc(new Y.Doc())
+        return
+      }
       // 4403: no right (any more), 4404: the board went into the bin, 4413: a change too large. No coming back.
       if (event && event.code >= 4400 && event.code < 4500) {
         setStatus('gone')
@@ -198,8 +224,10 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string })
           let z = Number(old?.z ?? rest.z)
           if (!Number.isFinite(z) || z <= lastZ) z = Number.isFinite(lastZ) ? lastZ + 1 : 0
           lastZ = z
-          const value = { ...rest, z }
-          delete (value as { id?: string }).id
+          const value: Record<string, unknown> = { ...rest, z }
+          delete value.id
+          // A field set to nothing is gone, not stored as `undefined` (which only JavaScript knows).
+          for (const key of Object.keys(value)) if (value[key] === undefined) delete value[key]
           const stored = items.get(item.id)
           if (!stored || !sameJson(stored, value)) items.set(item.id, value)
           if (typeof text === 'string') {

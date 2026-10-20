@@ -17,6 +17,14 @@ def test_health_and_about(client: TestClient) -> None:
     assert about["version"] == __version__ and about["license"] == "AGPL-3.0"
 
 
+def test_the_clock_tells_the_server_time_in_milliseconds(client: TestClient) -> None:
+    import time
+
+    before = int(time.time() * 1000)
+    now = client.get("/api/health/clock").json()["now"]
+    assert isinstance(now, int) and before <= now <= int(time.time() * 1000)
+
+
 def test_every_answer_carries_the_security_headers(client: TestClient) -> None:
     for response in (client.get("/api/health"), client.get("/api/nothing-here")):
         headers = response.headers

@@ -429,7 +429,19 @@
     "unlock": "Unlock",
     "delete": "Delete",
     "group": "Group",
-    "ungroup": "Ungroup"
+    "ungroup": "Ungroup",
+    "text": "Text",
+    "look": {
+      "bold": "Bold (Ctrl B)",
+      "italic": "Italic (Ctrl I)",
+      "underline": "Underline (Ctrl U)",
+      "strike": "Strikethrough (Ctrl Shift X)"
+    },
+    "align": {
+      "left": "Align left",
+      "center": "Centre",
+      "right": "Align right"
+    }
   },
   "menu": {
     "noteHere": "Note here",
@@ -1459,5 +1471,27 @@
   "notFound": {
     "space": "This space does not exist, is in the trash, or you may not see it.",
     "page": "This page does not exist in nexcanvas."
+  },
+  "timer": {
+    "add": "Timer",
+    "untitled": "Timer",
+    "start": "Start",
+    "pause": "Pause",
+    "resume": "Resume",
+    "reset": "Reset",
+    "less": "One minute less",
+    "more": "One minute more",
+    "soundOn": "Turn sound on",
+    "soundOff": "Turn sound off",
+    "name": "Name",
+    "duration": "Duration (e.g. 5 or 4:30)",
+    "keep": "Apply"
+  },
+  "hide": {
+    "hide": "Hide content",
+    "show": "Show content",
+    "hidden": "Hidden",
+    "hiddenForOthers": "Hidden from others",
+    "coverHint": "What is in this frame is hidden until it is shown."
   }
 }

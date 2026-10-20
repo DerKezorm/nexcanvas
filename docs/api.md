@@ -70,6 +70,7 @@ One board, as in the list.
 
 The board as a small picture, as the overview in the app shows it: shapes, notes, frames and drawings as they are;
 words, photos, files and links as plain boxes. 16 to 10, on the board's own background colour.
+What lies in a hidden frame is left out when the token's account may only read the space.
 
 | Parameter | Default | |
 |---|---|---|

@@ -24,7 +24,7 @@ from .. import __version__
 from ..db import SessionLocal
 from ..errors import error
 from ..models import READ, Board, Space, utcnow
-from ..services import apitokens, boards, live, logs, picture, rights, settings_service
+from ..services import apitokens, boards, hiding, live, logs, picture, rights, settings_service
 from ..services.apitokens import Caller
 
 logger = logging.getLogger("nexcanvas.api")
@@ -164,6 +164,7 @@ def board_picture(
     with SessionLocal() as db:
         board = _found(db, found, board_id)
         shown = live.picture(board.id) or boards.snapshot_of(boards.load(db, board))
+        shown = hiding.for_role(shown, rights.role_in(db, found.account, board.space_id))
         title = board.title
     return Response(picture.svg(shown, title, look, width), media_type="image/svg+xml", headers={
         # Nothing in it runs, and nothing it might hold could load anything.

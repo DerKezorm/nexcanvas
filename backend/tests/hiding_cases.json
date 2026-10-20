@@ -1,0 +1,90 @@
+{
+  "about": "What a hidden frame covers. The server (services/hiding.py) and the page (frontend/src/board/hiding.ts) are both tested against these cases.",
+  "cases": [
+    {
+      "name": "a frame that is not hidden covers nothing",
+      "items": [
+        {"id": "frame1", "kind": "frame", "x": 0, "y": 0, "w": 400, "h": 300, "title": "Antworten", "color": "#ff8a70"},
+        {"id": "note1", "kind": "note", "x": 50, "y": 50, "w": 100, "h": 100, "color": "yellow", "text": "42"}
+      ],
+      "lines": [],
+      "hidden": [],
+      "hiddenLines": []
+    },
+    {
+      "name": "what has its middle inside is hidden, what only overlaps from outside is not",
+      "items": [
+        {"id": "frame1", "kind": "frame", "x": 0, "y": 0, "w": 400, "h": 300, "title": "", "color": "#ff8a70", "hidden": true},
+        {"id": "inside", "kind": "note", "x": 50, "y": 50, "w": 100, "h": 100, "color": "yellow", "text": "42"},
+        {"id": "overlap", "kind": "shape", "x": 350, "y": 0, "w": 200, "h": 100, "shape": "rect", "fill": "blue", "stroke": "none", "text": ""},
+        {"id": "edge", "kind": "text", "x": 380, "y": 280, "w": 40, "h": 40, "text": "on the edge", "size": "m", "color": "auto"},
+        {"id": "outside", "kind": "note", "x": 600, "y": 50, "w": 100, "h": 100, "color": "pink", "text": "Frage"}
+      ],
+      "lines": [],
+      "hidden": ["edge", "inside"],
+      "hiddenLines": []
+    },
+    {
+      "name": "a smaller frame inside is hidden, a larger one around is not",
+      "items": [
+        {"id": "big", "kind": "frame", "x": -300, "y": -350, "w": 1000, "h": 1000, "title": "", "color": "#ff8a70"},
+        {"id": "frame1", "kind": "frame", "x": 0, "y": 0, "w": 400, "h": 300, "title": "", "color": "#ff8a70", "hidden": true},
+        {"id": "small", "kind": "frame", "x": 20, "y": 20, "w": 100, "h": 100, "title": "", "color": "#ff8a70"}
+      ],
+      "lines": [],
+      "hidden": ["small"],
+      "hiddenLines": []
+    },
+    {
+      "name": "drawings on a hidden PDF go with it, wherever they lie",
+      "items": [
+        {"id": "frame1", "kind": "frame", "x": 0, "y": 0, "w": 400, "h": 300, "title": "", "color": "#ff8a70", "hidden": true},
+        {"id": "pdf001", "kind": "file", "x": 10, "y": 10, "w": 200, "h": 280, "media": "m1", "name": "a.pdf", "ext": "pdf", "sizeLabel": "1 KB"},
+        {"id": "ink001", "kind": "ink", "x": 900, "y": 900, "w": 10, "h": 10, "points": [[0, 0, 0.5], [10, 10, 0.5]], "ow": 10, "oh": 10, "color": "auto", "size": 3, "on": {"item": "pdf001", "page": 1}}
+      ],
+      "lines": [],
+      "hidden": ["ink001", "pdf001"],
+      "hiddenLines": []
+    },
+    {
+      "name": "lines that end on hidden content or freely in the frame are hidden",
+      "items": [
+        {"id": "frame1", "kind": "frame", "x": 0, "y": 0, "w": 400, "h": 300, "title": "", "color": "#ff8a70", "hidden": true},
+        {"id": "inside", "kind": "note", "x": 50, "y": 50, "w": 100, "h": 100, "color": "yellow", "text": "42"},
+        {"id": "outA", "kind": "note", "x": 600, "y": 50, "w": 100, "h": 100, "color": "pink", "text": "a"},
+        {"id": "outB", "kind": "note", "x": 800, "y": 50, "w": 100, "h": 100, "color": "pink", "text": "b"}
+      ],
+      "lines": [
+        {"id": "toHidden", "kind": "line", "a": {"item": "outA", "x": 0, "y": 0}, "b": {"item": "inside", "x": 0, "y": 0}, "color": "auto", "width": 2, "arrow": "end", "curve": true},
+        {"id": "freeIn", "kind": "line", "a": {"x": 700, "y": 400}, "b": {"x": 200, "y": 200}, "color": "auto", "width": 2, "arrow": "end", "curve": false},
+        {"id": "toFrame", "kind": "line", "a": {"item": "outA", "x": 0, "y": 0}, "b": {"item": "frame1", "x": 0, "y": 0}, "color": "auto", "width": 2, "arrow": "end", "curve": true},
+        {"id": "outside", "kind": "line", "a": {"item": "outA", "x": 0, "y": 0}, "b": {"item": "outB", "x": 0, "y": 0}, "color": "auto", "width": 2, "arrow": "end", "curve": true}
+      ],
+      "hidden": ["inside"],
+      "hiddenLines": ["freeIn", "toHidden"]
+    },
+    {
+      "name": "two hidden frames each hide their own",
+      "items": [
+        {"id": "frame1", "kind": "frame", "x": 0, "y": 0, "w": 400, "h": 300, "title": "", "color": "#ff8a70", "hidden": true},
+        {"id": "frame2", "kind": "frame", "x": 1000, "y": 0, "w": 400, "h": 300, "title": "", "color": "#ff8a70", "hidden": true},
+        {"id": "one", "kind": "note", "x": 50, "y": 50, "w": 100, "h": 100, "color": "yellow", "text": "1"},
+        {"id": "two", "kind": "note", "x": 1050, "y": 50, "w": 100, "h": 100, "color": "yellow", "text": "2"},
+        {"id": "between", "kind": "note", "x": 600, "y": 50, "w": 100, "h": 100, "color": "yellow", "text": "3"}
+      ],
+      "lines": [],
+      "hidden": ["one", "two"],
+      "hiddenLines": []
+    },
+    {
+      "name": "only true hides; anything else in the field does not",
+      "items": [
+        {"id": "frame1", "kind": "frame", "x": 0, "y": 0, "w": 400, "h": 300, "title": "", "color": "#ff8a70", "hidden": "yes"},
+        {"id": "inside", "kind": "note", "x": 50, "y": 50, "w": 100, "h": 100, "color": "yellow", "text": "42"}
+      ],
+      "lines": [],
+      "hidden": [],
+      "hiddenLines": []
+    }
+  ]
+}

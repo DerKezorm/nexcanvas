@@ -7,9 +7,14 @@ import { makeLookup, outlineFor, type Lookup } from './library/registry'
 import { inkPath } from './ink'
 import { drawOrder } from './order'
 import { mediaUrl } from '../api/client'
+import { useAuth } from '../state/auth'
+import { shownOf } from './hiding'
 
 /** A small picture of a board for the overview: the same items, simplified, fitted into the card. */
-export function Thumb({ board }: { board: Board }) {
+export function Thumb({ board: whole }: { board: Board }) {
+  // What lies in a hidden frame stays covered here too, for whom it is covered on the board.
+  const { me } = useAuth()
+  const board = { ...whole, ...shownOf(whole, me?.id) }
   // The board's own background, small; without one, the dots of the overview.
   const shown = effectiveBackground(board.background, true)
   const look = backgroundStyle(shown, { x: 0, y: 0, zoom: 14 / 24 })
@@ -56,14 +61,18 @@ function ThumbItem({ item, lookup }: { item: Item; lookup: Lookup }) {
         />
       )
     }
-    case 'text':
-      return <rect x={item.x} y={item.y + item.h * 0.3} width={Math.min(item.w, item.text.length * (item.size === 'xl' ? 22 : 12))} height={item.h * 0.4} rx={4} fill="var(--color-mist-500)" opacity={0.6} />
+    case 'text': {
+      const bar = Math.min(item.w, item.text.length * (item.size === 'xl' ? 22 : 12))
+      const shift = item.align === 'center' ? (item.w - bar) / 2 : item.align === 'right' ? item.w - bar : 0
+      return <rect x={item.x + shift} y={item.y + item.h * 0.3} width={bar} height={item.h * 0.4} rx={4} fill="var(--color-mist-500)" opacity={0.6} />
+    }
     case 'image':
       return <image href={mediaUrl(item.media, true)} x={item.x} y={item.y} width={item.w} height={item.h} preserveAspectRatio="xMidYMid slice" />
     case 'frame':
       return <rect x={item.x} y={item.y} width={item.w} height={item.h} rx={14} fill="var(--color-ink-800)" opacity={0.6} stroke={item.color} strokeWidth={3} />
     case 'file':
     case 'link':
+    case 'timer':
       return <rect x={item.x} y={item.y} width={item.w} height={item.h} rx={10} fill="var(--color-ink-800)" stroke="var(--color-ink-600)" strokeWidth={2} />
     case 'ink':
       return (

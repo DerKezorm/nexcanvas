@@ -12,6 +12,11 @@ connections and their rights.
   (``nudge``: a session ended, an account blocked, a right or team changed, a sync with the directory service). Signed
   out, blocked, deleted or taken out of the space, the connection is closed.
 * **The room folds** the stored updates into the board every ``FOLD_AFTER`` updates and when the last one leaves.
+* **Who may only read gets a document of their own** (``Room.reader``): the board without what is hidden in a frame
+  (``services/hiding.py``), brought up to date after every change while readers are there. Their browser never holds
+  the hidden content, not even for a moment. A connection whose right changes between reading and writing is closed
+  with ``CLOSE_RECONNECT``: its browser starts again with an empty document, since the two documents are different
+  ones.
 
 One process serves the rooms; nexcanvas runs one worker (the database is SQLite anyway).
 """
@@ -26,6 +31,8 @@ from typing import Any, Protocol
 
 from pycrdt import (
     Doc,
+    Map,
+    Text,
     YMessageType,
     YSyncMessageType,
     create_sync_message,
@@ -35,7 +42,7 @@ from pycrdt import (
 
 from ..db import SessionLocal
 from ..models import Account, Board
-from . import boards, rights
+from . import boards, hiding, rights
 
 logger = logging.getLogger("nexcanvas.live")
 
@@ -43,10 +50,14 @@ logger = logging.getLogger("nexcanvas.live")
 RECHECK_SECONDS = 5
 #: How often a watcher looks whether there is a reason (``nudge``), in seconds.
 WATCH_TICK = 0.5
-#: Close codes the browser understands: 4403 gone (right taken), 4413 too large, 4404 board gone.
+#: Close codes the browser understands: 4403 gone (right taken), 4413 too large, 4404 board gone, 4409 start again with
+#: an empty document (the right changed between reading and writing, and with it which document the browser gets).
 CLOSE_FORBIDDEN = 4403
 CLOSE_TOO_LARGE = 4413
 CLOSE_GONE = 4404
+CLOSE_RECONNECT = 4409
+#: The maps of a board's document; the readers' document has the same ones.
+_MAPS = ("items", "lines", "texts", "meta", "defs")
 
 
 class Socket(Protocol):
@@ -61,6 +72,8 @@ class Peer:
     account_id: int
     name: str
     can_write: bool
+    #: Gets the whole document (who may write) or the readers' one; fixed for the connection's life.
+    whole: bool = True
     #: The browser session the connection was opened with: when it ends, the connection ends.
     token: str = ""
     checked: float = field(default_factory=time.monotonic)
@@ -80,6 +93,49 @@ class Room:
         self.authors: set[str] = set()
         #: The last awareness message of every client, so a newcomer sees who is here at once.
         self.awareness: dict[int, bytes] = {}
+        #: The readers' document, made when the first reader comes, and what the room last put into it.
+        self.reader: Doc | None = None
+        self.reader_has: dict[str, dict[str, Any]] = {name: {} for name in _MAPS}
+
+    def readers(self) -> bool:
+        return any(not peer.whole and not peer.gone for peer in self.peers)
+
+    async def broadcast_to(self, data: bytes, whole: bool, skip: Peer | None = None) -> None:
+        """A change of a document goes only to those who have that document."""
+        for peer in list(self.peers):
+            if peer is skip or peer.gone or peer.whole != whole:
+                continue
+            try:
+                await peer.socket.send_bytes(data)
+            except Exception:  # noqa: BLE001 - a connection that broke off fails in its server's own way
+                self.peers.discard(peer)
+
+    def bring_readers_along(self) -> bytes | None:
+        """Puts the room's document into the readers' one, without what is hidden. Call with the lock held. Returns
+        the change for the readers, or None when there is none."""
+        if self.reader is None:
+            self.reader = boards.empty_doc()
+            self.reader_has = {name: {} for name in _MAPS}
+        want = _readers_view(self.doc)
+        before = self.reader.get_state()
+        changed = False
+        with self.reader.transaction():
+            for name in _MAPS:
+                shared = self.reader.get(name, type=Map)
+                has = self.reader_has[name]
+                for key in [key for key in has if key not in want[name]]:
+                    del shared[key]
+                    del has[key]
+                    changed = True
+                for key, value in want[name].items():
+                    if key in has and has[key] == value:
+                        continue
+                    # Words go in as a text of their own, as the browser expects them; a changed one is put in anew
+                    # (a reader never types in it).
+                    shared[key] = Text(value) if name == "texts" else value
+                    has[key] = value
+                    changed = True
+        return self.reader.get_update(before) if changed else None
 
     async def broadcast(self, data: bytes, skip: Peer | None = None) -> None:
         for peer in list(self.peers):
@@ -137,6 +193,25 @@ def forget() -> None:
     global _rooms_guard
     _rooms.clear()
     _rooms_guard = asyncio.Lock()
+
+
+def _readers_view(doc: Doc) -> dict[str, dict[str, Any]]:
+    """What the readers' document should hold: the room's document without what is hidden, words as plain strings."""
+    items = {key: value for key, value in (doc.get("items", type=Map).to_py() or {}).items() if isinstance(value, dict)}
+    lines = {key: value for key, value in (doc.get("lines", type=Map).to_py() or {}).items() if isinstance(value, dict)}
+    listed = [{"id": key, **value} for key, value in items.items()]
+    frames = hiding.hiding_frames(listed)
+    hidden = hiding.hidden_ids(listed)
+    texts = doc.get("texts", type=Map)
+    shown = {key: value for key, value in items.items() if key not in hidden}
+    return {
+        "items": shown,
+        "lines": {key: value for key, value in lines.items()
+                  if not hiding.hidden_line({"id": key, **value}, hidden, frames)},
+        "texts": {key: str(texts[key]) for key in shown if key in texts and isinstance(texts[key], Text)},
+        "meta": doc.get("meta", type=Map).to_py() or {},
+        "defs": doc.get("defs", type=Map).to_py() or {},
+    }
 
 
 def room_of(board_id: str) -> Room | None:
@@ -262,6 +337,16 @@ async def _watch(room: Room, peer: Peer, board_id: str) -> None:
             except Exception:  # noqa: BLE001, S110 - closed already
                 pass
             return
+        if allowed != peer.whole:
+            # Reading became writing or the other way round: the other document, so the browser starts again.
+            peer.can_write = False
+            peer.gone = True
+            room.peers.discard(peer)
+            try:
+                await peer.socket.close(CLOSE_RECONNECT)
+            except Exception:  # noqa: BLE001, S110 - closed already
+                pass
+            return
         peer.can_write = allowed
 
 
@@ -269,14 +354,20 @@ async def serve(socket: Any, board_id: str, account: Account, can_write: bool, t
     """One connection, from the first message to the last. ``socket`` is a Starlette WebSocket already accepted;
     ``token`` the browser session it came with."""
     room = await _open_room(board_id)
-    peer = Peer(socket=socket, account_id=account.id, name=account.name, can_write=can_write, token=token)
+    peer = Peer(socket=socket, account_id=account.id, name=account.name, can_write=can_write, whole=can_write,
+                token=token)
     room.peers.add(peer)
     watcher = asyncio.create_task(_watch(room, peer, board_id))
     logger.debug("Joined board=%s name=%s write=%s peers=%s", board_id, account.name, can_write, len(room.peers))
     try:
         # The server opens with its own state vector, as y-websocket does; then everyone already here.
         async with room.lock:
-            await socket.send_bytes(create_sync_message(room.doc))
+            if peer.whole:
+                await socket.send_bytes(create_sync_message(room.doc))
+            else:
+                room.bring_readers_along()
+                assert room.reader is not None
+                await socket.send_bytes(create_sync_message(room.reader))
         for data in list(room.awareness.values()):
             await socket.send_bytes(data)
         while True:
@@ -308,14 +399,18 @@ async def _on_sync(room: Room, peer: Peer, message: bytes) -> None:
     kind = message[0] if message else None
     if kind == YSyncMessageType.SYNC_STEP1:
         async with room.lock:
-            update = room.doc.get_update(read_message(message[1:]))
+            if not peer.whole:
+                room.bring_readers_along()
+            shown = room.doc if peer.whole else room.reader
+            assert shown is not None
+            update = shown.get_update(read_message(message[1:]))
         reply = bytes([YMessageType.SYNC]) + bytes([YSyncMessageType.SYNC_STEP2]) + _with_length(update)
         await peer.socket.send_bytes(reply)
         return
     if kind not in (YSyncMessageType.SYNC_STEP2, YSyncMessageType.SYNC_UPDATE):
         return
     update = read_message(message[1:])
-    if update == b"\x00\x00" or not peer.can_write:
+    if update == b"\x00\x00" or not peer.can_write or not peer.whole:
         return
     if len(update) > boards.MAX_UPDATE:
         raise _TooLarge
@@ -338,7 +433,10 @@ async def _on_sync(room: Room, peer: Peer, message: bytes) -> None:
                 boards.fold(db, room.board_id, room.doc, room.authors)
             room.waiting = 0
             room.authors.clear()
-    await room.broadcast(create_update_message(update), skip=peer)
+        for_readers = room.bring_readers_along() if room.readers() else None
+    await room.broadcast_to(create_update_message(update), whole=True, skip=peer)
+    if for_readers:
+        await room.broadcast_to(create_update_message(for_readers), whole=False)
 
 
 def _with_length(data: bytes) -> bytes:
@@ -360,7 +458,10 @@ async def push(board_id: str, update: bytes, by: str) -> None:
         with SessionLocal() as db:
             room.waiting = boards.store_update(db, board_id, update, by)
         room.authors.add(by)
-    await room.broadcast(create_update_message(update))
+        for_readers = room.bring_readers_along() if room.readers() else None
+    await room.broadcast_to(create_update_message(update), whole=True)
+    if for_readers:
+        await room.broadcast_to(create_update_message(for_readers), whole=False)
 
 
 async def close_board(board_id: str, code: int = CLOSE_GONE) -> None:

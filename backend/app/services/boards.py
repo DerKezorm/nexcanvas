@@ -30,7 +30,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from ..models import Account, Board, BoardUpdate, BoardVersion, utcnow
-from . import shapepacks
+from . import hiding, shapepacks
 from .names import CONTROL_TEXT, has_control
 
 logger = logging.getLogger("nexcanvas.boards")
@@ -47,7 +47,7 @@ VERSION_EVERY = timedelta(minutes=30)
 VERSIONS_KEPT = 60
 MAX_TITLE = 200
 
-KINDS = frozenset({"note", "shape", "text", "ink", "image", "file", "link", "frame"})
+KINDS = frozenset({"note", "shape", "text", "ink", "image", "file", "link", "frame", "timer"})
 ID = re.compile(r"^[A-Za-z0-9_-]{6,40}$")
 #: The look of a board behind its items: a pattern and a colour, for everybody who has it open.
 PATTERNS = frozenset({"none", "dots", "grid", "lines", "mm", "iso"})
@@ -192,9 +192,10 @@ def _number(value: Any) -> float:
 
 
 def words_of(title: str, snapshot: dict[str, Any]) -> str:
-    """Everything one could search a board by, folded: its name and the words on it."""
+    """Everything one could search a board by, folded: its name and the words on it. Words hidden in a frame are not
+    in it: a reader's search would otherwise tell they are there."""
     parts = [title]
-    for item in snapshot.get("items", []):
+    for item in hiding.visible(snapshot).get("items", []):
         for key in ("text", "title", "name", "caption", "site", "label"):
             value = item.get(key)
             if isinstance(value, str):

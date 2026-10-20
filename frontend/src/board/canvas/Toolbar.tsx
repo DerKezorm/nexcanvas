@@ -21,6 +21,7 @@ import {
   Type,
   Upload,
   Camera,
+  Timer,
 } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -84,6 +85,7 @@ export function Toolbar({
   onUpload,
   onLink,
   onCamera,
+  onTimer,
   onLibrary,
 }: {
   state: ToolState
@@ -91,6 +93,8 @@ export function Toolbar({
   onUpload: () => void
   onLink: () => void
   onCamera: () => void
+  /** Puts a timer in the middle of the board. */
+  onTimer: () => void
   /** Opens the whole shape library. */
   onLibrary?: () => void
 }) {
@@ -238,6 +242,10 @@ export function Toolbar({
             <button type="button" className="nc-menu-item" onClick={() => { close(); onCamera() }}>
               <Camera className="h-4 w-4 text-mist-500" />
               {t('media.camera')}
+            </button>
+            <button type="button" className="nc-menu-item" onClick={() => { close(); onTimer() }}>
+              <Timer className="h-4 w-4 text-mist-500" />
+              {t('timer.add')}
             </button>
             <p className="px-2.5 pt-1.5 pb-1 text-[11px] leading-snug text-mist-600">{t('media.dropHint')}</p>
           </div>

@@ -294,8 +294,10 @@ def svg(picture: dict[str, Any], title: str, look: str = "dark", width: int = 48
         elif kind == "text":
             words = len(str(item.get("text", "")))
             bar = min(w, words * (22 if item.get("size") == "xl" else 12)) or min(w, 60)
+            # The words sit where their alignment puts them: on the left unless chosen otherwise.
+            shift = {"center": (w - bar) / 2, "right": w - bar}.get(str(item.get("align")), 0.0)
             out.append(
-                f'<rect x="{_f(x)}" y="{_f(y + h * 0.3)}" width="{_f(bar)}" height="{_f(h * 0.4)}" rx="4" '
+                f'<rect x="{_f(x + shift)}" y="{_f(y + h * 0.3)}" width="{_f(bar)}" height="{_f(h * 0.4)}" rx="4" '
                 f'fill="{colours["words"]}" fill-opacity="0.6"/>'
             )
         elif kind == "frame":

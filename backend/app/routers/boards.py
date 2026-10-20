@@ -26,7 +26,7 @@ from ..errors import error
 from ..models import MANAGE, READ, WRITE, Board, BoardVersion, Favorite, Share, Visit, utcnow
 from ..models import Account as AccountRow
 from ..security import SESSION_COOKIE, session_account
-from ..services import boards, canvas_file, live, media_store, rights, settings_service, totp
+from ..services import boards, canvas_file, hiding, live, media_store, rights, settings_service, totp
 
 logger = logging.getLogger("nexcanvas.boards")
 
@@ -70,10 +70,12 @@ def _board(db: DbSession, account: AccountRow, board_id: str, need: str, *, dele
         raise _fail(exc) from exc
 
 
-def _picture(db: DbSession, board: Board) -> dict[str, Any]:
+def _picture(db: DbSession, board: Board, role: str | None) -> dict[str, Any]:
     current = live.picture(board.id)
     if current is None:
         current = db.scalar(select(Board.snapshot).where(Board.id == board.id)) or {"items": [], "lines": []}
+    # Who may only read sees no content of a hidden frame, here as on the board.
+    current = hiding.for_role(current, role)
     if len(current.get("items", [])) > PICTURE_ITEMS:
         shorter: dict[str, Any] = {"items": current["items"][:PICTURE_ITEMS], "lines": []}
         if "background" in current:
@@ -86,6 +88,7 @@ def _view(db: DbSession, account: AccountRow, board: Board, *, picture: bool = T
     favorite = db.get(Favorite, (account.id, board.id)) is not None
     visit = db.get(Visit, (account.id, board.id))
     shared = db.scalar(select(Share.id).where(Share.board_id == board.id))
+    role = rights.role_in(db, account, board.space_id)
     view: dict[str, Any] = {
         "id": board.id,
         "space_id": board.space_id,
@@ -98,10 +101,10 @@ def _view(db: DbSession, account: AccountRow, board: Board, *, picture: bool = T
         "favorite": favorite,
         "opened_at": visit.opened_at.isoformat() if visit else None,
         "public": shared is not None,
-        "role": rights.role_in(db, account, board.space_id),
+        "role": role,
     }
     if picture:
-        view["picture"] = _picture(db, board)
+        view["picture"] = _picture(db, board, role)
     return view
 
 
@@ -261,6 +264,7 @@ async def restore_version(board_id: BoardId, version_id: Annotated[int, PathPara
 def export_canvas(board_id: BoardId, account: Account, db: DbSession) -> Response:
     board = _board(db, account, board_id, READ)
     picture = live.picture(board_id) or boards.snapshot_of(boards.load(db, board))
+    picture = hiding.for_role(picture, rights.role_in(db, account, board.space_id))
     data, name, media_type = canvas_file.export(db, board, picture)
     logger.info("Board exported as canvas id=%s items=%s by=%s", board_id, len(picture.get("items", [])), account.name)
     return Response(data, media_type=media_type, headers={

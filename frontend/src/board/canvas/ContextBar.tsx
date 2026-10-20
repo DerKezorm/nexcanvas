@@ -7,14 +7,16 @@ import {
   AlignStartHorizontal,
   AlignStartVertical,
   AlignVerticalDistributeCenter,
-  ArrowDownToLine, ArrowLeftRight, ArrowRight, ArrowUpToLine, Copy, Group, ImageDown, Lock, LockOpen, Minus, PaintBucket, Spline, Trash2, Ungroup, Waypoints,
+  AlignCenter, AlignLeft, AlignRight,
+  ArrowDownToLine, ArrowLeftRight, ArrowRight, ArrowUpToLine, Bold, Copy, Eye, EyeOff, Group, ImageDown, Italic, Lock, LockOpen, Minus, PaintBucket, Spline, Strikethrough, Trash2, Type, Underline, Ungroup, Waypoints,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { FILLS, NOTE_COLORS, PALETTE, paint } from '../palette'
 import type { Arrange } from '../arrange'
-import type { Item, LineItem, NoteColor, TextSize } from '../types'
+import { alignOf, boldOf, hasWords, toggled } from '../textLook'
+import type { FrameItem, Item, LineItem, NoteColor, TextAlign, TextSize } from '../types'
 import { SHAPES } from './Toolbar'
 
 export interface ContextActions {
@@ -29,8 +31,25 @@ export interface ContextActions {
   ungroup: () => void
   /** Opens the export with what is selected. */
   exportSelection: () => void
+  /** Hides the content of the selected frame from the others, or shows it again. */
+  hide: (hidden: boolean) => void
+  /** Whether this person may show a hidden frame's content again: whoever hid it, and who manages the space. */
+  mayReveal: (frame: FrameItem) => boolean
   arrange: (how: Arrange) => void
 }
+
+const ALIGN: { align: TextAlign; Icon: typeof AlignLeft }[] = [
+  { align: 'left', Icon: AlignLeft },
+  { align: 'center', Icon: AlignCenter },
+  { align: 'right', Icon: AlignRight },
+]
+
+const LOOKS = [
+  { look: 'bold', Icon: Bold },
+  { look: 'italic', Icon: Italic },
+  { look: 'underline', Icon: Underline },
+  { look: 'strike', Icon: Strikethrough },
+] as const
 
 const ARRANGE: { how: Arrange; Icon: typeof AlignStartVertical }[] = [
   { how: 'left', Icon: AlignStartVertical },
@@ -83,13 +102,16 @@ export function ContextBar({ items, lines, at, actions, docked = false }: {
   docked?: boolean
 }) {
   const { t } = useTranslation()
-  const [panel, setPanel] = useState<'fill' | 'stroke' | 'shape' | 'arrange' | null>(null)
+  const [panel, setPanel] = useState<'fill' | 'stroke' | 'shape' | 'arrange' | 'text' | null>(null)
   const kinds = new Set<string>([...items.map((i) => i.kind), ...lines.map(() => 'line')])
   const only = kinds.size === 1 ? [...kinds][0] : null
   const first = items[0]
   const locked = items.length > 0 && items.every((i) => i.locked)
   // One group, and nothing else: then the bar offers to take it apart.
   const grouped = items.length > 1 && !!items[0].group && items.every((i) => i.group === items[0].group)
+  // Notes, shapes and texts, and nothing else: then the bar offers the look of their words.
+  const worded = items.length > 0 && lines.length === 0 && items.every(hasWords) ? items.filter(hasWords) : []
+  const head = worded[0]
   const colorLabel = (c: string) => (c === 'auto' ? t('colors.auto') : c === 'none' ? t('colors.none') : c)
 
   const setFill = (c: string) =>
@@ -162,6 +184,16 @@ export function ContextBar({ items, lines, at, actions, docked = false }: {
               Aa
             </button>
           </div>
+        )}
+        {only === 'frame' && items.length === 1 && first?.kind === 'frame' && (!first.hidden || actions.mayReveal(first)) && (
+          <Btn label={first.hidden ? t('hide.show') : t('hide.hide')} pressed={!!first.hidden} onClick={() => actions.hide(!first.hidden)}>
+            {first.hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+          </Btn>
+        )}
+        {head && (
+          <Btn label={t('context.text')} onClick={() => setPanel(panel === 'text' ? null : 'text')} pressed={panel === 'text'}>
+            <Type className="h-4 w-4" />
+          </Btn>
         )}
         {only === 'line' && lines[0] && (
           <>
@@ -239,6 +271,24 @@ export function ContextBar({ items, lines, at, actions, docked = false }: {
           )}
           {panel === 'stroke' && (
             <Swatches colors={['none', ...PALETTE]} value={first?.kind === 'shape' ? first.stroke : undefined} onPick={(c) => actions.change((x) => (x.kind === 'shape' ? { ...x, stroke: c } : x))} label={colorLabel} />
+          )}
+          {panel === 'text' && head && (
+            <div className="flex items-center gap-0.5">
+              {LOOKS.map(({ look, Icon }) => {
+                const on = look === 'bold' ? boldOf(head) : !!head[look]
+                return (
+                  <Btn key={look} label={t(`context.look.${look}`)} pressed={on} onClick={() => actions.change((x) => (x.kind !== 'line' && hasWords(x) ? { ...x, ...toggled(head, look) } : x))}>
+                    <Icon className="h-4 w-4" />
+                  </Btn>
+                )
+              })}
+              <span className="mx-0.5 h-6 w-px bg-ink-700" />
+              {ALIGN.map(({ align, Icon }) => (
+                <Btn key={align} label={t(`context.align.${align}`)} pressed={alignOf(head) === align} onClick={() => actions.change((x) => (x.kind !== 'line' && hasWords(x) ? { ...x, align } : x))}>
+                  <Icon className="h-4 w-4" />
+                </Btn>
+              ))}
+            </div>
           )}
           {panel === 'arrange' && (
             <div className="grid grid-cols-4 gap-1">

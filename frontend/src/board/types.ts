@@ -13,6 +13,18 @@ export type ShapeKind = 'rect' | 'round' | 'ellipse' | 'triangle' | 'diamond' | 
 
 export type TextSize = 's' | 'm' | 'l' | 'xl'
 
+export type TextAlign = 'left' | 'center' | 'right'
+
+/** How the words of a note, a shape or a text look, for all of its words at once. Unset: the kind's own way. */
+export interface TextLook {
+  align?: TextAlign
+  /** Unset: a text of size L or XL is bold, everything else is not. */
+  bold?: boolean
+  italic?: boolean
+  underline?: boolean
+  strike?: boolean
+}
+
 interface Box {
   id: string
   x: number
@@ -28,13 +40,13 @@ interface Box {
   locked?: boolean
 }
 
-export interface NoteItem extends Box {
+export interface NoteItem extends Box, TextLook {
   kind: 'note'
   text: string
   color: NoteColor
 }
 
-export interface ShapeItem extends Box {
+export interface ShapeItem extends Box, TextLook {
   kind: 'shape'
   shape: ShapeKind
   /** A shape of a package (`package/shape`); `shape` is then what an older page draws instead. */
@@ -45,7 +57,7 @@ export interface ShapeItem extends Box {
   text: string
 }
 
-export interface TextItem extends Box {
+export interface TextItem extends Box, TextLook {
   kind: 'text'
   text: string
   size: TextSize
@@ -92,6 +104,10 @@ export interface FrameItem extends Box {
   kind: 'frame'
   title: string
   color: string
+  /** Its content is hidden: readers never get it, writers see it covered (`board/hiding.ts`). */
+  hidden?: boolean
+  /** The account that hid it; it sees inside, as do those who manage the space. */
+  hiddenBy?: number
 }
 
 export interface LinkItem extends Box {
@@ -102,7 +118,22 @@ export interface LinkItem extends Box {
   hue: number
 }
 
-export type Item = NoteItem | ShapeItem | TextItem | InkItem | ImageItem | FileItem | LinkItem | FrameItem
+/**
+ * A countdown on the board, alike for everybody who has it open. Set: shows `duration`. Running: `ends` is the
+ * moment it reaches zero, on the server's clock. Paused: `left` milliseconds remain.
+ */
+export interface TimerItem extends Box {
+  kind: 'timer'
+  title: string
+  /** Seconds it counts down from. */
+  duration: number
+  ends?: number
+  left?: number
+  /** A short sound when it runs out; unset means on. */
+  sound?: boolean
+}
+
+export type Item = NoteItem | ShapeItem | TextItem | InkItem | ImageItem | FileItem | LinkItem | FrameItem | TimerItem
 
 /** One end of a line: fixed to an item (then it sits on its edge) or free on the board. */
 export interface End {

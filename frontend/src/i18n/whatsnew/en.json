@@ -1,4 +1,28 @@
 {
+  "0.5.0": {
+    "lead": "For lessons and workshops: frames whose content stays hidden for now, timers on the board and more ways to shape text.",
+    "sections": [
+      {
+        "title": "Hide what is in a frame",
+        "where": "Select a frame, the crossed out eye in the bar above it",
+        "body": "A frame can hide its content, such as the answers to a task, until it is time. Whoever may only read never gets it: not live on the board, not in the preview, the search, the export, on the public page or through the API. Whoever may write sees a cover; technically the content is in their browser all the same. Whoever hid the frame and those who manage the space see inside and can show it again."
+      },
+      {
+        "title": "Timers on the board",
+        "where": "Tool bar, Photo, file or link, Timer",
+        "body": "A timer is an object like a note: name and duration with a double click, then start, pause, reset, and a minute more or less. It runs alike for everybody because the server keeps the time, and it gives a short sound at the end, which can be switched off per timer. So timers for a lesson can be prepared beforehand. Whoever may only read sees it run but cannot use it."
+      },
+      {
+        "title": "More ways to shape text",
+        "where": "Select a note, shape or text, the Text button in the bar above it",
+        "body": "Notes, shapes and texts can be aligned left, centred or right, and set bold, italic, underlined or struck through, each for all of their words. Ctrl B, Ctrl I, Ctrl U and Ctrl Shift X do the same from the keyboard, while writing as well as with a selection."
+      }
+    ],
+    "smallTitle": "Also",
+    "small": [
+      "Timers and hidden frames travel along in a JSON Canvas export; a timer arrives as it was set, not running."
+    ]
+  },
   "0.4.2": {
     "lead": "A small fix for running behind a reverse proxy.",
     "sections": [

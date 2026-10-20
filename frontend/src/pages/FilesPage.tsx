@@ -4,7 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
 import { mediaUrl } from '../api/client'
+import { shownOf } from '../board/hiding'
 import { useBoards } from '../board/store'
+import { useAuth } from '../state/auth'
 import type { Board, FileItem, ImageItem } from '../board/types'
 import { Dialog } from '../components/Dialog'
 import { ago } from '../lib/time'
@@ -15,13 +17,15 @@ export function FilesPage() {
   const { t, i18n } = useTranslation()
   useTitle(t('nav.files'))
   const boards = useBoards()
+  const { me } = useAuth()
   const [purging, setPurging] = useState<Board | null>(null)
   useEffect(() => {
     void boards.loadBin().catch(() => undefined)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  // What lies in a hidden frame is not listed for whom it is covered on the board.
   const media = boards.boards.flatMap((b) =>
-    b.items.filter((i): i is ImageItem | FileItem => i.kind === 'image' || i.kind === 'file').map((item) => ({ item, board: b })),
+    shownOf(b, me?.id).items.filter((i): i is ImageItem | FileItem => i.kind === 'image' || i.kind === 'file').map((item) => ({ item, board: b })),
   )
   return (
     <main className="nc-scroll min-w-0 flex-1 overflow-y-auto">

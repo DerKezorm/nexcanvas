@@ -27,6 +27,11 @@ import { branchItem, placeBeside, sideToward, type BranchChoice, type Side } fro
 import { bounds, center, contains, intersects, lineGeometry, normalize, outer, shapePath, toBoard, toScreen, turn, type Point, type Rect } from '../board/geometry'
 import { outline } from '../board/ink'
 import { drawOrder, framesInOrder, waitingInk } from '../board/order'
+import { hasWords, lookKey, toggled } from '../board/textLook'
+import { learnServerClock } from '../board/clock'
+import { covered, hidingFrames, seesInside } from '../board/hiding'
+import { HiddenCover } from '../board/canvas/HiddenCover'
+import { TIMER_SIZE } from '../board/timer'
 import { Stage, useStageKeys, wholeScreen } from '../board/canvas/Stage'
 import { arrange } from '../board/arrange'
 import { NOTE_COLORS, paint } from '../board/palette'
@@ -178,7 +183,7 @@ function Editor({ board }: { board: Board }) {
   const space = boards.space(board.space)
   const shownName = me?.display_name || me?.name || '?'
   const prefs = { snap: me?.preferences?.snap ?? true, dots: me?.preferences?.dots ?? true, tool_back: me?.preferences?.tool_back ?? true }
-  const doc = useLiveDoc(board.id, { name: shownName, color: personColor(me?.name ?? '') })
+  const doc = useLiveDoc(board.id, { name: shownName, color: personColor(me?.name ?? '') }, board.role === 'read' || space?.role === 'read')
   const readOnly = board.role === 'read' || space?.role === 'read' || doc.status === 'gone'
   const { items, lines } = doc.doc
   // Leaving the board, its card in the list shows what is on it now (the list itself loads again only now and then).
@@ -275,6 +280,15 @@ function Editor({ board }: { board: Board }) {
 
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
   const waiting = useMemo(() => waitingInk(items), [items])
+  // Hidden frames: what this person does not see into is not drawn, picked or pointed at; a cover lies over it.
+  const role = space?.role ?? board.role
+  const hiders = useMemo(() => hidingFrames(items), [items])
+  const cover = useMemo(() => covered(items, lines, me?.id, role), [items, lines, me?.id, role])
+  const coverRef = useRef(cover)
+  coverRef.current = cover
+  const shownItems = useMemo(() => (cover.items.size ? items.filter((i) => !cover.items.has(i.id)) : items), [items, cover])
+  const shownLines = useMemo(() => (cover.lines.size ? lines.filter((l) => !cover.lines.has(l.id)) : lines), [lines, cover])
+  const shownById = useMemo(() => (cover.items.size ? new Map(shownItems.map((i) => [i.id, i])) : byId), [shownItems, byId, cover])
   const selectedSet = useMemo(() => new Set(selected), [selected])
   const selItems = items.filter((i) => selectedSet.has(i.id))
   const selLines = lines.filter((l) => selectedSet.has(l.id))
@@ -420,6 +434,17 @@ function Editor({ board }: { board: Board }) {
     },
     [doc],
   )
+
+  /** A timer of five minutes in the middle of the view, named right away. */
+  const addTimer = useCallback(() => {
+    const p = middle()
+    add({ id: uid(), kind: 'timer', x: p.x - TIMER_SIZE.w / 2, y: p.y - TIMER_SIZE.h / 2, ...TIMER_SIZE, title: '', duration: 300 }, true)
+  }, [middle, add])
+
+  // Timers count on the server's clock, so they end at the same moment for everybody.
+  useEffect(() => {
+    void learnServerClock()
+  }, [])
 
   /** A shape of a package goes on the board: at its own size around `at`, or into `box`; carried along when it is not
    * a shipped one, so everybody sees it. */
@@ -939,7 +964,7 @@ function Editor({ board }: { board: Board }) {
         setMarquee(r)
         // A frame only when the rectangle holds all of it: a rectangle drawn inside a frame picks what is in there.
         const inside = withGroups(
-          doc.ref.current.items.filter((i) => !waiting.has(i.id)).filter((i) => (i.kind === 'frame' ? contains(r, i) && contains(r, { x: i.x + i.w, y: i.y + i.h }) : intersects(outer(i), r))).map((i) => i.id),
+          doc.ref.current.items.filter((i) => !waiting.has(i.id) && !coverRef.current.items.has(i.id)).filter((i) => (i.kind === 'frame' ? contains(r, i) && contains(r, { x: i.x + i.w, y: i.y + i.h }) : intersects(outer(i), r))).map((i) => i.id),
           doc.ref.current.items,
         )
         const linesIn = doc.ref.current.lines
@@ -1137,7 +1162,7 @@ function Editor({ board }: { board: Board }) {
     if (target.closest('[data-ui]') || target.closest('[data-handle]')) return
     const id = target.closest<HTMLElement>('[data-item]')?.dataset.item
     const item = id ? byId.get(id) : undefined
-    if (item?.kind === 'frame' && !item.locked) {
+    if ((item?.kind === 'frame' || item?.kind === 'timer') && !item.locked && !readOnly) {
       setSelected([item.id])
       setEditing(item.id)
       freshText.current = null
@@ -1222,7 +1247,8 @@ function Editor({ board }: { board: Board }) {
       }
       if (mod && k === 'a') {
         e.preventDefault()
-        setSelected([...doc.ref.current.items.filter((i) => !waiting.has(i.id)).map((i) => i.id), ...doc.ref.current.lines.map((l) => l.id)])
+        const hidden = coverRef.current
+        setSelected([...doc.ref.current.items.filter((i) => !waiting.has(i.id) && !hidden.items.has(i.id)).map((i) => i.id), ...doc.ref.current.lines.filter((l) => !hidden.lines.has(l.id)).map((l) => l.id)])
         return
       }
       if (mod && k === 'd') {
@@ -1236,6 +1262,18 @@ function Editor({ board }: { board: Board }) {
         if (e.shiftKey) ungroup(selected)
         else group(selected)
         return
+      }
+      const look = lookKey(e)
+      if (look && look !== 'align' && selected.length && !readOnly) {
+        // Ctrl B, I, U (Shift X) switch the look of the words of every selected note, shape and text, as the first one shows.
+        const ids = new Set(selected)
+        const first = doc.ref.current.items.find((i) => ids.has(i.id) && hasWords(i))
+        if (first && hasWords(first)) {
+          e.preventDefault()
+          const change = toggled(first, look)
+          doc.commit((d) => ({ ...d, items: d.items.map((i) => (ids.has(i.id) && hasWords(i) ? { ...i, ...change } : i)) }))
+          return
+        }
       }
       if (mod && k === 'c') {
         const ids = new Set(selected)
@@ -1376,6 +1414,12 @@ function Editor({ board }: { board: Board }) {
     group: () => group(selected),
     ungroup: () => ungroup(selected),
     exportSelection: () => setExporting('selection'),
+    hide: (hidden) =>
+      doc.commit((d) => ({
+        ...d,
+        items: d.items.map((i) => (selectedSet.has(i.id) && i.kind === 'frame' ? { ...i, hidden: hidden || undefined, hiddenBy: hidden ? me?.id : undefined } : i)),
+      })),
+    mayReveal: (frame) => seesInside(frame, me?.id, role),
     arrange: (how) => {
       const moves = arrange(doc.ref.current.items, selectedSet, how)
       if (!moves.size) return
@@ -1595,10 +1639,13 @@ function Editor({ board }: { board: Board }) {
         <ItemActions.Provider value={itemActions}>
         <div ref={world} className="absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, ['--zoom' as string]: view.zoom, ...inkVariables(bg) }}>
           {/* Frames lie under everything else, whatever was made first. */}
-          {drawOrder(items, waiting).map((item) => (
+          {drawOrder(shownItems, waiting).map((item) => (
             <ItemView key={item.id} item={item} editing={editing === item.id} onText={onText} onDone={onDone} onMeasure={onMeasure} />
           ))}
-          <Lines lines={lines} items={items} selected={selectedSet} />
+          <Lines lines={shownLines} items={items} selected={selectedSet} />
+          {hiders.filter((frame) => !cover.items.has(frame.id)).map((frame) => (
+            <HiddenCover key={frame.id} frame={frame} inside={seesInside(frame, me?.id, role)} />
+          ))}
           {draft?.ink && (
             <svg className="pointer-events-none absolute top-0 left-0 overflow-visible" width={1} height={1}>
               <path d={outline(draft.ink, tools.tool === 'marker' ? tools.penSize * 4 : tools.penSize, tools.tool === 'marker', false)} fill={paint(tools.pen)} opacity={tools.tool === 'marker' ? 0.42 : 1} />
@@ -1631,7 +1678,7 @@ function Editor({ board }: { board: Board }) {
           )}
         </div>
 
-        <PeerPointers peers={doc.peers} view={view} items={byId} />
+        <PeerPointers peers={doc.peers} view={view} items={shownById} />
 
         {!readOnly && presenting === null && !phone && (
           <LibraryPanel
@@ -1775,6 +1822,7 @@ function Editor({ board }: { board: Board }) {
               }}
               onUpload={() => fileInput.current?.click()}
               onLink={() => setAsking('link')}
+              onTimer={addTimer}
               onCamera={() => cameraInput.current?.click()}
               onLibrary={() => {
                 if (phone) setLibrarySheet(true)

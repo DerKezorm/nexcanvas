@@ -429,7 +429,19 @@
     "unlock": "Entsperren",
     "delete": "Löschen",
     "group": "Gruppieren",
-    "ungroup": "Gruppe auflösen"
+    "ungroup": "Gruppe auflösen",
+    "text": "Text",
+    "look": {
+      "bold": "Fett (Strg B)",
+      "italic": "Kursiv (Strg I)",
+      "underline": "Unterstrichen (Strg U)",
+      "strike": "Durchgestrichen (Strg Umschalt X)"
+    },
+    "align": {
+      "left": "Links ausrichten",
+      "center": "Zentrieren",
+      "right": "Rechts ausrichten"
+    }
   },
   "menu": {
     "noteHere": "Notiz hier",
@@ -1459,5 +1471,27 @@
   "notFound": {
     "space": "Diesen Bereich gibt es nicht, er liegt im Papierkorb, oder du darfst ihn nicht sehen.",
     "page": "Diese Seite gibt es in nexcanvas nicht."
+  },
+  "timer": {
+    "add": "Timer",
+    "untitled": "Timer",
+    "start": "Starten",
+    "pause": "Anhalten",
+    "resume": "Weiter",
+    "reset": "Zurücksetzen",
+    "less": "Eine Minute weniger",
+    "more": "Eine Minute mehr",
+    "soundOn": "Ton einschalten",
+    "soundOff": "Ton ausschalten",
+    "name": "Name",
+    "duration": "Dauer (z. B. 5 oder 4:30)",
+    "keep": "Übernehmen"
+  },
+  "hide": {
+    "hide": "Inhalt verstecken",
+    "show": "Inhalt zeigen",
+    "hidden": "Versteckt",
+    "hiddenForOthers": "Für andere versteckt",
+    "coverHint": "Der Inhalt dieses Rahmens ist versteckt, bis er gezeigt wird."
   }
 }
