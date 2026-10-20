@@ -1491,7 +1491,9 @@
     "hide": "Inhalt verstecken",
     "show": "Inhalt zeigen",
     "hidden": "Versteckt",
-    "hiddenForOthers": "Für andere versteckt",
-    "coverHint": "Der Inhalt dieses Rahmens ist versteckt, bis er gezeigt wird."
+    "coverHint": "Der Inhalt dieses Rahmens ist für alle versteckt, bis er gezeigt wird.",
+    "peek": "Hineinschauen",
+    "peeking": "Nur auf diesem Bildschirm offen",
+    "closePeek": "Zudecken"
   }
 }

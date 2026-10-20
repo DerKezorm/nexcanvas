@@ -50,10 +50,11 @@ your own: save a board as a template, with its content or only the skeleton.*
   stays with that page.
 - **Frames and scenes.** A frame is a named area that takes along what lies in it. The scene list jumps from frame
   to frame, and presenting shows one frame after the other on the whole screen, also on a public page.
-- **Hidden frames.** A frame can hide what lies in it, such as the answers to a task, until it is time. Whoever may
-  only read never gets it from the server: not live, not in previews, search, export, the public page or the API.
-  Whoever may write sees a cover (the content is in their browser all the same); whoever hid it and those who
-  manage the space see inside and show it again.
+- **Hidden frames.** A frame can hide what lies in it, such as the answers to a task, until it is time. It is covered
+  for everybody, the one who hid it too, so nothing shows on a projector; whoever hid it and those who manage the
+  space show it from the cover, or look inside on their own screen only. Whoever may only read never gets it from
+  the server: not live, not in previews, search, export, the public page or the API. Whoever may write has it in
+  their browser all the same.
 - **Timers.** A countdown as an object on the board, prepared beforehand and the same for everybody, with a short
   sound at the end.
 - **Text.** Notes, shapes and texts align left, centred or right, and go bold, italic, underlined or struck through.

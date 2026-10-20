@@ -1491,7 +1491,9 @@
     "hide": "Hide content",
     "show": "Show content",
     "hidden": "Hidden",
-    "hiddenForOthers": "Hidden from others",
-    "coverHint": "What is in this frame is hidden until it is shown."
+    "coverHint": "What is in this frame is hidden from everybody until it is shown.",
+    "peek": "Look inside",
+    "peeking": "Open on this screen only",
+    "closePeek": "Cover"
   }
 }

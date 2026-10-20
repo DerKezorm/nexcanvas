@@ -3,7 +3,8 @@
  * (`backend/app/services/hiding.py`), tested against the same cases (`backend/tests/hiding_cases.json`).
  *
  * Who may only read never gets hidden content from the server. Who may write has it in the board, and the page
- * covers it, except for whoever hid the frame and those who manage the space.
+ * covers it for everybody, whoever hid it too. Whoever hid it and those who manage the space can show it to all, or
+ * look inside on their own screen until they close it again or load the page anew.
  */
 
 import { contains } from './geometry'
@@ -51,21 +52,25 @@ export function hiddenLine(line: LineItem, hidden: Set<string>, frames: FrameIte
   return false
 }
 
-/** Whether this person sees what a hidden frame holds: whoever hid it, and those who manage the space. */
-export function seesInside(frame: FrameItem, me: number | undefined, role: Role | null | undefined): boolean {
+/** Whether this person may show a hidden frame's content to everybody, or look inside on their own screen: whoever
+ * hid it, and those who manage the space. */
+export function mayShow(frame: FrameItem, me: number | undefined, role: Role | null | undefined): boolean {
   return role === 'manage' || (me !== undefined && frame.hiddenBy === me)
 }
 
-/** A board's items and lines without what is covered for this person (the overview, the files). */
-export function shownOf(board: { items: Item[]; lines: LineItem[]; role?: Role | null }, me: number | undefined): { items: Item[]; lines: LineItem[] } {
-  const hidden = covered(board.items, board.lines, me, board.role)
+/** A board's items and lines without what lies hidden (the overview, the files): covered there for everybody. */
+export function shownOf(board: { items: Item[]; lines: LineItem[] }): { items: Item[]; lines: LineItem[] } {
+  const hidden = covered(board.items, board.lines)
   if (!hidden.items.size && !hidden.lines.size) return board
   return { items: board.items.filter((i) => !hidden.items.has(i.id)), lines: board.lines.filter((l) => !hidden.lines.has(l.id)) }
 }
 
-/** What is covered for this person: the items and lines in the hidden frames they do not see into. */
-export function covered(items: Item[], lines: LineItem[], me: number | undefined, role: Role | null | undefined): { items: Set<string>; lines: Set<string> } {
-  const frames = hidingFrames(items).filter((frame) => !seesInside(frame, me, role))
+/**
+ * What is covered on this screen: everything in a hidden frame, for everybody, the one who hid it too (on a projector
+ * the whole class looks at that screen). Only the frames in `peeking` are open, on this screen alone.
+ */
+export function covered(items: Item[], lines: LineItem[], peeking: ReadonlySet<string> = new Set()): { items: Set<string>; lines: Set<string> } {
+  const frames = hidingFrames(items).filter((frame) => !peeking.has(frame.id))
   if (!frames.length) return { items: new Set(), lines: new Set() }
   const ids = hiddenIds(items, frames)
   return { items: ids, lines: new Set(lines.filter((line) => hiddenLine(line, ids, frames)).map((line) => line.id)) }

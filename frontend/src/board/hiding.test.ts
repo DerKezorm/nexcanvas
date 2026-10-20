@@ -1,4 +1,4 @@
-import { covered, hiddenIds, hiddenLine, hidingFrames, seesInside } from './hiding'
+import { covered, hiddenIds, hiddenLine, hidingFrames, mayShow, shownOf } from './hiding'
 import type { FrameItem, Item, LineItem } from './types'
 
 interface Case {
@@ -24,19 +24,23 @@ describe('what a hidden frame covers, as the server sees it', () => {
   })
 })
 
-describe('who sees inside', () => {
+describe('what is covered on a screen', () => {
   const frame: FrameItem = { id: 'frame1', kind: 'frame', x: 0, y: 0, w: 400, h: 300, title: '', color: '#ff8a70', hidden: true, hiddenBy: 7 }
   const note: Item = { id: 'note01', kind: 'note', x: 50, y: 50, w: 100, h: 100, color: 'yellow', text: '42' }
 
-  it('is whoever hid it and who manages the space', () => {
-    expect(seesInside(frame, 7, 'write')).toBe(true)
-    expect(seesInside(frame, 8, 'manage')).toBe(true)
-    expect(seesInside(frame, 8, 'write')).toBe(false)
-    expect(seesInside(frame, undefined, 'read')).toBe(false)
+  it('is everything hidden, for whoever hid it too (a projector shows that screen to the class)', () => {
+    expect([...covered([frame, note], []).items]).toEqual(['note01'])
+    expect(shownOf({ items: [frame, note], lines: [] }).items.map((i) => i.id)).toEqual(['frame1'])
   })
 
-  it('covers for the others only', () => {
-    expect([...covered([frame, note], [], 8, 'write').items]).toEqual(['note01'])
-    expect(covered([frame, note], [], 7, 'write').items.size).toBe(0)
+  it('opens only the frames looked into on this screen', () => {
+    expect(covered([frame, note], [], new Set(['frame1'])).items.size).toBe(0)
+  })
+
+  it('lets whoever hid it and who manages the space show it or look inside', () => {
+    expect(mayShow(frame, 7, 'write')).toBe(true)
+    expect(mayShow(frame, 8, 'manage')).toBe(true)
+    expect(mayShow(frame, 8, 'write')).toBe(false)
+    expect(mayShow(frame, undefined, 'read')).toBe(false)
   })
 })

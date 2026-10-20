@@ -1,11 +1,30 @@
 {
+  "0.5.1": {
+    "lead": "Hidden frames now suit a projector, and PDFs stay sharp when you zoom in.",
+    "sections": [
+      {
+        "title": "Hidden means covered for everybody",
+        "where": "The cover of a hidden frame, Show content and Look inside",
+        "body": "A hidden frame is now covered for the one who hid it too; on a projector the class sees what the teacher sees. On the cover, Show content shows it to everybody, Look inside opens it on your own screen only, until Cover or until the page is loaded again. Both are for whoever hid the frame and those who manage the space."
+      },
+      {
+        "title": "PDFs sharp when zoomed in",
+        "where": "A PDF on the board",
+        "body": "A PDF page is now drawn as sharp as the zoom asks for, a moment after the zoom comes to rest. Vector PDFs stay clear when zoomed far in, up to about 12 megapixels per page."
+      }
+    ],
+    "smallTitle": "Also",
+    "small": [
+      "The public page shows the cover over a hidden frame instead of an empty frame."
+    ]
+  },
   "0.5.0": {
     "lead": "For lessons and workshops: frames whose content stays hidden for now, timers on the board and more ways to shape text.",
     "sections": [
       {
         "title": "Hide what is in a frame",
-        "where": "Select a frame, the crossed out eye in the bar above it",
-        "body": "A frame can hide its content, such as the answers to a task, until it is time. Whoever may only read never gets it: not live on the board, not in the preview, the search, the export, on the public page or through the API. Whoever may write sees a cover; technically the content is in their browser all the same. Whoever hid the frame and those who manage the space see inside and can show it again."
+        "where": "Select a frame, the crossed out eye in the bar above it; Show and Look inside on the cover",
+        "body": "A frame can hide its content, such as the answers to a task, until it is time. It is then covered for everybody, the one who hid it too, so nothing shows on a projector. Whoever hid it and those who manage the space can show it to all from the cover, or look inside on their own screen only. Whoever may only read never gets the content: not live, not in the preview, the search, the export, on the public page or through the API. Whoever may write has it in their browser all the same."
       },
       {
         "title": "Timers on the board",

@@ -7,7 +7,8 @@ end on any of these or end freely inside the frame. The frame itself, its name a
 Who may only read never gets the hidden content from the server: not live (``services/live.py`` keeps a document of
 its own for them), not in the board's picture, the list, the export, the public page or the API, and the search does
 not find its words. Who may write has the whole board in the browser, as before; the page covers what is hidden for
-them, and shows it only to whoever hid it and to those who manage the space.
+everybody (on a projector the class sees the teacher's screen), and whoever hid it and those who manage the space can
+show it to all or look inside on their own screen.
 
 The same rule is in ``frontend/src/board/hiding.ts``; both are tested against ``tests/hiding_cases.json``.
 """

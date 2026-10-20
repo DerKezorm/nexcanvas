@@ -7,14 +7,12 @@ import { makeLookup, outlineFor, type Lookup } from './library/registry'
 import { inkPath } from './ink'
 import { drawOrder } from './order'
 import { mediaUrl } from '../api/client'
-import { useAuth } from '../state/auth'
 import { shownOf } from './hiding'
 
 /** A small picture of a board for the overview: the same items, simplified, fitted into the card. */
 export function Thumb({ board: whole }: { board: Board }) {
-  // What lies in a hidden frame stays covered here too, for whom it is covered on the board.
-  const { me } = useAuth()
-  const board = { ...whole, ...shownOf(whole, me?.id) }
+  // What lies in a hidden frame stays covered here too, as on the board.
+  const board = { ...whole, ...shownOf(whole) }
   // The board's own background, small; without one, the dots of the overview.
   const shown = effectiveBackground(board.background, true)
   const look = backgroundStyle(shown, { x: 0, y: 0, zoom: 14 / 24 })

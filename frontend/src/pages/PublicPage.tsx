@@ -8,7 +8,10 @@ import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
 
 import { api, ApiError } from '../api/client'
+import { HiddenCover } from '../board/canvas/HiddenCover'
 import { ItemView } from '../board/canvas/ItemView'
+import { BoardZoom } from '../board/canvas/PdfPage'
+import { hidingFrames } from '../board/hiding'
 import { drawOrder, framesInOrder } from '../board/order'
 import { Stage, useStageKeys, wholeScreen } from '../board/canvas/Stage'
 import { Lines } from '../board/canvas/Lines'
@@ -195,10 +198,16 @@ export function PublicPage() {
           }}
         >
           <div className="pointer-events-none absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, ['--zoom' as string]: view.zoom, ...inkVariables(effectiveBackground(doc.background, true)) }}>
-            {drawOrder(doc.items).map((item) => (
-              <ItemView key={item.id} item={item} editing={false} onText={nothing} onDone={nothing} onMeasure={nothing} />
-            ))}
+            <BoardZoom.Provider value={view.zoom}>
+              {drawOrder(doc.items).map((item) => (
+                <ItemView key={item.id} item={item} editing={false} onText={nothing} onDone={nothing} onMeasure={nothing} />
+              ))}
+            </BoardZoom.Provider>
             <Lines lines={doc.lines} items={doc.items} selected={new Set()} />
+            {/* The server left out what lies in a hidden frame; the cover says so. */}
+            {hidingFrames(doc.items).map((frame) => (
+              <HiddenCover key={frame.id} frame={frame} peeking={false} mayShow={false} onShow={nothing} onPeek={nothing} />
+            ))}
           </div>
           {presenting !== null && <Stage frames={frames} at={presenting} view={view} go={go} />}
           <div data-ui className={'nc-float absolute bottom-4 left-4 flex items-center gap-0.5 p-1 ' + (presenting !== null ? 'hidden' : '')}>

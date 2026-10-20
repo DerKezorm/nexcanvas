@@ -2,6 +2,9 @@
  * A PDF on the board: one page at a time, drawn by pdf.js, with arrows to turn the pages. Drawing on it is the pen
  * on the board above it, so notes on a page stay where they were drawn.
  *
+ * A page is drawn as sharp as the board's zoom asks for: in steps, a moment after the zoom stopped, into a canvas of its
+ * own that takes the place of the old one only when it is done (no white flash), and never larger than `MAX_PIXELS`.
+ *
  * The bytes are fetched like any other request of the page (the server hands PDFs out as downloads only; pdf.js reads
  * them here, nothing of the PDF ever runs as a page).
  */
@@ -36,6 +39,30 @@ type PdfPageProxy = {
 
 const loaded = new Map<string, Promise<PdfDocument>>()
 
+/** The board's zoom, for drawing PDF pages sharp at it. Given by the board page; 1 where there is none. */
+// eslint-disable-next-line react-refresh/only-export-components
+export const BoardZoom = createContext(1)
+
+/** The most pixels one page is drawn with: an A4 page about 3,000 by 4,200, some 50 MB as a canvas. */
+export const MAX_PIXELS = 12_000_000
+/** How long the zoom has to rest before a page is drawn anew. */
+const SETTLE_MS = 250
+
+/** The zoom a page is drawn for: in half steps of two (1, 1.4, 2, 2.8, 4 …), never below 1. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function sharpness(zoom: number): number {
+  if (!(zoom > 1)) return 1
+  return Math.min(16, 2 ** (Math.ceil(Math.log2(zoom) * 2) / 2))
+}
+
+/** The scale pdf.js draws a page with, for its width on the board, the zoom and the screen's pixels. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function drawScale(base: { width: number; height: number }, width: number, zoom: number, pixelRatio: number): number {
+  const wanted = (width * sharpness(zoom) * Math.max(1, pixelRatio)) / base.width
+  const most = Math.sqrt(MAX_PIXELS / Math.max(1, base.width * base.height))
+  return Math.max(0.1, Math.min(wanted, most))
+}
+
 async function open(media: string, address: string): Promise<PdfDocument> {
   let found = loaded.get(media)
   if (!found) {
@@ -61,6 +88,15 @@ export function PdfPage({ item }: { item: FileItem }) {
   const mediaUrl = useMediaUrl()
   const address = mediaUrl(item.media)
   const canvas = useRef<HTMLCanvasElement>(null)
+  // The zoom the page is drawn for follows the board's a moment after it rests, and only when it is a step further.
+  const zoom = useContext(BoardZoom)
+  const [drawnFor, setDrawnFor] = useState(() => sharpness(zoom))
+  useEffect(() => {
+    const step = sharpness(zoom)
+    if (step === drawnFor) return
+    const timer = window.setTimeout(() => setDrawnFor(step), SETTLE_MS)
+    return () => window.clearTimeout(timer)
+  }, [zoom, drawnFor])
   const [pages, setPages] = useState(item.pages ?? 0)
   const [failed, setFailed] = useState(false)
   const page = Math.max(1, Math.min(item.page ?? 1, pages || 1))
@@ -76,16 +112,26 @@ export function PdfPage({ item }: { item: FileItem }) {
         const target = canvas.current
         if (cancelled || !target) return
         const base = proxy.getViewport({ scale: 1 })
-        // Sharp at the size it has on the board, on screens with more pixels too; never absurdly large.
-        const scale = Math.min(3, (item.w * Math.min(2, window.devicePixelRatio || 1)) / base.width)
-        const viewport = proxy.getViewport({ scale })
-        target.width = Math.round(viewport.width)
-        target.height = Math.round(viewport.height)
-        const context = target.getContext('2d')
+        // Sharp at the size it has on the screen: its width on the board, the zoom, the screen's pixels.
+        const viewport = proxy.getViewport({ scale: drawScale(base, item.w, drawnFor, window.devicePixelRatio || 1) })
+        const fresh = document.createElement('canvas')
+        fresh.width = Math.round(viewport.width)
+        fresh.height = Math.round(viewport.height)
+        const context = fresh.getContext('2d')
         if (!context) return
-        const render = proxy.render({ canvas: target, canvasContext: context, viewport })
+        const render = proxy.render({ canvas: fresh, canvasContext: context, viewport })
         task = render
-        await render.promise.catch(() => undefined)
+        try {
+          await render.promise
+        } catch {
+          return
+        }
+        if (cancelled) return
+        // Only now the shown page changes, so zooming never shows it blank.
+        target.width = fresh.width
+        target.height = fresh.height
+        target.getContext('2d')?.drawImage(fresh, 0, 0)
+        fresh.width = 0
       },
       () => !cancelled && setFailed(true),
     )
@@ -93,7 +139,7 @@ export function PdfPage({ item }: { item: FileItem }) {
       cancelled = true
       task?.cancel()
     }
-  }, [item.media, address, page, item.w])
+  }, [item.media, address, page, item.w, drawnFor])
 
   const turn = (by: number) => patch(item.id, { page: Math.max(1, Math.min(pages, page + by)) } as Partial<Item>)
 

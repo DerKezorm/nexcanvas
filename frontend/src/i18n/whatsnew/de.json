@@ -1,11 +1,30 @@
 {
+  "0.5.1": {
+    "lead": "Versteckte Rahmen passen jetzt zum Beamer, und PDFs bleiben beim Hineinzoomen scharf.",
+    "sections": [
+      {
+        "title": "Versteckt heißt für alle zugedeckt",
+        "where": "Abdeckung eines versteckten Rahmens, Knöpfe „Inhalt zeigen“ und „Hineinschauen“",
+        "body": "Ein versteckter Rahmen ist jetzt auch für die Person zugedeckt, die ihn versteckt hat. Am Beamer sieht die Klasse sonst, was die Lehrkraft sieht. Auf der Abdeckung zeigt „Inhalt zeigen“ ihn allen, „Hineinschauen“ öffnet ihn nur auf dem eigenen Bildschirm, bis „Zudecken“ oder bis die Seite neu geladen wird. Beides können, wer den Rahmen versteckt hat, und wer den Bereich verwaltet."
+      },
+      {
+        "title": "PDFs scharf beim Hineinzoomen",
+        "where": "PDF auf dem Board",
+        "body": "Eine PDF-Seite wird jetzt so scharf gezeichnet, wie der Zoom es verlangt, einen Augenblick nachdem er zur Ruhe kommt. Vektor-PDFs bleiben so auch groß gezoomt klar, bis zu einer Grenze von rund 12 Megapixeln je Seite."
+      }
+    ],
+    "smallTitle": "Außerdem",
+    "small": [
+      "Die öffentliche Seite zeigt über einem versteckten Rahmen die Abdeckung statt eines leeren Rahmens."
+    ]
+  },
   "0.5.0": {
     "lead": "Für den Unterricht und für Workshops: Rahmen, deren Inhalt erst einmal versteckt bleibt, Timer auf dem Board und mehr Möglichkeiten für Text.",
     "sections": [
       {
         "title": "Inhalt eines Rahmens verstecken",
-        "where": "Rahmen auswählen, Knopf mit dem durchgestrichenen Auge in der Leiste darüber",
-        "body": "Ein Rahmen kann seinen Inhalt verstecken, etwa die Lösungen zu einer Aufgabe, bis es Zeit dafür ist. Wer nur lesen darf, bekommt den Inhalt gar nicht erst: nicht live auf dem Board, nicht in der Vorschau, der Suche, dem Export, auf der öffentlichen Seite oder über die API. Wer schreiben darf, sieht eine Abdeckung; technisch liegt der Inhalt dort aber im Browser. Hineinsehen und den Inhalt wieder zeigen kann, wer den Rahmen versteckt hat, und wer den Bereich verwaltet."
+        "where": "Rahmen auswählen, Knopf mit dem durchgestrichenen Auge in der Leiste darüber; Zeigen und Hineinschauen auf der Abdeckung",
+        "body": "Ein Rahmen kann seinen Inhalt verstecken, etwa die Lösungen zu einer Aufgabe, bis es Zeit dafür ist. Er ist dann für alle zugedeckt, auch für die Person, die ihn versteckt hat, damit am Beamer nichts zu sehen ist. Wer ihn versteckt hat und wer den Bereich verwaltet, kann ihn auf der Abdeckung für alle zeigen oder nur auf dem eigenen Bildschirm hineinschauen. Wer nur lesen darf, bekommt den Inhalt gar nicht erst: nicht live, nicht in der Vorschau, der Suche, dem Export, auf der öffentlichen Seite oder über die API. Wer schreiben darf, hat ihn technisch im Browser."
       },
       {
         "title": "Timer auf dem Board",

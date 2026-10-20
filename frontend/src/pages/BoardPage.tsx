@@ -15,7 +15,7 @@ import { ContextBar, type ContextActions } from '../board/canvas/ContextBar'
 import { ExportDialog } from '../board/canvas/ExportDialog'
 import { ScenesPanel } from '../board/canvas/ScenesPanel'
 import { ItemView } from '../board/canvas/ItemView'
-import { ItemActions } from '../board/canvas/PdfPage'
+import { BoardZoom, ItemActions } from '../board/canvas/PdfPage'
 import { Lines } from '../board/canvas/Lines'
 import { ShareDialog } from '../board/canvas/ShareDialog'
 import { ShortcutsDialog } from '../board/canvas/ShortcutsDialog'
@@ -29,7 +29,7 @@ import { outline } from '../board/ink'
 import { drawOrder, framesInOrder, waitingInk } from '../board/order'
 import { hasWords, lookKey, toggled } from '../board/textLook'
 import { learnServerClock } from '../board/clock'
-import { covered, hidingFrames, seesInside } from '../board/hiding'
+import { covered, hidingFrames, mayShow } from '../board/hiding'
 import { HiddenCover } from '../board/canvas/HiddenCover'
 import { TIMER_SIZE } from '../board/timer'
 import { Stage, useStageKeys, wholeScreen } from '../board/canvas/Stage'
@@ -280,10 +280,16 @@ function Editor({ board }: { board: Board }) {
 
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
   const waiting = useMemo(() => waitingInk(items), [items])
-  // Hidden frames: what this person does not see into is not drawn, picked or pointed at; a cover lies over it.
+  // Hidden frames: covered for everybody, the one who hid them too (a projector shows that screen to the class). What
+  // is covered is not drawn, picked or pointed at. Looking inside is for this screen only and ends with a reload, or
+  // when the frame is shown, so hiding it again closes it here as well.
   const role = space?.role ?? board.role
   const hiders = useMemo(() => hidingFrames(items), [items])
-  const cover = useMemo(() => covered(items, lines, me?.id, role), [items, lines, me?.id, role])
+  const [peeking, setPeeking] = useState<ReadonlySet<string>>(() => new Set())
+  useEffect(() => {
+    if ([...peeking].some((id) => !hiders.some((frame) => frame.id === id))) setPeeking(new Set([...peeking].filter((id) => hiders.some((frame) => frame.id === id))))
+  }, [hiders, peeking])
+  const cover = useMemo(() => covered(items, lines, peeking), [items, lines, peeking])
   const coverRef = useRef(cover)
   coverRef.current = cover
   const shownItems = useMemo(() => (cover.items.size ? items.filter((i) => !cover.items.has(i.id)) : items), [items, cover])
@@ -1419,7 +1425,7 @@ function Editor({ board }: { board: Board }) {
         ...d,
         items: d.items.map((i) => (selectedSet.has(i.id) && i.kind === 'frame' ? { ...i, hidden: hidden || undefined, hiddenBy: hidden ? me?.id : undefined } : i)),
       })),
-    mayReveal: (frame) => seesInside(frame, me?.id, role),
+    mayReveal: (frame) => mayShow(frame, me?.id, role),
     arrange: (how) => {
       const moves = arrange(doc.ref.current.items, selectedSet, how)
       if (!moves.size) return
@@ -1637,6 +1643,7 @@ function Editor({ board }: { board: Board }) {
       >
         <LibraryContext.Provider value={library}>
         <ItemActions.Provider value={itemActions}>
+        <BoardZoom.Provider value={view.zoom}>
         <div ref={world} className="absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, ['--zoom' as string]: view.zoom, ...inkVariables(bg) }}>
           {/* Frames lie under everything else, whatever was made first. */}
           {drawOrder(shownItems, waiting).map((item) => (
@@ -1644,7 +1651,14 @@ function Editor({ board }: { board: Board }) {
           ))}
           <Lines lines={shownLines} items={items} selected={selectedSet} />
           {hiders.filter((frame) => !cover.items.has(frame.id)).map((frame) => (
-            <HiddenCover key={frame.id} frame={frame} inside={seesInside(frame, me?.id, role)} />
+            <HiddenCover
+              key={frame.id}
+              frame={frame}
+              peeking={peeking.has(frame.id)}
+              mayShow={!readOnly && mayShow(frame, me?.id, role)}
+              onShow={() => itemActions.patch(frame.id, { hidden: undefined, hiddenBy: undefined })}
+              onPeek={(open) => setPeeking((now) => (open ? new Set([...now, frame.id]) : new Set([...now].filter((id) => id !== frame.id))))}
+            />
           ))}
           {draft?.ink && (
             <svg className="pointer-events-none absolute top-0 left-0 overflow-visible" width={1} height={1}>
@@ -1730,6 +1744,7 @@ function Editor({ board }: { board: Board }) {
           />
           </div>
         )}
+        </BoardZoom.Provider>
         </ItemActions.Provider>
         </LibraryContext.Provider>
 
