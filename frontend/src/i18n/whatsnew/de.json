@@ -1,4 +1,24 @@
 {
+  "0.6.0": {
+    "lead": "Text lässt sich jetzt in Teilen formatieren, und eine PDF mit mehreren Seiten liegt auf Wunsch ganz auf dem Board.",
+    "sections": [
+      {
+        "title": "Einzelne Wörter formatieren",
+        "where": "Doppelklick in eine Notiz, eine Form oder einen Text, Leiste über dem Text",
+        "body": "Beim Schreiben erscheint über dem Text eine Leiste. Was markiert ist, wird fett, kursiv, unterstrichen oder durchgestrichen, bekommt eine Farbe oder eine andere Größe. Eine Zeile wird zur Aufzählung oder zur nummerierten Liste. Strg B, I und U wirken beim Schreiben ebenfalls nur auf das Markierte. Zwei Personen schreiben weiterhin gleichzeitig in derselben Notiz. Ist eine Notiz nur ausgewählt, gilt der Knopf „Text“ wie bisher für alle ihre Wörter."
+      },
+      {
+        "title": "Alle Seiten einer PDF auslegen",
+        "where": "PDF auswählen, Knopf „Alle Seiten auslegen“ in der Leiste darüber",
+        "body": "Statt durch eine PDF zu blättern, legt der Knopf jede weitere Seite als eigenes Element daneben: bis zu vier in einer Reihe, bei mehr Seiten in einem Block. Was auf einer Seite gezeichnet war, wandert mit ihr."
+      }
+    ],
+    "smallTitle": "Außerdem",
+    "small": [
+      "Beim Export als JSON Canvas für Obsidian oder nexlore wird formatierter Text zu Markdown (fett, kursiv, durchgestrichen, Listen). Ein anderes nexcanvas bekommt die Formatierung vollständig.",
+      "Eingefügter Text behält fett, kursiv und Listen, aber keine Farben und Größen von anderswo."
+    ]
+  },
   "0.5.1": {
     "lead": "Versteckte Rahmen passen jetzt zum Beamer, und PDFs bleiben beim Hineinzoomen scharf.",
     "sections": [

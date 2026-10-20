@@ -42,7 +42,7 @@ from pycrdt import (
 
 from ..db import SessionLocal
 from ..models import Account, Board
-from . import boards, hiding, rights
+from . import boards, hiding, rich, rights
 
 logger = logging.getLogger("nexcanvas.live")
 
@@ -130,9 +130,12 @@ class Room:
                 for key, value in want[name].items():
                     if key in has and has[key] == value:
                         continue
-                    # Words go in as a text of their own, as the browser expects them; a changed one is put in anew
-                    # (a reader never types in it).
-                    shared[key] = Text(value) if name == "texts" else value
+                    # Words go in as a text of their own with their formatting, as the browser expects them; a
+                    # changed one is put in anew (a reader never types in it).
+                    if name == "texts":
+                        rich.put(shared, key, rich.plain_of(value), value)
+                    else:
+                        shared[key] = value
                     has[key] = value
                     changed = True
         return self.reader.get_update(before) if changed else None
@@ -196,7 +199,7 @@ def forget() -> None:
 
 
 def _readers_view(doc: Doc) -> dict[str, dict[str, Any]]:
-    """What the readers' document should hold: the room's document without what is hidden, words as plain strings."""
+    """What the readers' document should hold: the room's document without what is hidden, words as runs."""
     items = {key: value for key, value in (doc.get("items", type=Map).to_py() or {}).items() if isinstance(value, dict)}
     lines = {key: value for key, value in (doc.get("lines", type=Map).to_py() or {}).items() if isinstance(value, dict)}
     listed = [{"id": key, **value} for key, value in items.items()]
@@ -208,7 +211,7 @@ def _readers_view(doc: Doc) -> dict[str, dict[str, Any]]:
         "items": shown,
         "lines": {key: value for key, value in lines.items()
                   if not hiding.hidden_line({"id": key, **value}, hidden, frames)},
-        "texts": {key: str(texts[key]) for key in shown if key in texts and isinstance(texts[key], Text)},
+        "texts": {key: rich.runs_of(texts[key]) for key in shown if key in texts and isinstance(texts[key], Text)},
         "meta": doc.get("meta", type=Map).to_py() or {},
         "defs": doc.get("defs", type=Map).to_py() or {},
     }

@@ -6,6 +6,7 @@
  */
 
 import type { ShapeDef } from './library/types'
+import type { Run } from './rich'
 
 export type NoteColor = 'yellow' | 'orange' | 'pink' | 'violet' | 'blue' | 'green' | 'gray'
 
@@ -23,6 +24,11 @@ export interface TextLook {
   italic?: boolean
   underline?: boolean
   strike?: boolean
+  /**
+   * The formatting of parts and lines (`board/rich.ts`), taken from the shared words when drawing the board; set
+   * only where there is any. Kept by copies and new items; for an item already on the board the shared words decide.
+   */
+  rich?: Run[]
 }
 
 interface Box {

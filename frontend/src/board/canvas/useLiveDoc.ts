@@ -7,7 +7,9 @@
  * others into a new picture.
  *
  * The words of notes, shapes and texts are a shared Yjs text each (`texts`), so two people can type in the same note:
- * `setText` hands the edit over as an insertion and a deletion where the words differ, not as a new whole.
+ * `setText` hands the edit over as an insertion and a deletion where the words differ, not as a new whole. The
+ * formatting inside the words (`board/rich.ts`) lives in the same text as its attributes: the editor changes it
+ * through `words`, the picture carries it as `rich`, and a new item brings its own along.
  *
  * The board's own background is a value in `meta`, the same for everybody; `setBackground` changes it as a step of
  * its own.
@@ -25,6 +27,7 @@ import { WebsocketProvider } from 'y-websocket'
 import * as Y from 'yjs'
 
 import type { ShapeDef } from '../library/types'
+import { cleanRuns, hasMarks, type Marks, type Run } from '../rich'
 import type { Background, Doc, Item, LineItem } from '../types'
 
 export type LiveStatus = 'connecting' | 'live' | 'offline' | 'gone'
@@ -57,9 +60,13 @@ function picture(items: Y.Map<unknown>, lines: Y.Map<unknown>, texts: Y.Map<Y.Te
   items.forEach((value, id) => {
     if (!value || typeof value !== 'object') return
     const text = texts.get(id)
-    const item = { ...(value as object), id } as Item & { text?: string }
-    if (text instanceof Y.Text) item.text = text.toString()
-    else if (WORDED.has(item.kind) || ('text' in item && typeof item.text !== 'string')) item.text = ''
+    const item = { ...(value as object), id } as Item & { text?: string; rich?: Run[] }
+    delete item.rich
+    if (text instanceof Y.Text) {
+      item.text = text.toString()
+      const rich = cleanRuns(text.toDelta())
+      if (hasMarks(rich)) item.rich = rich
+    } else if (WORDED.has(item.kind) || ('text' in item && typeof item.text !== 'string')) item.text = ''
     list.push(item as Item)
   })
   list.sort((a, b) => (Number(a.z) || 0) - (Number(b.z) || 0) || (a.id < b.id ? -1 : 1))
@@ -68,6 +75,15 @@ function picture(items: Y.Map<unknown>, lines: Y.Map<unknown>, texts: Y.Map<Y.Te
     if (value && typeof value === 'object') lineList.push({ ...(value as object), id } as LineItem)
   })
   return { items: list, lines: lineList }
+}
+
+/** A shared text for a new item: its words, with their formatting when they bring any. */
+function newText(text: string, rich: Run[] | undefined): Y.Text {
+  const runs = cleanRuns(rich)
+  if (!hasMarks(runs) || runs.map((run) => run.insert).join('') !== text) return new Y.Text(text)
+  const shared = new Y.Text()
+  shared.applyDelta(runs)
+  return shared
 }
 
 /** Puts the difference between two words into a shared text: one deletion and one insertion at most. */
@@ -210,7 +226,7 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string },
 
   /** Hands a new picture to the shared document: only what differs, in one transaction. */
   const apply = useCallback(
-    (next: Doc) => {
+    (next: Doc, also?: () => void) => {
       const before = current.current
       ydoc.transact(() => {
         const oldItems = new Map(before.items.map((item) => [item.id, item]))
@@ -219,7 +235,7 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string },
         for (const item of next.items) {
           keep.add(item.id)
           const old = oldItems.get(item.id)
-          const { text, ...rest } = item as Item & { text?: string }
+          const { text, rich, ...rest } = item as Item & { text?: string; rich?: Run[] }
           // The stacking order is the order of the list; a number only changes where the order would break.
           let z = Number(old?.z ?? rest.z)
           if (!Number.isFinite(z) || z <= lastZ) z = Number.isFinite(lastZ) ? lastZ + 1 : 0
@@ -233,7 +249,7 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string },
           if (typeof text === 'string') {
             const shared = texts.get(item.id)
             if (shared instanceof Y.Text) diffInto(shared, shared.toString(), text)
-            else texts.set(item.id, new Y.Text(text))
+            else texts.set(item.id, newText(text, rich))
           }
         }
         for (const id of oldItems.keys()) {
@@ -252,6 +268,7 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string },
           if (!stored || !sameJson(stored, value)) lines.set(id, value)
         }
         for (const id of oldLines.keys()) if (!keepLines.has(id)) lines.delete(id)
+        also?.()
       }, LOCAL)
       current.current = picture(items, lines, texts)
       setDoc(current.current)
@@ -259,10 +276,11 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string },
     [ydoc, items, lines, texts],
   )
 
+  /** One step: the new picture, and `also` (formatting words, `formatWords`) in the same step to undo. */
   const commit = useCallback(
-    (update: (doc: Doc) => Doc) => {
+    (update: (doc: Doc) => Doc, also?: () => void) => {
       undoManager.stopCapturing()
-      apply(update(current.current))
+      apply(update(current.current), also)
       undoManager.stopCapturing()
     },
     [apply, undoManager],
@@ -327,6 +345,37 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string },
     [ydoc, texts],
   )
 
+  /** Sets or takes away marks over all of an item's words (null takes away). */
+  const formatWords = useCallback(
+    (id: string, marks: { [K in keyof Marks]: Marks[K] | null }) => {
+      const shared = texts.get(id)
+      if (!(shared instanceof Y.Text) || !shared.length) return
+      ydoc.transact(() => shared.format(0, shared.length, marks), LOCAL)
+    },
+    [ydoc, texts],
+  )
+
+  /**
+   * The shared words of one item for an editor: changes go in with `transact` (this tab's, for undo), and `mine` tells
+   * a change of this tab from one of someone else or of undo. Made empty when the item had none yet.
+   */
+  const words = useCallback(
+    (id: string) => {
+      let shared = texts.get(id)
+      if (!(shared instanceof Y.Text)) {
+        const made = new Y.Text()
+        ydoc.transact(() => texts.set(id, made), LOCAL)
+        shared = made
+      }
+      return {
+        text: shared,
+        transact: (change: () => void) => ydoc.transact(change, LOCAL),
+        mine: (transaction: Y.Transaction) => transaction.origin === LOCAL,
+      }
+    },
+    [ydoc, texts],
+  )
+
   const textOf = useCallback(
     (id: string) => {
       const shared = texts.get(id)
@@ -370,6 +419,8 @@ export function useLiveDoc(boardId: string, me: { name: string; color: string },
     canUndo: history.undo,
     canRedo: history.redo,
     setText,
+    formatWords,
+    words,
     textOf,
     watchText,
     tell,

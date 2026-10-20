@@ -953,7 +953,23 @@
   },
   "pdf": {
     "previous": "Vorige Seite",
-    "next": "Nächste Seite"
+    "next": "Nächste Seite",
+    "spread": "Alle Seiten auslegen"
+  },
+  "textBar": {
+    "color": "Textfarbe",
+    "noColor": "Ohne Farbe",
+    "size": "Schriftgröße",
+    "sizes": {
+      "small": "Klein",
+      "normal": "Normal",
+      "large": "Groß",
+      "huge": "Sehr groß"
+    },
+    "list": {
+      "bullet": "Aufzählung",
+      "ordered": "Nummerierte Liste"
+    }
   },
   "public": {
     "missing": "Diese Seite gibt es nicht (mehr).",

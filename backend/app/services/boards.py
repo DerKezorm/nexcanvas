@@ -30,7 +30,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from ..models import Account, Board, BoardUpdate, BoardVersion, utcnow
-from . import hiding, shapepacks
+from . import hiding, rich, shapepacks
 from .names import CONTROL_TEXT, has_control
 
 logger = logging.getLogger("nexcanvas.boards")
@@ -144,11 +144,11 @@ def doc_from_json(content: dict[str, Any] | None) -> Doc:
     with doc.transaction():
         for number, item in enumerate(raw_items[:5000]):
             if isinstance(item, dict) and item.get("kind") in KINDS and ID.match(str(item.get("id", ""))):
-                value = {key: val for key, val in item.items() if key not in ("id", "text")}
+                value = {key: val for key, val in item.items() if key not in ("id", "text", "rich")}
                 value.setdefault("z", float(number))
                 items[str(item["id"])] = value
                 if isinstance(item.get("text"), str):
-                    texts[str(item["id"])] = Text(item["text"][:100_000])
+                    rich.put(texts, str(item["id"]), *rich.words_of(item))
         for line in raw_lines[:5000]:
             if isinstance(line, dict) and ID.match(str(line.get("id", ""))):
                 lines[str(line["id"])] = {key: val for key, val in line.items() if key != "id"}
@@ -165,14 +165,20 @@ def snapshot_of(doc: Doc) -> dict[str, Any]:
     """The plain picture: items in stacking order, lines, each with its id."""
     items = doc.get("items", type=Map).to_py() or {}
     lines = doc.get("lines", type=Map).to_py() or {}
-    texts = doc.get("texts", type=Map).to_py() or {}
-    ordered = sorted(
-        (
-            {"id": key, **value, **({"text": texts[key]} if isinstance(texts.get(key), str) else {})}
-            for key, value in items.items() if isinstance(value, dict)
-        ),
-        key=lambda item: (_number(item.get("z")), item["id"]),
-    )
+    shared = doc.get("texts", type=Map)
+    texts = shared.to_py() or {}
+    ordered = []
+    for key, value in items.items():
+        if not isinstance(value, dict):
+            continue
+        item = {"id": key, **{name: val for name, val in value.items() if name != "rich"}}
+        if isinstance(texts.get(key), str):
+            item["text"] = texts[key]
+            formatted = rich.rich_of(shared[key]) if isinstance(shared.get(key), Text) else None
+            if formatted:
+                item["rich"] = formatted
+        ordered.append(item)
+    ordered.sort(key=lambda item: (_number(item.get("z")), item["id"]))
     connections = [{"id": key, **value} for key, value in lines.items() if isinstance(value, dict)]
     picture: dict[str, Any] = {"items": ordered, "lines": connections}
     background = clean_background((doc.get("meta", type=Map).to_py() or {}).get("background"))
@@ -326,7 +332,8 @@ def restore_version(db: Session, board: Board, version: BoardVersion) -> bytes:
     texts = present.get("texts", type=Map)
     old_items = old.get("items", type=Map).to_py() or {}
     old_lines = old.get("lines", type=Map).to_py() or {}
-    old_texts = old.get("texts", type=Map).to_py() or {}
+    old_shared = old.get("texts", type=Map)
+    old_texts = {key: rich.runs_of(value) for key, value in old_shared.items() if isinstance(value, Text)}
     meta = present.get("meta", type=Map)
     defs = present.get("defs", type=Map)
     old_defs = old.get("defs", type=Map).to_py() or {}
@@ -354,13 +361,11 @@ def restore_version(db: Session, board: Board, version: BoardVersion) -> bytes:
         for key in list(texts.keys()):
             if key not in old_texts:
                 del texts[key]
-        for key, value in old_texts.items():
-            if not isinstance(value, str):
-                continue
+        for key, runs in old_texts.items():
             current = texts.get(key)
-            if isinstance(current, Text) and str(current) == value:
+            if isinstance(current, Text) and rich.runs_of(current) == runs:
                 continue
-            texts[key] = Text(value)
+            rich.put(texts, key, rich.plain_of(runs), runs)
     return present.get_update(before)
 
 

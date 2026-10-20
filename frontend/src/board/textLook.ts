@@ -1,10 +1,11 @@
 /**
- * The look of an item's words: alignment, bold, italic, underlined, struck through. It is set for all words of an
- * item at once (the words themselves stay plain text, so two people can type in them together).
+ * The look of an item's words as a whole: alignment, bold, italic, underlined, struck through. Parts of the words
+ * can carry their own (`board/rich.ts`); a look counts as on for the item when the item has it or every letter does.
  */
 
 import type { CSSProperties } from 'react'
 
+import { allHave, type SpanLook } from './rich'
 import type { Item, NoteItem, ShapeItem, TextAlign, TextItem, TextLook } from './types'
 
 export type Worded = NoteItem | ShapeItem | TextItem
@@ -41,7 +42,7 @@ export function justifyOf(item: Worded): CSSProperties['justifyContent'] {
 }
 
 /** A key with Ctrl (or Cmd) that switches a look: B, I, U, and Shift X for struck through. */
-export function lookKey(e: { key: string; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }): keyof TextLook | null {
+export function lookKey(e: { key: string; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }): SpanLook | null {
   if (!(e.ctrlKey || e.metaKey) || e.altKey) return null
   const key = e.key.toLowerCase()
   if (!e.shiftKey && key === 'b') return 'bold'
@@ -51,8 +52,20 @@ export function lookKey(e: { key: string; ctrlKey: boolean; metaKey: boolean; sh
   return null
 }
 
-/** The change that switches one look of an item: the opposite of what it shows now. */
-export function toggled(item: Worded, look: Exclude<keyof TextLook, 'align'>): Partial<TextLook> {
-  const now = look === 'bold' ? boldOf(item) : !!item[look]
-  return { [look]: !now }
+/** The item itself has the look, for all its words (unlike parts of them). */
+export function baseOf(item: Worded, look: SpanLook): boolean {
+  return look === 'bold' ? boldOf(item) : !!item[look]
+}
+
+/** The look shows on all of the item's words: the item has it, or every letter does. */
+export function lookOn(item: Worded, look: SpanLook): boolean {
+  return baseOf(item, look) || allHave(item.rich, look)
+}
+
+/**
+ * The change that switches one look of an item: the opposite of what it shows now. Switching off also has to take
+ * the look from the parts that carry it (`clearWords`), or they would keep showing it.
+ */
+export function toggled(item: Worded, look: SpanLook): Partial<TextLook> {
+  return { [look]: !lookOn(item, look) }
 }

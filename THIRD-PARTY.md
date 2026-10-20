@@ -12,6 +12,7 @@ These files travel inside the container image, so their notices travel with them
 | Font Inter (via Fontsource) | The Inter Project Authors | OFL-1.1 | `/licenses/fonts.txt` |
 | Lucide icons (partly from Feather): the buttons, and the icon packages of the shape library | Lucide Contributors; Cole Bemis | ISC, MIT | `/licenses/lucide.txt` |
 | PDF.js, to show PDFs page by page | Mozilla and contributors | Apache-2.0 | `/licenses/pdfjs.txt` |
+| Quill and Parchment, the editor for the words of notes, shapes and texts; fast-diff, which Quill uses | Slab; Jason Chen; salesforce.com; Google | BSD-3-Clause; fast-diff Apache-2.0 | `/licenses/quill.txt` |
 
 nexcanvas loads no font, icon or script from another host.
 
@@ -47,6 +48,9 @@ with an AGPL-3.0 work, and the source of every part is public.
 | React, React DOM, React Router, Yjs, y-websocket, y-protocols, perfect-freehand, html-to-image, i18next, react-i18next | MIT |
 | lucide-react | ISC |
 | pdfjs-dist | Apache-2.0 |
+| quill, parchment | BSD-3-Clause |
+| quill-delta, eventemitter3, lodash-es, lodash.clonedeep, lodash.isequal | MIT |
+| fast-diff | Apache-2.0 |
 | Fontsource packages | MIT (the font itself OFL-1.1, see above) |
 
 Build and test tools (Vite, TypeScript, Tailwind CSS, Vitest, Playwright, ruff, pytest) are not part of the image.

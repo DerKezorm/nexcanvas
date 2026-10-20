@@ -36,6 +36,7 @@ const PARTS = [
   { name: 'Yjs', url: 'https://yjs.dev', licence: 'MIT' },
   { name: 'perfect-freehand', url: 'https://github.com/steveruizok/perfect-freehand', licence: 'MIT' },
   { name: 'PDF.js', url: 'https://mozilla.github.io/pdf.js/', licence: 'Apache-2.0' },
+  { name: 'Quill', url: 'https://quilljs.com', licence: 'BSD-3' },
   { name: 'html-to-image', url: 'https://github.com/bubkoo/html-to-image', licence: 'MIT' },
   { name: 'Lucide', url: 'https://lucide.dev', licence: 'ISC' },
   { name: 'i18next', url: 'https://www.i18next.com', licence: 'MIT' },

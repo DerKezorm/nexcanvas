@@ -13,23 +13,37 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useMediaUrl } from './media'
-import type { FileItem, Item } from '../types'
+import type { Quill, SharedWords } from './quill'
+import type { FileItem, Item, TextLook } from '../types'
 
 /** What an item may change about itself on the board (a PDF its page). Given by the board page. */
 // eslint-disable-next-line react-refresh/only-export-components
 export const ItemActions = createContext<{
   patch: (id: string, change: Partial<Item>) => void
   readOnly: boolean
-  /** The words of an item as the shared document has them this very moment (newer than any picture drawn). */
-  textOf: (id: string) => string | undefined
-  /** Calls back the moment someone else's words reach the item (not later with the next picture). */
-  watchText: (id: string, changed: () => void) => () => void
+  /** The shared words of an item, for the editor writing in them (none where nobody writes). */
+  words: (id: string) => SharedWords | null
+  /** Changes the look of an item's words while someone writes, as part of the same step to undo. */
+  setBase: (id: string, change: Partial<TextLook>) => void
+  /** The editor open right now, for the bar above it; null when it closes. */
+  setEditor: (editor: OpenEditor | null) => void
+  undo: () => void
+  redo: () => void
 }>({
   patch: () => undefined,
   readOnly: true,
-  textOf: () => undefined,
-  watchText: () => () => undefined,
+  words: () => null,
+  setBase: () => undefined,
+  setEditor: () => undefined,
+  undo: () => undefined,
+  redo: () => undefined,
 })
+
+/** The editor someone writes in: the item and its Quill. */
+export interface OpenEditor {
+  id: string
+  quill: Quill
+}
 
 type PdfDocument = { numPages: number; getPage: (n: number) => Promise<PdfPageProxy> }
 type PdfPageProxy = {

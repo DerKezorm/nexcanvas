@@ -8,14 +8,16 @@ import {
   AlignStartVertical,
   AlignVerticalDistributeCenter,
   AlignCenter, AlignLeft, AlignRight,
-  ArrowDownToLine, ArrowLeftRight, ArrowRight, ArrowUpToLine, Bold, Copy, Eye, EyeOff, Group, ImageDown, Italic, Lock, LockOpen, Minus, PaintBucket, Spline, Strikethrough, Trash2, Type, Underline, Ungroup, Waypoints,
+  ArrowDownToLine, ArrowLeftRight, ArrowRight, ArrowUpToLine, Bold, Copy, Eye, EyeOff, Group, ImageDown, Italic, LayoutGrid, Lock, LockOpen, Minus, PaintBucket, Spline, Strikethrough, Trash2, Type, Underline, Ungroup, Waypoints,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { FILLS, NOTE_COLORS, PALETTE, paint } from '../palette'
 import type { Arrange } from '../arrange'
-import { alignOf, boldOf, hasWords, toggled } from '../textLook'
+import { canSpread } from '../spread'
+import type { SpanLook } from '../rich'
+import { alignOf, hasWords, lookOn } from '../textLook'
 import type { FrameItem, Item, LineItem, NoteColor, TextAlign, TextSize } from '../types'
 import { SHAPES } from './Toolbar'
 
@@ -36,6 +38,10 @@ export interface ContextActions {
   /** Whether this person may show a hidden frame's content again: whoever hid it, and who manages the space. */
   mayReveal: (frame: FrameItem) => boolean
   arrange: (how: Arrange) => void
+  /** Lays out every page of the selected PDF beside it. */
+  spread: () => void
+  /** Switches a look for all the words of the selected notes, shapes and texts. */
+  look: (look: SpanLook) => void
 }
 
 const ALIGN: { align: TextAlign; Icon: typeof AlignLeft }[] = [
@@ -190,6 +196,11 @@ export function ContextBar({ items, lines, at, actions, docked = false }: {
             {first.hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
           </Btn>
         )}
+        {items.length === 1 && first && canSpread(first) && (
+          <Btn label={t('pdf.spread')} onClick={actions.spread}>
+            <LayoutGrid className="h-4 w-4" />
+          </Btn>
+        )}
         {head && (
           <Btn label={t('context.text')} onClick={() => setPanel(panel === 'text' ? null : 'text')} pressed={panel === 'text'}>
             <Type className="h-4 w-4" />
@@ -275,9 +286,8 @@ export function ContextBar({ items, lines, at, actions, docked = false }: {
           {panel === 'text' && head && (
             <div className="flex items-center gap-0.5">
               {LOOKS.map(({ look, Icon }) => {
-                const on = look === 'bold' ? boldOf(head) : !!head[look]
                 return (
-                  <Btn key={look} label={t(`context.look.${look}`)} pressed={on} onClick={() => actions.change((x) => (x.kind !== 'line' && hasWords(x) ? { ...x, ...toggled(head, look) } : x))}>
+                  <Btn key={look} label={t(`context.look.${look}`)} pressed={lookOn(head, look)} onClick={() => actions.look(look)}>
                     <Icon className="h-4 w-4" />
                   </Btn>
                 )

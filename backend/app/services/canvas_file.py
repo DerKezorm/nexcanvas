@@ -27,12 +27,12 @@ from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 from typing import Any
 
-from pycrdt import Map, Text
+from pycrdt import Map
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import Account, Board, Media
-from . import boards, media_store
+from . import boards, media_store, rich
 
 logger = logging.getLogger("nexcanvas.canvas")
 
@@ -136,10 +136,11 @@ def to_canvas(picture: dict[str, Any], media: dict[str, Media]) -> tuple[dict[st
             hidden_items.append({key: value for key, value in item.items() if key != "z"})
             continue
         node: dict[str, Any] = {"id": item["id"]}
-        text = item.get("text") if isinstance(item.get("text"), str) else ""
         if kind in ("note", "text", "shape"):
             node["type"] = "text"
-            node["text"] = text
+            # Formatted words go out as Markdown; their exact formatting rides along under ``nexcanvas`` (``rich``).
+            words, runs = rich.words_of(item)
+            node["text"] = rich.markdown(runs) if runs else words
         elif kind in ("image", "file"):
             where = path_for(str(item.get("media", "")))
             if where is None:
@@ -384,6 +385,10 @@ def import_into(
         if kind == "text":
             extra = _clean_extra(node.get("nexcanvas"), "note|text|shape")
             if extra:
+                # The formatting nexcanvas wrote along brings its own plain words (the card's text is Markdown).
+                runs = rich.clean_runs(extra.get("rich"))
+                if rich.has_marks(runs) and len(rich.plain_of(runs)) <= MAX_TEXT:
+                    text = rich.plain_of(runs)
                 item = {**extra, **place, "text": text}
             else:
                 item = {"kind": "note", **place, "color": _note_color(node.get("color")), "text": text}
@@ -498,11 +503,11 @@ def import_into(
             item["x"] = round(item["x"] + dx, 1)
             item["y"] = round(item["y"] + dy, 1)
             z += 1
-            value = {key: val for key, val in item.items() if key not in ("id", "text")}
+            value = {key: val for key, val in item.items() if key not in ("id", "text", "rich")}
             value["z"] = z
             present[item["id"]] = value
             if item["kind"] in ("note", "text", "shape"):
-                texts[item["id"]] = Text(str(item.get("text", "")))
+                rich.put(texts, item["id"], *rich.words_of(item))
         for line in lines:
             for end in (line["a"], line["b"]):
                 if not end.get("item"):

@@ -162,6 +162,74 @@
   .nc-btn-ghost {
     @apply border border-ink-700 text-mist-300 hover:bg-ink-800 hover:text-mist-100;
   }
+
+  /*
+   * Words with formatting (board/canvas/Words.tsx) and the editor writing in them (Quill's root, which gets the same
+   * class): line by line, lists with a mark of their own. The same rules for both, so nothing moves when writing starts.
+   */
+  .nc-rich {
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    counter-reset: nc-list;
+  }
+
+  .nc-rich p,
+  .nc-rich ol {
+    margin: 0;
+    padding: 0;
+  }
+
+  /* A line that is no list ends the counting; the next numbered list starts at one again. */
+  .nc-rich p {
+    counter-set: nc-list;
+  }
+
+  .nc-rich li {
+    position: relative;
+    list-style: none;
+    padding-left: 1.3em;
+  }
+
+  .nc-rich li > .ql-ui {
+    position: absolute;
+    left: 0;
+  }
+
+  .nc-rich li[data-list='bullet'] > .ql-ui::before {
+    content: '\2022';
+  }
+
+  .nc-rich li[data-list='ordered'] {
+    counter-increment: nc-list;
+  }
+
+  .nc-rich li[data-list='ordered'] > .ql-ui::before {
+    content: counter(nc-list) '.';
+  }
+
+  .nc-rich .ql-size-small {
+    font-size: 0.75em;
+  }
+
+  .nc-rich .ql-size-large {
+    font-size: 1.5em;
+  }
+
+  .nc-rich .ql-size-huge {
+    font-size: 2em;
+  }
+
+  .nc-editor .ql-container {
+    position: relative;
+    height: 100%;
+  }
+
+  .nc-rich.ql-editor {
+    height: 100%;
+    overflow-y: auto;
+    outline: none;
+    cursor: text;
+  }
 }
 
 /* Outside the layers on purpose: these win over the utilities of the elements. */

@@ -1,4 +1,24 @@
 {
+  "0.6.0": {
+    "lead": "Parts of a text can now be formatted on their own, and a PDF of several pages can lie on the board all at once.",
+    "sections": [
+      {
+        "title": "Format single words",
+        "where": "Double click into a note, a shape or a text, the bar above the words",
+        "body": "While you write, a bar appears above the words. What is marked becomes bold, italic, underlined or struck through, gets a colour or another size. A line becomes a bulleted or a numbered list. Ctrl B, I and U also work on what is marked only while you write. Two people still write in the same note at once. When a note is only selected, the Text button works on all of its words, as before."
+      },
+      {
+        "title": "Lay out all pages of a PDF",
+        "where": "Select a PDF, Lay out all pages in the bar above it",
+        "body": "Instead of turning the pages of a PDF, the button puts every further page beside it as an item of its own: up to four in a row, more pages in a block. What was drawn on a page moves with it."
+      }
+    ],
+    "smallTitle": "Also",
+    "small": [
+      "Exported as JSON Canvas for Obsidian or nexlore, formatted text becomes Markdown (bold, italic, struck through, lists). Another nexcanvas gets the formatting in full.",
+      "Pasted text keeps bold, italic and lists, but no colours or sizes from elsewhere."
+    ]
+  },
   "0.5.1": {
     "lead": "Hidden frames now suit a projector, and PDFs stay sharp when you zoom in.",
     "sections": [

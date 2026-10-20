@@ -953,7 +953,23 @@
   },
   "pdf": {
     "previous": "Previous page",
-    "next": "Next page"
+    "next": "Next page",
+    "spread": "Lay out all pages"
+  },
+  "textBar": {
+    "color": "Text colour",
+    "noColor": "No colour",
+    "size": "Text size",
+    "sizes": {
+      "small": "Small",
+      "normal": "Normal",
+      "large": "Large",
+      "huge": "Very large"
+    },
+    "list": {
+      "bullet": "Bulleted list",
+      "ordered": "Numbered list"
+    }
   },
   "public": {
     "missing": "This page does not exist (any more).",

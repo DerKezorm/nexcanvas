@@ -12,31 +12,34 @@ import { LibraryPanel, SHAPE_DRAG } from '../board/library/LibraryPanel'
 import { SaveShapeDialog } from '../board/library/SaveShapeDialog'
 import { LibraryContext, makeLookup, outlineFor, shipped, useIconPackages, useInstalled, type Library } from '../board/library/registry'
 import { ContextBar, type ContextActions } from '../board/canvas/ContextBar'
+import { TextBar } from '../board/canvas/TextBar'
 import { ExportDialog } from '../board/canvas/ExportDialog'
 import { ScenesPanel } from '../board/canvas/ScenesPanel'
 import { ItemView } from '../board/canvas/ItemView'
-import { BoardZoom, ItemActions } from '../board/canvas/PdfPage'
+import { BoardZoom, ItemActions, type OpenEditor } from '../board/canvas/PdfPage'
 import { Lines } from '../board/canvas/Lines'
 import { ShareDialog } from '../board/canvas/ShareDialog'
 import { ShortcutsDialog } from '../board/canvas/ShortcutsDialog'
 import { Toolbar, type Tool, type ToolState } from '../board/canvas/Toolbar'
-import { useLiveDoc } from '../board/canvas/useLiveDoc'
+import { useLiveDoc, type LiveDoc } from '../board/canvas/useLiveDoc'
 import { VersionsDialog } from '../board/canvas/VersionsDialog'
 import { Peers, PeerPointers, personColor } from '../board/canvas/Peers'
 import { branchItem, placeBeside, sideToward, type BranchChoice, type Side } from '../board/branch'
 import { bounds, center, contains, intersects, lineGeometry, normalize, outer, shapePath, toBoard, toScreen, turn, type Point, type Rect } from '../board/geometry'
 import { outline } from '../board/ink'
 import { drawOrder, framesInOrder, waitingInk } from '../board/order'
-import { hasWords, lookKey, toggled } from '../board/textLook'
+import { hasWords, lookKey, lookOn, toggled } from '../board/textLook'
 import { learnServerClock } from '../board/clock'
 import { covered, hidingFrames, mayShow } from '../board/hiding'
 import { HiddenCover } from '../board/canvas/HiddenCover'
 import { TIMER_SIZE } from '../board/timer'
 import { Stage, useStageKeys, wholeScreen } from '../board/canvas/Stage'
 import { arrange } from '../board/arrange'
+import { spreadPdf } from '../board/spread'
+import type { SpanLook } from '../board/rich'
 import { NOTE_COLORS, paint } from '../board/palette'
 import { toBoard as boardFromInfo, useBoards } from '../board/store'
-import type { Board, Doc, End, InkItem, Item, LineItem, View } from '../board/types'
+import type { Board, Doc, End, InkItem, Item, LineItem, TextLook, View } from '../board/types'
 import { ApiError, authApi, boardsApi, mediaApi, type Me } from '../api/client'
 import { errorText, problemText } from '../lib/errors'
 import { useTitle } from '../lib/title'
@@ -49,6 +52,20 @@ import { SaveTemplateDialog } from '../components/Templates'
 import { copyText } from '../lib/copy'
 
 const uid = () => Math.random().toString(36).slice(2, 10)
+
+/**
+ * Switches a look for all the words of every selected note, shape and text, as the first one shows it. Switching off
+ * also takes it from the parts that carry it, in the same step. False when nothing selected has words.
+ */
+function switchLook(doc: LiveDoc, ids: Set<string>, look: SpanLook): boolean {
+  const worded = doc.ref.current.items.filter((i) => ids.has(i.id) && hasWords(i))
+  const first = worded[0]
+  if (!first || !hasWords(first)) return false
+  const change = toggled(first, look)
+  const clear = lookOn(first, look) ? () => worded.forEach((i) => doc.formatWords(i.id, { [look]: null })) : undefined
+  doc.commit((d) => ({ ...d, items: d.items.map((i) => (ids.has(i.id) && hasWords(i) ? { ...i, ...change } : i)) }), clear)
+  return true
+}
 
 /** The ids given, and every item that shares a group with one of them: a group is picked as one. */
 function withGroups(ids: string[], items: Item[]): string[] {
@@ -1190,17 +1207,23 @@ function Editor({ board }: { board: Board }) {
     }
   }
 
-  const onText = useCallback((id: string, text: string) => doc.setText(id, text), [doc])
-  const { commit, textOf, watchText } = doc
+  // The editor someone writes in, for the bar above it.
+  const [editor, setEditor] = useState<OpenEditor | null>(null)
+  const { commit, live: liveChange, words, undo: undoStep, redo: redoStep } = doc
   const itemActions = useMemo(
     () => ({
       patch: (id: string, change: Partial<Item>) =>
         commit((d) => ({ ...d, items: d.items.map((i) => (i.id === id ? ({ ...i, ...change } as Item) : i)) })),
       readOnly,
-      textOf,
-      watchText,
+      words: (id: string) => (readOnly ? null : words(id)),
+      // While writing: no step of its own, it goes with the formatting that follows it.
+      setBase: (id: string, change: Partial<TextLook>) =>
+        liveChange((d) => ({ ...d, items: d.items.map((i) => (i.id === id ? ({ ...i, ...change } as Item) : i)) })),
+      setEditor,
+      undo: undoStep,
+      redo: redoStep,
     }),
-    [commit, textOf, watchText, readOnly],
+    [commit, liveChange, words, undoStep, redoStep, readOnly],
   )
   const onMeasure = useCallback((id: string, h: number) => doc.quiet((d) => ({ ...d, items: d.items.map((i) => (i.id === id ? { ...i, h } : i)) })), [doc])
 
@@ -1270,16 +1293,9 @@ function Editor({ board }: { board: Board }) {
         return
       }
       const look = lookKey(e)
-      if (look && look !== 'align' && selected.length && !readOnly) {
-        // Ctrl B, I, U (Shift X) switch the look of the words of every selected note, shape and text, as the first one shows.
-        const ids = new Set(selected)
-        const first = doc.ref.current.items.find((i) => ids.has(i.id) && hasWords(i))
-        if (first && hasWords(first)) {
-          e.preventDefault()
-          const change = toggled(first, look)
-          doc.commit((d) => ({ ...d, items: d.items.map((i) => (ids.has(i.id) && hasWords(i) ? { ...i, ...change } : i)) }))
-          return
-        }
+      if (look && selected.length && !readOnly && switchLook(doc, new Set(selected), look)) {
+        e.preventDefault()
+        return
       }
       if (mod && k === 'c') {
         const ids = new Set(selected)
@@ -1437,6 +1453,14 @@ function Editor({ board }: { board: Board }) {
         }),
       }))
     },
+    look: (look) => {
+      switchLook(doc, selectedSet, look)
+    },
+    spread: () => {
+      const [id] = selected
+      const next = id ? spreadPdf(doc.ref.current.items, id, uid) : null
+      if (next) doc.commit((d) => ({ ...d, items: next }))
+    },
   }
 
   // ---------- frames: the list, and presenting them one after the other ----------
@@ -1479,6 +1503,9 @@ function Editor({ board }: { board: Board }) {
       : null
   const singleLine = selLines.length === 1 && selItems.length === 0 ? selLines[0] : null
   const lineGeo = singleLine ? lineGeometry(singleLine, byId, outlineOf) : null
+  // The note, shape or text someone writes in: the bar for its words sits above it.
+  const writing = editing ? byId.get(editing) : undefined
+  const written = writing && hasWords(writing) ? writing : null
   const barAt = (() => {
     if (editing || gesture.current?.kind === 'move' || gesture.current?.kind === 'rotate' || readOnly || presenting !== null) return null
     if (screenBox) return { x: screenBox.x + screenBox.w / 2, y: Math.max(64, screenBox.y - 14) }
@@ -1647,7 +1674,7 @@ function Editor({ board }: { board: Board }) {
         <div ref={world} className="absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, ['--zoom' as string]: view.zoom, ...inkVariables(bg) }}>
           {/* Frames lie under everything else, whatever was made first. */}
           {drawOrder(shownItems, waiting).map((item) => (
-            <ItemView key={item.id} item={item} editing={editing === item.id} onText={onText} onDone={onDone} onMeasure={onMeasure} />
+            <ItemView key={item.id} item={item} editing={editing === item.id} onDone={onDone} onMeasure={onMeasure} />
           ))}
           <Lines lines={shownLines} items={items} selected={selectedSet} />
           {hiders.filter((frame) => !cover.items.has(frame.id)).map((frame) => (
@@ -1820,6 +1847,18 @@ function Editor({ board }: { board: Board }) {
         {barAt && (selItems.length > 0 || selLines.length > 0) && (
           <div data-ui>
             <ContextBar items={selItems} lines={selLines} at={barAt} actions={actions} docked={phone} />
+          </div>
+        )}
+        {written && editor && editor.id === written.id && !readOnly && presenting === null && (
+          <div data-ui>
+            <TextBar
+              editor={editor}
+              item={written}
+              at={{ x: (written.x + written.w / 2) * view.zoom + view.x, y: Math.max(64, written.y * view.zoom + view.y - 14) }}
+              docked={phone}
+              setBase={(change) => itemActions.setBase(written.id, change)}
+              setAlign={(align) => itemActions.patch(written.id, { align })}
+            />
           </div>
         )}
         {branch && byId.get(branch.from) && !readOnly && (

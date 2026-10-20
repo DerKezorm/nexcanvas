@@ -4,14 +4,17 @@ import { useTranslation } from 'react-i18next'
 
 import { useMediaUrl } from './media'
 import { ItemActions, PdfPage } from './PdfPage'
+import { bindWords, plainerPaste, Quill, toggleLook } from './quill'
 import { TimerCard } from './TimerCard'
+import { Words } from './Words'
 
 import { shapePath, shapeTextBox } from '../geometry'
 import { LibShape } from '../library/LibShape'
 import { useLibrary } from '../library/registry'
 import { inkPath } from '../ink'
 import { NOTE_COLORS, paint, textOn } from '../palette'
-import { justifyOf, lookKey, lookStyle, toggled, type Worded } from '../textLook'
+import { EDITOR_FORMATS, type SpanLook } from '../rich'
+import { justifyOf, lookStyle, type Worded } from '../textLook'
 import type { FileItem, FrameItem, Item, TextSize } from '../types'
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -30,13 +33,12 @@ function noteFont(text: string, w: number): number {
 interface Props {
   item: Item
   editing: boolean
-  onText: (id: string, text: string) => void
   onDone: () => void
   onMeasure: (id: string, h: number) => void
 }
 
 /** One item on the board, in board coordinates. The board's transform scales it. */
-export const ItemView = memo(function ItemView({ item, editing, onText, onDone, onMeasure }: Props) {
+export const ItemView = memo(function ItemView({ item, editing, onDone, onMeasure }: Props) {
   const { lookup } = useLibrary()
   const def = item.kind === 'shape' && item.lib ? lookup(item.lib) : undefined
   // Drawings and empty frames only answer on their lines, so what lies under them stays reachable.
@@ -53,7 +55,7 @@ export const ItemView = memo(function ItemView({ item, editing, onText, onDone, 
   }
   return (
     <div data-item={item.id} data-kind={item.kind} className="absolute select-none" style={style}>
-      <Body item={item} editing={editing} onText={onText} onDone={onDone} onMeasure={onMeasure} />
+      <Body item={item} editing={editing} onDone={onDone} onMeasure={onMeasure} />
       {item.locked && (
         <span className="pointer-events-none absolute -top-2 -right-2 grid h-5 w-5 place-items-center rounded-full bg-ink-800 text-mist-400 shadow">
           <Lock className="h-3 w-3" />
@@ -63,61 +65,74 @@ export const ItemView = memo(function ItemView({ item, editing, onText, onDone, 
   )
 })
 
-function Editor({ id, value, onChange, onDone, className, style, item }: { id: string; value: string; onChange: (v: string) => void; onDone: () => void; className: string; style?: React.CSSProperties; item?: Worded }) {
-  const ref = useRef<HTMLTextAreaElement>(null)
-  const { textOf, watchText, patch } = useContext(ItemActions)
-  // The field holds its own words (not React's state), and it follows the shared text directly: someone else's
-  // words are put in at the moment they arrive, before the next key, with the caret moved along with the words before
-  // it. So what the field shows is always what the shared text holds, and a key typed here is always a change of
-  // exactly that (the picture of the board, drawn a moment later, would be older, and keys typed meanwhile were lost).
+/**
+ * Writing in the words of a note, a shape or a text: a Quill editor bound to the item's shared words, so what someone
+ * else types arrives at once, and what is typed here is a change of exactly what the words hold. Ctrl B, I, U (Shift X)
+ * switch the look of what is marked; the bar above the editor (`TextBar`) offers the rest. Leaving it (Escape,
+ * Ctrl Enter, a click elsewhere) ends the writing; a click on that bar does not.
+ */
+function Editor({ item, onDone, className, style }: { item: Worded; onDone: () => void; className: string; style?: React.CSSProperties }) {
+  const holder = useRef<HTMLDivElement>(null)
+  const { words, setBase, setEditor, undo, redo } = useContext(ItemActions)
+  const latest = useRef({ item, onDone, setBase, undo, redo })
+  latest.current = { item, onDone, setBase, undo, redo }
   useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    el.value = textOf(id) ?? value
-    el.focus()
-    el.setSelectionRange(el.value.length, el.value.length)
-    const follow = () => {
-      const latest = textOf(id)
-      if (latest === undefined || latest === el.value) return
-      const before = el.value
-      const start0 = el.selectionStart
-      const end0 = el.selectionEnd
-      let same = 0
-      while (same < before.length && same < latest.length && before[same] === latest[same]) same++
-      const shift = latest.length - before.length
-      el.value = latest
-      const start = start0 > same ? Math.max(same, start0 + shift) : start0
-      const end = end0 > same ? Math.max(same, end0 + shift) : end0
-      if (document.activeElement === el) el.setSelectionRange(start, end)
+    const el = holder.current
+    const shared = words(item.id)
+    if (!el || !shared) return
+    const host = document.createElement('div')
+    el.appendChild(host)
+    const look = (name: SpanLook) => () => {
+      const now = latest.current
+      toggleLook(quill, now.item, name, (change) => now.setBase(now.item.id, change))
+      return false
     }
-    return watchText(id, follow)
+    const run = (action: () => void) => () => {
+      action()
+      return false
+    }
+    const quill = new Quill(host, {
+      formats: EDITOR_FORMATS,
+      modules: {
+        // Undo is the board's own: it takes back this tab's steps, words and all, never someone else's.
+        history: { maxStack: 0, userOnly: true },
+        keyboard: {
+          bindings: {
+            bold: { key: 'b', shortKey: true, handler: look('bold') },
+            italic: { key: 'i', shortKey: true, handler: look('italic') },
+            underline: { key: 'u', shortKey: true, handler: look('underline') },
+            strike: { key: 'x', shortKey: true, shiftKey: true, handler: look('strike') },
+            undo: { key: 'z', shortKey: true, handler: run(() => latest.current.undo()) },
+            redo: { key: 'z', shortKey: true, shiftKey: true, handler: run(() => latest.current.redo()) },
+            redoY: { key: 'y', shortKey: true, handler: run(() => latest.current.redo()) },
+            leave: { key: 'Escape', handler: run(() => latest.current.onDone()) },
+            leaveEnter: { key: 'Enter', shortKey: true, handler: run(() => latest.current.onDone()) },
+          },
+        },
+      },
+    })
+    quill.root.classList.add('nc-rich')
+    quill.root.setAttribute('spellcheck', 'true')
+    plainerPaste(quill)
+    const unbind = bindWords(quill, shared)
+    quill.focus()
+    quill.setSelection(quill.getLength() - 1, 0, 'silent')
+    const left = (e: FocusEvent) => {
+      const to = e.relatedTarget instanceof Element ? e.relatedTarget : null
+      if (to && (el.contains(to) || to.closest('[data-textbar]'))) return
+      latest.current.onDone()
+    }
+    quill.root.addEventListener('blur', left)
+    setEditor({ id: item.id, quill })
+    return () => {
+      quill.root.removeEventListener('blur', left)
+      unbind()
+      setEditor(null)
+      host.remove()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id])
-  return (
-    <textarea
-      ref={ref}
-      onInput={(e) => onChange(e.currentTarget.value)}
-      onBlur={onDone}
-      onKeyDown={(e) => {
-        e.stopPropagation()
-        if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
-          e.preventDefault()
-          onDone()
-          return
-        }
-        // Ctrl B, I, U (Shift X) while writing switch the look of all the item's words, as the bar above does.
-        const look = item && lookKey(e)
-        if (item && look && look !== 'align') {
-          e.preventDefault()
-          patch(item.id, toggled(item, look))
-        }
-      }}
-      onPointerDown={(e) => e.stopPropagation()}
-      className={'resize-none border-0 bg-transparent outline-none ' + className}
-      style={style}
-      spellCheck
-    />
-  )
+  }, [item.id])
+  return <div ref={holder} className={'nc-editor ' + className} style={style} onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} />
 }
 
 /**
@@ -168,7 +183,7 @@ function Frame({ item, editing, onDone }: { item: FrameItem; editing: boolean; o
   )
 }
 
-function Body({ item, editing, onText, onDone, onMeasure }: Props) {
+function Body({ item, editing, onDone, onMeasure }: Props) {
   const { t } = useTranslation()
   const { lookup } = useLibrary()
   const mediaUrl = useMediaUrl()
@@ -188,10 +203,12 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
       return (
         <div className="nc-note-text flex h-full w-full rounded-[3px] p-[7%] shadow-[0_6px_16px_-6px_rgba(0,0,0,0.45)]" style={{ background: NOTE_COLORS[item.color] }}>
           {editing ? (
-            <Editor id={item.id} item={item} value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="nc-note-text h-full w-full leading-snug" style={{ fontSize: size, color: '#1c1917', ...look }} />
+            <Editor item={item} onDone={onDone} className="nc-note-text h-full w-full leading-snug" style={{ fontSize: size, color: '#1c1917', ...look }} />
+          ) : item.text ? (
+            <Words text={item.text} rich={item.rich} className="h-full w-full overflow-hidden leading-snug" style={{ fontSize: size, color: '#1c1917', ...look }} />
           ) : (
-            <div className="h-full w-full overflow-hidden leading-snug break-words whitespace-pre-wrap" style={{ fontSize: size, color: '#1c1917', ...look }}>
-              {item.text || <span className="opacity-40">{t('canvas.notePlaceholder')}</span>}
+            <div className="h-full w-full overflow-hidden leading-snug" style={{ fontSize: size, color: '#1c1917', ...look }}>
+              <span className="opacity-40">{t('canvas.notePlaceholder')}</span>
             </div>
           )}
         </div>
@@ -219,9 +236,11 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
                 style={{ left: box.x * item.w, top: box.y * item.h, width: box.w * item.w, height: box.h * item.h, color, fontSize: size, lineHeight: 1.2, justifyContent: justifyOf(item), ...look }}
               >
                 {editing ? (
-                  <Editor id={item.id} item={item} value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="h-full w-full" style={{ color, fontSize: size, lineHeight: 1.2, ...look }} />
+                  <Editor item={item} onDone={onDone} className="h-full w-full" style={{ color, fontSize: size, lineHeight: 1.2, ...look }} />
+                ) : item.text ? (
+                  <Words text={item.text} rich={item.rich} className="pointer-events-none max-h-full overflow-hidden px-1" />
                 ) : (
-                  <span className="pointer-events-none line-clamp-4 px-1 whitespace-pre-wrap" data-measure={def.measure && !item.text ? '' : undefined}>
+                  <span className="pointer-events-none line-clamp-4 px-1 whitespace-pre-wrap" data-measure={def.measure ? '' : undefined}>
                     {shown}
                   </span>
                 )}
@@ -251,9 +270,9 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
           </svg>
           <div className="absolute flex items-center" style={{ left: tb.x, top: tb.y, width: tb.w, height: tb.h, color, fontSize: size, lineHeight: 1.2, justifyContent: justifyOf(item), ...look }}>
             {editing ? (
-              <Editor id={item.id} item={item} value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="h-full w-full" style={{ color, fontSize: size, lineHeight: 1.2, paddingTop: Math.max(0, tb.h / 2 - size * 0.7), ...look }} />
+              <Editor item={item} onDone={onDone} className="h-full w-full" style={{ color, fontSize: size, lineHeight: 1.2, paddingTop: Math.max(0, tb.h / 2 - size * 0.7), ...look }} />
             ) : (
-              <span className="pointer-events-none line-clamp-4 px-1 break-words whitespace-pre-wrap">{item.text}</span>
+              item.text && <Words text={item.text} rich={item.rich} className="pointer-events-none max-h-full overflow-hidden px-1" />
             )}
           </div>
         </>
@@ -264,11 +283,15 @@ function Body({ item, editing, onText, onDone, onMeasure }: Props) {
       const style = { fontSize: size, color: paint(item.color), lineHeight: 1.25, fontFamily: item.hand ? 'var(--font-hand)' : undefined, ...lookStyle(item) }
       return (
         <div ref={box} className="relative min-h-[1.25em] w-full">
-          <div className={'break-words whitespace-pre-wrap ' + (editing ? 'invisible' : '')} style={style}>
-            {(item.text || ' ') + (item.text.endsWith('\n') ? ' ' : '')}
-            {!item.text && !editing && <span className="opacity-40">{t('canvas.textPlaceholder')}</span>}
-          </div>
-          {editing && <Editor id={item.id} item={item} value={item.text} onChange={(v) => onText(item.id, v)} onDone={onDone} className="absolute inset-0 h-full w-full overflow-hidden p-0" style={style} />}
+          {/* The words take the height, also while the editor lies on them (they follow what is typed). */}
+          {item.text || editing ? (
+            <Words text={item.text} rich={item.rich} className={editing ? 'invisible' : ''} style={style} />
+          ) : (
+            <div style={style}>
+              <span className="opacity-40">{t('canvas.textPlaceholder')}</span>
+            </div>
+          )}
+          {editing && <Editor item={item} onDone={onDone} className="absolute inset-0 h-full w-full overflow-hidden p-0" style={style} />}
         </div>
       )
     }

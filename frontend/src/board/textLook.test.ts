@@ -1,4 +1,4 @@
-import { alignOf, boldOf, lookKey, lookStyle, toggled } from './textLook'
+import { alignOf, baseOf, boldOf, lookKey, lookOn, lookStyle, toggled } from './textLook'
 import type { NoteItem, ShapeItem, TextItem } from './types'
 
 const box = { id: 'item01', x: 0, y: 0, w: 100, h: 40 }
@@ -20,6 +20,16 @@ describe('the look of words', () => {
     expect(boldOf(text({ size: 'xl', bold: false }))).toBe(false)
     expect(toggled(text({ size: 'l' }), 'bold')).toEqual({ bold: false })
     expect(toggled(text(), 'bold')).toEqual({ bold: true })
+  })
+
+  it('counts a look as on when every letter carries it, not when a part does', () => {
+    const all = text({ rich: [{ insert: 'Hi', attributes: { italic: true } }] })
+    const part = text({ text: 'Hi you', rich: [{ insert: 'Hi', attributes: { italic: true } }, { insert: ' you' }] })
+    expect(lookOn(all, 'italic')).toBe(true)
+    expect(toggled(all, 'italic')).toEqual({ italic: false })
+    expect(lookOn(part, 'italic')).toBe(false)
+    expect(toggled(part, 'italic')).toEqual({ italic: true })
+    expect(baseOf(all, 'italic')).toBe(false)
   })
 
   it('underlines and strikes through at once', () => {

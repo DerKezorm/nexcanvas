@@ -200,7 +200,7 @@ export function PublicPage() {
           <div className="pointer-events-none absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, ['--zoom' as string]: view.zoom, ...inkVariables(effectiveBackground(doc.background, true)) }}>
             <BoardZoom.Provider value={view.zoom}>
               {drawOrder(doc.items).map((item) => (
-                <ItemView key={item.id} item={item} editing={false} onText={nothing} onDone={nothing} onMeasure={nothing} />
+                <ItemView key={item.id} item={item} editing={false} onDone={nothing} onMeasure={nothing} />
               ))}
             </BoardZoom.Provider>
             <Lines lines={doc.lines} items={doc.items} selected={new Set()} />
