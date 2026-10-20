@@ -1,6 +1,6 @@
 /**
- * Pflichttest 35: every text of the oidc module is in the app, in German and English, through the app's
- * own i18n. Copied once by `bauplaene/oidc/tools/sync.py` to `frontend/src/nexoidc.wording.test.ts`; then the
+ * Every text of the oidc module is in the app, in German and English, through the app's own i18n. Copied once by
+ * the module's `tools/sync.py` to `frontend/src/nexoidc.wording.test.ts`; then the
  * app's file. Fill in the places marked APP.
  *
  * The module's own tests already check the wording files word for word; this test checks that the
@@ -20,9 +20,9 @@ const APP_NAME = 'nexcanvas'
 // APP: the slug the authentik button gives the app (the server's app_name), only if it is not the name in small
 // letters; the app sets the same through oidcVariables in its i18n (since 1.0.12).
 const APP_SLUG = oidcVariables(APP_NAME).slug
-// APP: true for the apps with one account (nexcrate, nexsift); the app merges the files through oidcWording.
+// APP: true for an app with one account; the app merges the files through oidcWording.
 const SINGLE_ACCOUNT = false
-// APP: false for the apps without invitations (nexdeck, nexsift, nexcrate; since 1.0.12).
+// APP: false for an app without invitations (since 1.0.12).
 const INVITATIONS = true
 const WORDING = { singleAccount: SINGLE_ACCOUNT, invitations: INVITATIONS }
 

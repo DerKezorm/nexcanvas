@@ -1,5 +1,5 @@
 /**
- * Pflichttests 33 and 34 of the shared sign-in blueprint (copied once from bauplaene/oidc, then nexcanvas' file).
+ * The oidc tests of the end-to-end run (copied once from the shared sign-in module, then nexcanvas' file).
  *
  * The provider is the stand-in of e2e/fake-provider.mjs (an OpenID Connect provider over http on 8502 with a key made
  * at its start, sending the browser straight back with a code for whoever POST /oidc/next named). Never a real
@@ -33,7 +33,7 @@ function collectProblems(page: Page): string[] {
   return problems
 }
 
-test('33: sign-in through the provider button ends in a session', async ({ page, browser, baseURL }) => {
+test('sign-in through the provider button ends in a session', async ({ page, browser, baseURL }) => {
   await removeEntry(page, 'standin33')
   const made = await page.request.post('/api/oidc/admin/providers', {
     data: { label: 'Stand-in 33', slug: 'standin33', issuer: ISSUER, client_id: 'e2e-client', client_secret: `e2e-${Date.now()}` },
@@ -91,7 +91,7 @@ test('33: sign-in through the provider button ends in a session', async ({ page,
   await removeEntry(page, 'standin33')
 })
 
-test('34: add, edit and remove a provider; the authentik card lists its steps', async ({ page }) => {
+test('add, edit and remove a provider; the authentik card lists its steps', async ({ page }) => {
   const problems = collectProblems(page)
   await removeEntry(page, 'stand-in')
   await page.goto('/settings?tab=server&sub=signin')
