@@ -9,6 +9,11 @@ describe('words on the board', () => {
     expect(renderToStaticMarkup(<Words text={'a\n\nb'} />)).toBe('<div class="nc-rich "><p>a</p><p><br/></p><p>b</p></div>')
   })
 
+  it('gives a part its size in pixels as a style, an old step as its class', () => {
+    const out = renderToStaticMarkup(<Words text="ab" rich={[{ insert: 'a', attributes: { size: '24px' } }, { insert: 'b', attributes: { size: 'huge' } }]} />)
+    expect(out).toBe('<div class="nc-rich "><p><span style="font-size:24px">a</span><span class="ql-size-huge">b</span></p></div>')
+  })
+
   it('gives each part its look and puts list lines into one list', () => {
     const out = renderToStaticMarkup(
       <Words

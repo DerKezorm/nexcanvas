@@ -66,6 +66,16 @@ def _f(value: float) -> str:
     return f"{round(value, 2):g}"
 
 
+#: A shape's outline when nobody chose (``OUTLINE_WEIGHT`` in ``board/types.ts``).
+OUTLINE = 2.5
+
+
+def _weight(item: dict[str, Any]) -> float:
+    """How thick a shape's outline is: its ``weight`` when it is a sensible number, else the usual."""
+    weight = _num(item.get("weight"), OUTLINE)
+    return weight if 0 < weight <= 20 else OUTLINE
+
+
 def _light(color: str) -> bool:
     value = color.lstrip("#")
     if len(value) == 3:
@@ -151,6 +161,7 @@ def _drawing(
     y: float,
     w: float,
     h: float,
+    weight: float = 1.0,
 ) -> list[str]:
     vw, vh = _num(drawing.get("vw"), 1) or 1, _num(drawing.get("vh"), 1) or 1
     out = [f'<g transform="translate({_f(x)} {_f(y)}) scale({_f(w / vw)} {_f(h / vh)})">']
@@ -161,7 +172,7 @@ def _drawing(
         face, face_opacity = _role(element.get("f"), fill, line, ink, board) if kind != "line" else ("none", 1.0)
         edge, edge_opacity = _role(element.get("s"), fill, line, ink, board)
         # As in the app: the lines keep their width however the drawing is stretched.
-        width = min(max(_num(element.get("w"), 2), 0), 50)
+        width = min(max(_num(element.get("w"), 2), 0), 50) * weight
         look = (
             f' fill="{face}" fill-opacity="{_f(face_opacity)}" stroke="{edge}" stroke-opacity="{_f(edge_opacity)}"'
             f' stroke-width="{_f(width)}" stroke-linecap="round" stroke-linejoin="round"'
@@ -201,6 +212,39 @@ def _drawing(
             )
     out.append("</g>")
     return out
+
+
+def draw_order(items: list[dict[str, Any]], boxes: list[tuple[float, float, float, float]]) -> list[int]:
+    """The order the items are drawn in, as the board draws them (``board/order.ts``): the rest by their ``z``, a frame
+    right after the last item it was drawn onto (that item holds the frame's middle, the frame does not hold the
+    item's), frames on nothing under everything, the larger of two frames under the smaller."""
+
+    def middle(n: int) -> tuple[float, float]:
+        x, y, w, h = boxes[n]
+        return x + w / 2, y + h / 2
+
+    def holds(n: int, point: tuple[float, float]) -> bool:
+        x, y, w, h = boxes[n]
+        return x <= point[0] <= x + w and y <= point[1] <= y + h
+
+    rest = sorted(
+        (n for n in range(len(items)) if items[n].get("kind") != "frame"), key=lambda n: _num(items[n].get("z"))
+    )
+    frames = sorted(
+        (n for n in range(len(items)) if items[n].get("kind") == "frame"), key=lambda n: -boxes[n][2] * boxes[n][3]
+    )
+    after: dict[int, list[int]] = {}
+    for frame in frames:
+        at = -1
+        for place, n in enumerate(rest):
+            if holds(n, middle(frame)) and not holds(frame, middle(n)):
+                at = place
+        after.setdefault(at, []).append(frame)
+    order = list(after.get(-1, []))
+    for place, n in enumerate(rest):
+        order.append(n)
+        order.extend(after.get(place, []))
+    return order
 
 
 def svg(picture: dict[str, Any], title: str, look: str = "dark", width: int = 480) -> str:
@@ -263,9 +307,7 @@ def svg(picture: dict[str, Any], title: str, look: str = "dark", width: int = 48
             f'stroke="{colour}" stroke-width="{_f(stroke)}" stroke-linecap="round"/>'
         )
 
-    # Frames under everything, then the rest as they lie.
-    order = sorted(range(len(items)), key=lambda i: (items[i].get("kind") != "frame", _num(items[i].get("z"))))
-    for index in order:
+    for index in draw_order(items, boxes):
         item, (x, y, w, h) = items[index], boxes[index]
         kind = item.get("kind")
         turn = _num(item.get("rot"))
@@ -282,11 +324,11 @@ def svg(picture: dict[str, Any], title: str, look: str = "dark", width: int = 48
             if isinstance(lib, str):
                 drawing = shipped().get(lib) or (defs.get(lib) if isinstance(defs.get(lib), dict) else None)
             if drawing is not None:
-                out.extend(_drawing(drawing, fill, line, ink, board, x, y, w, h))
+                out.extend(_drawing(drawing, fill, line, ink, board, x, y, w, h, _weight(item) / OUTLINE))
             else:
                 # A kind the board does not know is drawn as a rectangle (``shape_path``).
                 kind_of = str(item.get("shape"))
-                stroke = f' stroke="{line}" stroke-width="{_f(3)}"' if line else ""
+                stroke = f' stroke="{line}" stroke-width="{_f(_weight(item) * 3 / OUTLINE)}"' if line else ""
                 out.append(
                     f'<path transform="translate({_f(x)} {_f(y)})" d="{shape_path(kind_of, w, h)}" '
                     f'fill="{fill or "none"}"{stroke}/>'

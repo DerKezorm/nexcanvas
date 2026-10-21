@@ -15,11 +15,8 @@ import { useLibrary } from '../library/registry'
 import { inkPath } from '../ink'
 import { NOTE_COLORS, paint, textOn } from '../palette'
 import { EDITOR_FORMATS, type SpanLook } from '../rich'
-import { justifyOf, lookStyle, type Worded } from '../textLook'
-import type { FileItem, FrameItem, Item, TextSize } from '../types'
-
-// eslint-disable-next-line react-refresh/only-export-components
-export const TEXT_SIZES: Record<TextSize, number> = { s: 15, m: 20, l: 28, xl: 44 }
+import { chosenSize, justifyOf, lookStyle, textSizeOf, type Worded } from '../textLook'
+import { OUTLINE_WEIGHT, outlineOf, type FileItem, type FrameItem, type Item } from '../types'
 
 /** Notes shrink their text as it grows, so a full note stays readable without scrolling. */
 function noteFont(text: string, w: number): number {
@@ -199,7 +196,7 @@ function Body({ item, editing, onDone, onMeasure }: Props) {
 
   switch (item.kind) {
     case 'note': {
-      const size = noteFont(item.text, item.w)
+      const size = chosenSize(item) ?? noteFont(item.text, item.w)
       const look = lookStyle(item)
       return (
         <div className="nc-note-text flex h-full w-full rounded-[3px] p-[7%] shadow-[0_6px_16px_-6px_rgba(0,0,0,0.45)]" style={{ background: NOTE_COLORS[item.color] }}>
@@ -225,12 +222,12 @@ function Body({ item, editing, onDone, onMeasure }: Props) {
         const shown = item.text || (def.measure ? `${Math.round(item.w)} cm` : '')
         // Inside: as large as the box allows, but the longest word must fit on a line. Beside a symbol: one size.
         const longest = Math.max(4, ...shown.split(/\s+/).map((word) => word.length))
-        const size = inside ? Math.max(10, Math.min(18, (box.h * item.h) / 2.6, (box.w * item.w) / (longest * 0.62))) : 14
+        const size = chosenSize(item) ?? (inside ? Math.max(10, Math.min(18, (box.h * item.h) / 2.6, (box.w * item.w) / (longest * 0.62))) : 14)
         const quiet = def.quiet && !item.text && !editing
         const look = lookStyle(item)
         return (
           <>
-            <LibShape def={def} w={item.w} h={item.h} colors={{ fill: item.fill, line: item.stroke }} />
+            <LibShape def={def} w={item.w} h={item.h} colors={{ fill: item.fill, line: item.stroke }} weight={outlineOf(item) / OUTLINE_WEIGHT} />
             {!quiet && (
               <div
                 className="absolute flex items-center"
@@ -252,7 +249,7 @@ function Body({ item, editing, onDone, onMeasure }: Props) {
       }
       const tb = shapeTextBox(item.shape, item.w, item.h)
       const color = textOn(item.fill)
-      const size = Math.max(12, Math.min(22, Math.min(item.w, item.h) / 4.5))
+      const size = chosenSize(item) ?? Math.max(12, Math.min(22, Math.min(item.w, item.h) / 4.5))
       const look = lookStyle(item)
       return (
         <>
@@ -261,7 +258,7 @@ function Body({ item, editing, onDone, onMeasure }: Props) {
               d={shapePath(item.shape, item.w, item.h)}
               fill={paint(item.fill)}
               stroke={item.stroke === 'none' ? 'none' : paint(item.stroke)}
-              strokeWidth={2.5}
+              strokeWidth={outlineOf(item)}
               strokeLinejoin="round"
               vectorEffect="non-scaling-stroke"
               style={{ pointerEvents: 'visiblePainted' }}
@@ -280,7 +277,7 @@ function Body({ item, editing, onDone, onMeasure }: Props) {
       )
     }
     case 'text': {
-      const size = TEXT_SIZES[item.size]
+      const size = textSizeOf(item)
       const style = { fontSize: size, color: paint(item.color), lineHeight: 1.25, fontFamily: item.hand ? 'var(--font-hand)' : undefined, ...lookStyle(item) }
       return (
         <div ref={box} className="relative min-h-[1.25em] w-full">

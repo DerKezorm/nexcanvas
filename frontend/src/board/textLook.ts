@@ -5,8 +5,8 @@
 
 import type { CSSProperties } from 'react'
 
-import { allHave, type SpanLook } from './rich'
-import type { Item, NoteItem, ShapeItem, TextAlign, TextItem, TextLook } from './types'
+import { allHave, FONT_MAX, FONT_MIN, type SpanLook } from './rich'
+import type { Item, NoteItem, ShapeItem, TextAlign, TextItem, TextLook, TextSize } from './types'
 
 export type Worded = NoteItem | ShapeItem | TextItem
 
@@ -68,4 +68,31 @@ export function lookOn(item: Worded, look: SpanLook): boolean {
  */
 export function toggled(item: Worded, look: SpanLook): Partial<TextLook> {
   return { [look]: !lookOn(item, look) }
+}
+
+/** The steps of a text, in pixels, when no size was chosen for it. */
+export const TEXT_SIZES: Record<TextSize, number> = { s: 15, m: 20, l: 28, xl: 44 }
+
+/**
+ * The size chosen for all of an item's words, in pixels, or null when the kind decides: a note or a shape fits its
+ * words in, a text has its step (S to XL).
+ */
+export function chosenSize(item: Worded): number | null {
+  const n = Number(item.fontSize)
+  return item.fontSize !== undefined && Number.isFinite(n) && n >= FONT_MIN && n <= FONT_MAX ? Math.round(n) : null
+}
+
+/** The size a text's words are drawn in: the one chosen, else its step. */
+export function textSizeOf(item: TextItem): number {
+  return chosenSize(item) ?? TEXT_SIZES[item.size] ?? TEXT_SIZES.m
+}
+
+/**
+ * The change that gives an item's words one size (null: the kind's own again). A text that is bold by its step stays
+ * bold, so a size alone never makes words bold or plain.
+ */
+export function sized(item: Worded, size: number | null): Partial<TextLook> {
+  const change: Partial<TextLook> = { fontSize: size ?? undefined }
+  if (item.bold === undefined && boldOf(item)) change.bold = true
+  return change
 }

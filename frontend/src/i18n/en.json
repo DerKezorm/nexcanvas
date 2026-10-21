@@ -408,13 +408,14 @@
     "fill": "Fill",
     "color": "Colour",
     "stroke": "Outline",
-    "shape": "Change shape",
-    "size": {
-      "s": "Small",
-      "m": "Medium",
-      "l": "Large",
-      "xl": "Heading"
+    "weight": "Line thickness",
+    "weights": {
+      "0": "Thin",
+      "1": "Medium",
+      "2": "Thick",
+      "3": "Very thick"
     },
+    "shape": "Change shape",
     "hand": "Handwriting",
     "arrowNone": "No arrow",
     "arrowEnd": "Arrow at the end",
@@ -446,7 +447,8 @@
   "menu": {
     "noteHere": "Note here",
     "textHere": "Text here",
-    "selectAll": "Select all"
+    "selectAll": "Select all",
+    "frameAround": "Frame around"
   },
   "keys": {
     "title": "Keyboard shortcuts",
@@ -960,16 +962,17 @@
     "color": "Text colour",
     "noColor": "No colour",
     "size": "Text size",
-    "sizes": {
-      "small": "Small",
-      "normal": "Normal",
-      "large": "Large",
-      "huge": "Very large"
-    },
     "list": {
       "bullet": "Bulleted list",
       "ordered": "Numbered list"
     }
+  },
+  "fontSize": {
+    "title": "Text size",
+    "default": "Default",
+    "defaultItem": "Default: the words fit the note or the shape",
+    "defaultPart": "Default: the size of the other words",
+    "pixels": "Size in pixels"
   },
   "public": {
     "missing": "This page does not exist (any more).",

@@ -43,7 +43,7 @@ def test_only_what_the_board_knows_is_kept() -> None:
     runs = rich.clean_runs([
         {"insert": "a", "attributes": {"bold": True, "link": "javascript:alert(1)", "font": "serif"}},
         {"insert": "b", "attributes": {"color": "#F87171", "size": "large"}},
-        {"insert": "c", "attributes": {"color": "red;x:url(y)", "size": "99px", "italic": "yes", "list": "checked"}},
+        {"insert": "c", "attributes": {"color": "red;x:url(y)", "size": "999px", "italic": "yes", "list": "checked"}},
         {"insert": {"video": "javascript:alert(1)"}},
         {"insert": ""},
         "rubbish",
@@ -55,6 +55,12 @@ def test_only_what_the_board_knows_is_kept() -> None:
         {"insert": "c"},
         {"insert": "\n", "attributes": {"list": "ordered"}},
     ]
+
+
+def test_a_size_is_pixels_within_bounds_or_one_of_the_old_steps() -> None:
+    sizes = ["6px", "24px", "200px", "5px", "201px", "24.5px", "24", "24em", " 24px", "large", "medium", 24]
+    runs = rich.clean_runs([{"insert": str(n), "attributes": {"size": size}} for n, size in enumerate(sizes)])
+    assert [run["attributes"]["size"] for run in runs if run.get("attributes")] == ["6px", "24px", "200px", "large"]
 
 
 def test_a_new_board_keeps_the_formatting_and_plain_words_stay_plain(client: TestClient, operator: Account,

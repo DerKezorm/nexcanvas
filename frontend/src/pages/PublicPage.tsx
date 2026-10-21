@@ -202,12 +202,12 @@ export function PublicPage() {
               {drawOrder(doc.items).map((item) => (
                 <ItemView key={item.id} item={item} editing={false} onDone={nothing} onMeasure={nothing} />
               ))}
+              <Lines lines={doc.lines} items={doc.items} selected={new Set()} />
+              {/* The server left out what lies in a hidden frame; the cover says so. */}
+              {hidingFrames(doc.items).map((frame) => (
+                <HiddenCover key={frame.id} frame={frame} peeking={false} mayShow={false} onShow={nothing} onPeek={nothing} />
+              ))}
             </BoardZoom.Provider>
-            <Lines lines={doc.lines} items={doc.items} selected={new Set()} />
-            {/* The server left out what lies in a hidden frame; the cover says so. */}
-            {hidingFrames(doc.items).map((frame) => (
-              <HiddenCover key={frame.id} frame={frame} peeking={false} mayShow={false} onShow={nothing} onPeek={nothing} />
-            ))}
           </div>
           {presenting !== null && <Stage frames={frames} at={presenting} view={view} go={go} />}
           <div data-ui className={'nc-float absolute bottom-4 left-4 flex items-center gap-0.5 p-1 ' + (presenting !== null ? 'hidden' : '')}>

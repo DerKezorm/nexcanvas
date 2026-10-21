@@ -48,8 +48,9 @@ your own: save a board as a template, with its content or only the skeleton.*
   device are taken out of photos, large photos get a smaller copy for the board, the same file is stored once.
   A photo dropped on an empty slot of a mood board fills it. PDFs show page by page, or lay out all their pages
   side by side; what you draw on a page stays with that page.
-- **Frames and scenes.** A frame is a named area that takes along what lies in it. The scene list jumps from frame
-  to frame, and presenting shows one frame after the other on the whole screen, also on a public page.
+- **Frames and scenes.** A frame is a named area that takes along what lies in it. Drawn onto a part of a PDF or a
+  photo, it lies on top of that part; right click on a selection puts a frame around it. The scene list jumps from
+  frame to frame, and presenting shows one frame after the other on the whole screen, also on a public page.
 - **Hidden frames.** A frame can hide what lies in it, such as the answers to a task, until it is time. It is covered
   for everybody, the one who hid it too, so nothing shows on a projector; whoever hid it and those who manage the
   space show it from the cover, or look inside on their own screen only. Whoever may only read never gets it from
@@ -58,7 +59,8 @@ your own: save a board as a template, with its content or only the skeleton.*
 - **Timers.** A countdown as an object on the board, prepared beforehand and the same for everybody, with a short
   sound at the end.
 - **Text.** Notes, shapes and texts align left, centred or right. Any part of the words goes bold, italic, underlined
-  or struck through, gets a colour or another size, and a line becomes a bulleted or numbered list.
+  or struck through, gets a colour or a size in pixels, and a line becomes a bulleted or numbered list. Shapes have
+  four outline thicknesses.
 - **A shape library like Visio's.** Over 350 shapes of its own in packages: basic shapes, flowchart, BPMN, UML and
   software, floor plan (to scale), house and electrics, project management, network, signs and arrows, plus the
   Lucide icons in themed packages. A board carries the drawings of the shapes it uses, so it looks the same on a

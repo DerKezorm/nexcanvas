@@ -7,7 +7,7 @@ describe('cleaning the formatting', () => {
     const runs = cleanRuns([
       { insert: 'a', attributes: { bold: true, link: 'javascript:alert(1)', font: 'serif' } },
       { insert: 'b', attributes: { color: '#FF8A70', size: 'large' } },
-      { insert: 'c', attributes: { color: 'red; background: url(x)', size: '99px', italic: 'yes' } },
+      { insert: 'c', attributes: { color: 'red; background: url(x)', size: '999px', italic: 'yes' } },
       { insert: '\n', attributes: { list: 'checked' } },
       { insert: '\n', attributes: { list: 'ordered' } },
     ])
@@ -17,6 +17,12 @@ describe('cleaning the formatting', () => {
       { insert: 'c\n' },
       { insert: '\n', attributes: { list: 'ordered' } },
     ])
+  })
+
+  it('keeps a size in pixels within bounds and the three old steps, nothing else', () => {
+    const sizes = ['6px', '24px', '200px', '5px', '201px', '24.5px', '24', '24em', ' 24px', 'large', 'medium', 24]
+    const runs = cleanRuns(sizes.map((size, n) => ({ insert: String(n), attributes: { size } })))
+    expect(runs.filter((run) => run.attributes).map((run) => run.attributes?.size)).toEqual(['6px', '24px', '200px', 'large'])
   })
 
   it('drops what is no words: embeds, empty inserts, rubbish', () => {

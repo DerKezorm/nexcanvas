@@ -9,11 +9,12 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { PALETTE } from '../palette'
-import { SIZE_MARKS, type ListKind, type SpanLook, type TextSizeMark } from '../rich'
+import { pxOf, type ListKind, type SpanLook } from '../rich'
 import { alignOf, baseOf, type Worded } from '../textLook'
 import type { TextAlign, TextLook } from '../types'
 import type { OpenEditor } from './PdfPage'
 import { toggleLook } from './quill'
+import { SizeChoices, SizeLabel } from './SizePicker'
 
 const LOOKS: { look: SpanLook; Icon: typeof Bold }[] = [
   { look: 'bold', Icon: Bold },
@@ -70,7 +71,7 @@ export function TextBar({ editor, item, at, docked = false, setBase, setAlign }:
     setFormats(quill.getFormat())
   }
   const color = typeof formats.color === 'string' ? formats.color : null
-  const size = (SIZE_MARKS as string[]).includes(String(formats.size)) ? (formats.size as TextSizeMark) : null
+  const size = pxOf(formats.size)
 
   return (
     <div
@@ -102,9 +103,7 @@ export function TextBar({ editor, item, at, docked = false, setBase, setAlign }:
           </span>
         </Btn>
         <Btn label={t('textBar.size')} pressed={panel === 'size'} onClick={() => setPanel(panel === 'size' ? null : 'size')}>
-          <span className="text-xs font-semibold">
-            A<span className="text-[9px]">A</span>
-          </span>
+          <SizeLabel value={size} />
         </Btn>
         <span className="mx-0.5 h-6 w-px bg-ink-700" />
         {LISTS.map(({ list, Icon }) => (
@@ -148,21 +147,7 @@ export function TextBar({ editor, item, at, docked = false, setBase, setAlign }:
             </div>
           )}
           {panel === 'size' && (
-            <div className="flex items-end gap-0.5">
-              {([null, ...SIZE_MARKS] as (TextSizeMark | null)[]).map((s) => (
-                <button
-                  key={s ?? 'normal'}
-                  type="button"
-                  aria-pressed={size === s}
-                  onClick={() => format('size', s ?? false)}
-                  className={'h-8 min-w-8 rounded-lg px-2 font-semibold whitespace-nowrap ' + (size === s ? 'bg-accent-500/15 text-accent-400' : 'text-mist-400 hover:bg-ink-800')}
-                  style={{ fontSize: s === 'small' ? 11 : s === 'large' ? 17 : s === 'huge' ? 21 : 14 }}
-                  title={t(`textBar.sizes.${s ?? 'normal'}`)}
-                >
-                  {t(`textBar.sizes.${s ?? 'normal'}`)}
-                </button>
-              ))}
-            </div>
+            <SizeChoices key={String(size)} value={size} defaultHint={t('fontSize.defaultPart')} onPick={(n) => format('size', n === null ? false : `${n}px`)} />
           )}
         </div>
       )}

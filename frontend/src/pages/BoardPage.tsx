@@ -27,8 +27,8 @@ import { Peers, PeerPointers, personColor } from '../board/canvas/Peers'
 import { branchItem, placeBeside, sideToward, type BranchChoice, type Side } from '../board/branch'
 import { bounds, center, contains, intersects, lineGeometry, normalize, outer, shapePath, toBoard, toScreen, turn, type Point, type Rect } from '../board/geometry'
 import { outline } from '../board/ink'
-import { drawOrder, framesInOrder, waitingInk } from '../board/order'
-import { hasWords, lookKey, lookOn, toggled } from '../board/textLook'
+import { drawOrder, frameAround, framesInOrder, waitingInk } from '../board/order'
+import { hasWords, lookKey, lookOn, sized, toggled } from '../board/textLook'
 import { learnServerClock } from '../board/clock'
 import { covered, hidingFrames, mayShow } from '../board/hiding'
 import { HiddenCover } from '../board/canvas/HiddenCover'
@@ -456,6 +456,17 @@ function Editor({ board }: { board: Board }) {
       }
     },
     [doc],
+  )
+
+  /** A frame around what is selected, named like one drawn with the tool, and selected. */
+  const frameSelection = useCallback(
+    (ids: string[]) => {
+      const box = frameAround(doc.ref.current.items.filter((i) => ids.includes(i.id)))
+      if (!box) return
+      const number = doc.ref.current.items.filter((i) => i.kind === 'frame').length + 1
+      add({ id: uid(), kind: 'frame', ...box, title: t('frames.numbered', { n: number }), color: '#ff8a70' })
+    },
+    [doc, add, t],
   )
 
   /** A timer of five minutes in the middle of the view, named right away. */
@@ -1456,6 +1467,20 @@ function Editor({ board }: { board: Board }) {
     look: (look) => {
       switchLook(doc, selectedSet, look)
     },
+    size: (size) => {
+      const worded = doc.ref.current.items.filter((i) => selectedSet.has(i.id) && hasWords(i))
+      doc.commit(
+        (d) => ({ ...d, items: d.items.map((i) => (selectedSet.has(i.id) && hasWords(i) ? { ...i, ...sized(i, size) } : i)) }),
+        () => worded.forEach((i) => doc.formatWords(i.id, { size: null })),
+      )
+    },
+    textColor: (color) => {
+      const texts = doc.ref.current.items.filter((i) => selectedSet.has(i.id) && i.kind === 'text')
+      doc.commit(
+        (d) => ({ ...d, items: d.items.map((i) => (selectedSet.has(i.id) && i.kind === 'text' ? { ...i, color } : i)) }),
+        () => texts.forEach((i) => doc.formatWords(i.id, { color: null })),
+      )
+    },
     spread: () => {
       const [id] = selected
       const next = id ? spreadPdf(doc.ref.current.items, id, uid) : null
@@ -1672,7 +1697,7 @@ function Editor({ board }: { board: Board }) {
         <ItemActions.Provider value={itemActions}>
         <BoardZoom.Provider value={view.zoom}>
         <div ref={world} className="absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, ['--zoom' as string]: view.zoom, ...inkVariables(bg) }}>
-          {/* Frames lie under everything else, whatever was made first. */}
+          {/* Frames lie under what is in them and over what they were drawn onto, whatever was made first. */}
           {drawOrder(shownItems, waiting).map((item) => (
             <ItemView key={item.id} item={item} editing={editing === item.id} onDone={onDone} onMeasure={onMeasure} />
           ))}
@@ -1952,6 +1977,7 @@ function Editor({ board }: { board: Board }) {
             {menu.on ? (
               <>
                 <button type="button" className="nc-menu-item" onClick={() => { setMenu(null); duplicate(selected) }} disabled={readOnly}>{t('context.duplicate')}</button>
+                <button type="button" className="nc-menu-item" onClick={() => { setMenu(null); frameSelection(selected) }} disabled={readOnly}>{t('menu.frameAround')}</button>
                 {space?.role === 'manage' && !readOnly && (
                   <button type="button" className="nc-menu-item" onClick={() => { setMenu(null); setSavingShape(selItems) }}>{t('saveShape.menu')}</button>
                 )}

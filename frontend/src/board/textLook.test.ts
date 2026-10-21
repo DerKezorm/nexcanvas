@@ -1,4 +1,4 @@
-import { alignOf, baseOf, boldOf, lookKey, lookOn, lookStyle, toggled } from './textLook'
+import { alignOf, baseOf, boldOf, chosenSize, lookKey, lookOn, lookStyle, sized, textSizeOf, toggled } from './textLook'
 import type { NoteItem, ShapeItem, TextItem } from './types'
 
 const box = { id: 'item01', x: 0, y: 0, w: 100, h: 40 }
@@ -13,6 +13,22 @@ describe('the look of words', () => {
     expect(alignOf(shape)).toBe('center')
     expect(alignOf({ ...shape, align: 'right' })).toBe('right')
     expect(lookStyle(text({ align: 'center' })).textAlign).toBe('center')
+  })
+
+  it('has the size chosen for it, else the kind decides; nothing odd counts as chosen', () => {
+    expect(chosenSize(note)).toBeNull()
+    expect(chosenSize({ ...note, fontSize: 14 })).toBe(14)
+    expect(textSizeOf(text())).toBe(20)
+    expect(textSizeOf(text({ size: 'xl' }))).toBe(44)
+    expect(textSizeOf(text({ size: 'xl', fontSize: 12 }))).toBe(12)
+    for (const odd of [0, 5, 201, Number.NaN, Infinity]) expect(chosenSize({ ...note, fontSize: odd })).toBeNull()
+  })
+
+  it('never makes words bold or plain by their size alone', () => {
+    expect(sized(text({ size: 'xl' }), 14)).toEqual({ fontSize: 14, bold: true })
+    expect(sized(text({ size: 'xl', bold: false }), 14)).toEqual({ fontSize: 14 })
+    expect(sized(text(), 30)).toEqual({ fontSize: 30 })
+    expect(sized(note, null)).toEqual({ fontSize: undefined })
   })
 
   it('is bold for large texts until someone switches it off', () => {

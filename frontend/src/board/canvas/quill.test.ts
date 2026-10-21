@@ -48,6 +48,18 @@ function pair() {
 const plain = (quill: Quill) => quill.getText()
 
 describe('the editor and the shared words', () => {
+  it('gives a part a size in pixels and keeps an old step as it was, both ways', () => {
+    const one = tab()
+    one.text.applyDelta([{ insert: 'alt', attributes: { size: 'large' } }, { insert: ' neu' }])
+    one.bind()
+    expect(one.quill.root.querySelector('span')?.style.fontSize).toBe('1.5em')
+    one.quill.formatText(4, 3, 'size', '24px', 'user')
+    expect(one.text.toDelta()).toEqual([{ insert: 'alt', attributes: { size: 'large' } }, { insert: ' ' }, { insert: 'neu', attributes: { size: '24px' } }])
+    expect(one.quill.getFormat(4, 3).size).toBe('24px')
+    one.quill.formatText(4, 3, 'size', '9999px', 'user')
+    expect(one.quill.getFormat(4, 3).size).toBe('24px')
+  })
+
   it('starts with the words and their formatting', () => {
     const one = tab()
     one.text.applyDelta([{ insert: 'Hallo ' }, { insert: 'Welt', attributes: { bold: true } }])

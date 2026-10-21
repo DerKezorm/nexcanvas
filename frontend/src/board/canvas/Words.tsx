@@ -6,7 +6,7 @@
 
 import type { CSSProperties } from 'react'
 
-import { linesOf, runsOf, type Line, type Run } from '../rich'
+import { linesOf, pxOf, runsOf, type Line, type Run } from '../rich'
 
 function partStyle(marks: Run['attributes']): CSSProperties | undefined {
   if (!marks) return undefined
@@ -16,8 +16,12 @@ function partStyle(marks: Run['attributes']): CSSProperties | undefined {
     fontStyle: marks.italic ? 'italic' : undefined,
     textDecorationLine: lines || undefined,
     color: marks.color,
+    fontSize: pxOf(marks.size) ?? undefined,
   }
 }
+
+/** The old steps of 0.6 keep their class (`.nc-rich .ql-size-…`); sizes in pixels are a style. */
+const sizeClass = (size: string | undefined) => (size && pxOf(size) === null ? `ql-size-${size}` : undefined)
 
 function Parts({ line }: { line: Line }) {
   if (!line.parts.length) return <br />
@@ -25,7 +29,7 @@ function Parts({ line }: { line: Line }) {
     <>
       {line.parts.map((part, n) =>
         part.attributes ? (
-          <span key={n} className={part.attributes.size ? `ql-size-${part.attributes.size}` : undefined} style={partStyle(part.attributes)}>
+          <span key={n} className={sizeClass(part.attributes.size)} style={partStyle(part.attributes)}>
             {part.insert}
           </span>
         ) : (

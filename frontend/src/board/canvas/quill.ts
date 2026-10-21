@@ -11,14 +11,39 @@ import Bold from 'quill/formats/bold'
 import { ColorStyle } from 'quill/formats/color'
 import Italic from 'quill/formats/italic'
 import List from 'quill/formats/list'
-import { SizeClass } from 'quill/formats/size'
 import Strike from 'quill/formats/strike'
 import Underline from 'quill/formats/underline'
+import { Scope, StyleAttributor } from 'parchment'
 import type * as Y from 'yjs'
 
-import { cleanRuns, type Run, type SpanLook } from '../rich'
+import { cleanRuns, isSize, pxOf, SIZE_EM, type Run, type SpanLook } from '../rich'
 import { baseOf, type Worded } from '../textLook'
 import type { TextLook } from '../types'
+
+/**
+ * The size of a part: pixels (`24px`) as they are, the old steps of 0.6 (`small`, `large`, `huge`) as the share of the
+ * item's own size they always were. The value itself rides along on the element, so a part keeps the size it had.
+ */
+class SizeStyle extends StyleAttributor {
+  add(node: HTMLElement, value: unknown): boolean {
+    if (!isSize(value)) return false
+    node.style.fontSize = pxOf(value) !== null ? value : `${SIZE_EM[value as keyof typeof SIZE_EM]}em`
+    node.dataset.size = value
+    return true
+  }
+
+  remove(node: HTMLElement): void {
+    super.remove(node)
+    delete node.dataset.size
+  }
+
+  value(node: HTMLElement): string {
+    const size = node.dataset.size
+    return isSize(size) ? size : ''
+  }
+}
+
+const Size = new SizeStyle('size', 'font-size', { scope: Scope.INLINE })
 
 Quill.register(
   {
@@ -27,7 +52,7 @@ Quill.register(
     'formats/underline': Underline,
     'formats/strike': Strike,
     'formats/color': ColorStyle,
-    'formats/size': SizeClass,
+    'formats/size': Size,
     'formats/list': List,
   },
   true,

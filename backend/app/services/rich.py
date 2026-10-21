@@ -16,11 +16,22 @@ from typing import Any
 from pycrdt import Text
 
 LOOKS = ("bold", "italic", "underline", "strike")
+#: The three steps of 0.6; since 0.7 a part's size is pixels, ``24px`` (``FONT_MIN`` to ``FONT_MAX``).
 SIZES = ("small", "large", "huge")
+PX = re.compile(r"^(\d{1,3})px$")
+FONT_MIN, FONT_MAX = 6, 200
 LISTS = ("bullet", "ordered")
 HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 #: Runs one item's words may come in; more is no formatting anybody made by hand.
 MAX_RUNS = 5000
+
+
+def is_size(value: Any) -> bool:
+    """A size the board knows: pixels within bounds, or one of the old steps."""
+    if value in SIZES:
+        return True
+    match = PX.match(value) if isinstance(value, str) else None
+    return match is not None and FONT_MIN <= int(match.group(1)) <= FONT_MAX
 
 
 def _clean_attributes(raw: Any) -> dict[str, Any]:
@@ -33,7 +44,7 @@ def _clean_attributes(raw: Any) -> dict[str, Any]:
     color = raw.get("color")
     if isinstance(color, str) and HEX.match(color):
         out["color"] = color.lower()
-    if raw.get("size") in SIZES:
+    if is_size(raw.get("size")):
         out["size"] = raw["size"]
     if raw.get("list") in LISTS:
         out["list"] = raw["list"]

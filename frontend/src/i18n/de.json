@@ -408,13 +408,14 @@
     "fill": "Füllung",
     "color": "Farbe",
     "stroke": "Rand",
-    "shape": "Form wechseln",
-    "size": {
-      "s": "Klein",
-      "m": "Mittel",
-      "l": "Groß",
-      "xl": "Überschrift"
+    "weight": "Linienstärke",
+    "weights": {
+      "0": "Dünn",
+      "1": "Mittel",
+      "2": "Dick",
+      "3": "Sehr dick"
     },
+    "shape": "Form wechseln",
     "hand": "Handschrift",
     "arrowNone": "Ohne Pfeil",
     "arrowEnd": "Pfeil am Ende",
@@ -446,7 +447,8 @@
   "menu": {
     "noteHere": "Notiz hier",
     "textHere": "Text hier",
-    "selectAll": "Alles auswählen"
+    "selectAll": "Alles auswählen",
+    "frameAround": "Rahmen drumherum"
   },
   "keys": {
     "title": "Tastenkürzel",
@@ -960,16 +962,17 @@
     "color": "Textfarbe",
     "noColor": "Ohne Farbe",
     "size": "Schriftgröße",
-    "sizes": {
-      "small": "Klein",
-      "normal": "Normal",
-      "large": "Groß",
-      "huge": "Sehr groß"
-    },
     "list": {
       "bullet": "Aufzählung",
       "ordered": "Nummerierte Liste"
     }
+  },
+  "fontSize": {
+    "title": "Schriftgröße",
+    "default": "Standard",
+    "defaultItem": "Standard: die Wörter passen sich der Notiz oder Form an",
+    "defaultPart": "Standard: die Größe der übrigen Wörter",
+    "pixels": "Größe in Pixeln"
   },
   "public": {
     "missing": "Diese Seite gibt es nicht (mehr).",

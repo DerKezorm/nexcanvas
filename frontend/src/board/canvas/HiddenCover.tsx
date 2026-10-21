@@ -1,8 +1,9 @@
 import { Eye, EyeOff, ScanEye } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useContext, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { paint } from '../palette'
+import { BoardZoom } from './PdfPage'
 import type { FrameItem } from '../types'
 
 function Knob({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
@@ -29,6 +30,27 @@ function Knob({ label, onClick, children }: { label: string; onClick: () => void
  * and what is under it is not drawn at all. Who may show it gets two buttons on it: show it to everybody, or look
  * inside on this screen only (`peeking`, until closed again or the page is loaded anew).
  */
+/** The words on a cover keep this size on screen, as long as the frame is large enough for them. */
+const COVER_PX = 13
+/** Below this many pixels on screen the words are too small to read and the buttons too small to hit. */
+const LEAST_PX = 9
+
+/**
+ * How the cover of a frame is laid out, and how large its words and buttons are on the board: the same size on screen
+ * whatever the zoom, but never larger than the frame holds. `full` is the eye, "Hidden" and the buttons, about 24
+ * letters wide and 8 high; `row` is the buttons alone, for a low frame such as a strip over the answers, about 2.6
+ * high; `eye` is the closed eye only, when even the buttons would be too small.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function coverSize(frame: { w: number; h: number }, zoom: number): { board: number; layout: 'full' | 'row' | 'eye' } {
+  const most = COVER_PX / zoom
+  const full = Math.min(most, frame.w / 24, frame.h / 8)
+  if (full * zoom >= LEAST_PX) return { board: full, layout: 'full' }
+  const row = Math.min(most, frame.w / 24, frame.h / 2.6)
+  if (row * zoom >= LEAST_PX) return { board: row, layout: 'row' }
+  return { board: row, layout: 'eye' }
+}
+
 export function HiddenCover({ frame, peeking, mayShow, onShow, onPeek }: {
   frame: FrameItem
   peeking: boolean
@@ -37,9 +59,11 @@ export function HiddenCover({ frame, peeking, mayShow, onShow, onPeek }: {
   onPeek: (open: boolean) => void
 }) {
   const { t } = useTranslation()
+  const zoom = useContext(BoardZoom)
   const color = paint(frame.color)
   const box = { left: frame.x, top: frame.y, width: frame.w, height: frame.h }
-  const label = { fontSize: 'calc(13px / var(--zoom, 1))' }
+  const size = coverSize(frame, zoom)
+  const label = { fontSize: size.board }
   if (peeking) {
     return (
       <div className="pointer-events-none absolute rounded-[14px] border-2 border-dashed" style={{ ...box, borderColor: color }} data-hidden-frame={frame.id} data-inside="">
@@ -69,9 +93,11 @@ export function HiddenCover({ frame, peeking, mayShow, onShow, onPeek }: {
       }}
       title={t('hide.coverHint')}
     >
-      <EyeOff style={{ width: '2em', height: '2em' }} />
-      <span className="font-medium">{t('hide.hidden')}</span>
-      {mayShow && (
+      {size.layout === 'eye' && <EyeOff aria-label={t('hide.hidden')} style={{ width: Math.min(frame.w, frame.h) * 0.4, height: Math.min(frame.w, frame.h) * 0.4 }} />}
+      {size.layout === 'full' && <EyeOff style={{ width: '2em', height: '2em' }} />}
+      {size.layout === 'full' && <span className="font-medium">{t('hide.hidden')}</span>}
+      {size.layout === 'row' && !mayShow && <EyeOff aria-label={t('hide.hidden')} style={{ width: '1.6em', height: '1.6em' }} />}
+      {mayShow && size.layout !== 'eye' && (
         <div className="flex flex-wrap items-center justify-center gap-[0.5em]">
           <Knob label={t('hide.show')} onClick={onShow}>
             <Eye style={{ width: '1.1em', height: '1.1em' }} />

@@ -24,6 +24,9 @@ export interface TextLook {
   italic?: boolean
   underline?: boolean
   strike?: boolean
+  /** The size of all its words, in pixels (`FONT_MIN` to `FONT_MAX`); unset: a note or a shape fits its words in, a
+   * text has its step (`size`). Parts may still have their own. */
+  fontSize?: number
   /**
    * The formatting of parts and lines (`board/rich.ts`), taken from the shared words when drawing the board; set
    * only where there is any. Kept by copies and new items; for an item already on the board the shared words decide.
@@ -60,7 +63,20 @@ export interface ShapeItem extends Box, TextLook {
   /** A color from the palette, or `none`. */
   fill: string
   stroke: string
+  /** How thick its outline is, in pixels on screen (`OUTLINE_WEIGHTS`); unset: `OUTLINE_WEIGHT`. A shape of a package
+   * draws all its lines thicker or thinner alike. */
+  weight?: number
   text: string
+}
+
+/** The outline of a shape when nobody chose, and the ones the bar offers. */
+export const OUTLINE_WEIGHT = 2.5
+export const OUTLINE_WEIGHTS = [1, 2.5, 5, 8] as const
+
+/** How thick a shape's outline is drawn: its `weight` when that is a sensible number (the server's `picture._weight`). */
+export function outlineOf(item: { weight?: unknown }): number {
+  const weight = Number(item.weight ?? OUTLINE_WEIGHT)
+  return Number.isFinite(weight) && weight > 0 && weight <= 20 ? weight : OUTLINE_WEIGHT
 }
 
 export interface TextItem extends Box, TextLook {

@@ -16,7 +16,8 @@ export interface Marks {
   color?: string
   size?: TextSizeMark
 }
-export type TextSizeMark = 'small' | 'large' | 'huge'
+/** A size for a part: pixels as `24px`, or one of the three steps of 0.6 (`SIZE_MARKS`), still shown as they were. */
+export type TextSizeMark = 'small' | 'large' | 'huge' | `${number}px`
 export type ListKind = 'bullet' | 'ordered'
 export type SpanLook = 'bold' | 'italic' | 'underline' | 'strike'
 
@@ -26,9 +27,31 @@ export interface Run {
 }
 
 export const SPAN_LOOKS: SpanLook[] = ['bold', 'italic', 'underline', 'strike']
-export const SIZE_MARKS: TextSizeMark[] = ['small', 'large', 'huge']
-/** How much larger or smaller a part of a given size is than the item's own words. */
-export const SIZE_EM: Record<TextSizeMark, number> = { small: 0.75, large: 1.5, huge: 2 }
+export const SIZE_MARKS = ['small', 'large', 'huge'] as const
+/** How much larger or smaller a part of one of the old steps is than the item's own words. */
+export const SIZE_EM: Record<(typeof SIZE_MARKS)[number], number> = { small: 0.75, large: 1.5, huge: 2 }
+/** The sizes offered, in pixels on the board, for parts and for whole items alike; any whole number in between goes. */
+export const FONT_SIZES = [10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 44, 56, 72, 96]
+export const FONT_MIN = 6
+export const FONT_MAX = 200
+const PX = /^(\d{1,3})px$/
+
+/** The pixels of a size in the words (`24px`), or null for none or one of the old steps. */
+export function pxOf(size: unknown): number | null {
+  const match = typeof size === 'string' ? PX.exec(size) : null
+  const n = match ? Number(match[1]) : NaN
+  return n >= FONT_MIN && n <= FONT_MAX ? n : null
+}
+
+/** A number typed or picked as a size: whole, and within what the board allows. */
+export function fontSize(n: number): number {
+  return Math.min(FONT_MAX, Math.max(FONT_MIN, Math.round(n)))
+}
+
+/** Whether a size may stand in the words: pixels within bounds, or one of the old steps. */
+export function isSize(size: unknown): size is TextSizeMark {
+  return pxOf(size) !== null || (SIZE_MARKS as readonly unknown[]).includes(size)
+}
 const HEX = /^#[0-9a-f]{6}$/i
 
 /** The formats the editor knows; nothing else ever reaches the words, pasted or not. */
@@ -46,7 +69,7 @@ export function cleanRuns(value: unknown): Run[] {
       const given = raw as Record<string, unknown>
       for (const look of SPAN_LOOKS) if (given[look] === true) attributes[look] = true
       if (typeof given.color === 'string' && HEX.test(given.color)) attributes.color = given.color.toLowerCase()
-      if (SIZE_MARKS.includes(given.size as TextSizeMark)) attributes.size = given.size as TextSizeMark
+      if (isSize(given.size)) attributes.size = given.size
       if (given.list === 'bullet' || given.list === 'ordered') attributes.list = given.list
     }
     const run: Run = { insert: (op as Run).insert }

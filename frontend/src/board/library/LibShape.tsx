@@ -37,12 +37,13 @@ function colorOf(role: Paint | undefined, colors: ShapeColors): string {
  * One element as an SVG element: only the fields the format knows are read, so nothing a package holds besides
  * them reaches the page.
  */
-function Element({ el, colors, thin }: { el: ShapeElement; colors: ShapeColors; thin?: boolean }) {
+function Element({ el, colors, thin, weight = 1 }: { el: ShapeElement; colors: ShapeColors; thin?: boolean; weight?: number }) {
+  const width = (el.w ?? 2) * weight
   const look: SVGProps<SVGElement> = {
     fill: el.t === 'line' ? 'none' : colorOf(el.f, colors),
     stroke: colorOf(el.s, colors),
-    strokeWidth: (el.w ?? 2) * (thin ? 0.8 : 1),
-    strokeDasharray: el.dash ? `${(el.w ?? 2) * 3} ${(el.w ?? 2) * 2.5}` : undefined,
+    strokeWidth: width * (thin ? 0.8 : 1),
+    strokeDasharray: el.dash ? `${width * 3} ${width * 2.5}` : undefined,
     strokeLinecap: 'round',
     strokeLinejoin: 'round',
     vectorEffect: 'non-scaling-stroke',
@@ -67,8 +68,9 @@ function Element({ el, colors, thin }: { el: ShapeElement; colors: ShapeColors; 
   }
 }
 
-/** A shape of a package drawn into a box of w by h, stretched as the item is. */
-export function LibShape({ def, w, h, colors, thin, className, interactive = true, x, y }: { def: ShapeDef; w: number; h: number; colors: ShapeColors; thin?: boolean; className?: string; interactive?: boolean; x?: number; y?: number }) {
+/** A shape of a package drawn into a box of w by h, stretched as the item is; `weight` makes all its lines thicker or
+ * thinner alike (1: as the package draws them). */
+export function LibShape({ def, w, h, colors, thin, weight, className, interactive = true, x, y }: { def: ShapeDef; w: number; h: number; colors: ShapeColors; thin?: boolean; weight?: number; className?: string; interactive?: boolean; x?: number; y?: number }) {
   return (
     <svg
       x={x}
@@ -83,7 +85,7 @@ export function LibShape({ def, w, h, colors, thin, className, interactive = tru
     >
       <g style={{ pointerEvents: interactive ? 'visiblePainted' : 'none' }}>
         {def.elements.map((el, index) => (
-          <Element key={index} el={el} colors={colors} thin={thin} />
+          <Element key={index} el={el} colors={colors} thin={thin} weight={weight} />
         ))}
       </g>
     </svg>

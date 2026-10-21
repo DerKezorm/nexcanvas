@@ -17,8 +17,9 @@ import { FILLS, NOTE_COLORS, PALETTE, paint } from '../palette'
 import type { Arrange } from '../arrange'
 import { canSpread } from '../spread'
 import type { SpanLook } from '../rich'
-import { alignOf, hasWords, lookOn } from '../textLook'
-import type { FrameItem, Item, LineItem, NoteColor, TextAlign, TextSize } from '../types'
+import { alignOf, chosenSize, hasWords, lookOn, textSizeOf } from '../textLook'
+import { OUTLINE_WEIGHTS, outlineOf, type FrameItem, type Item, type LineItem, type NoteColor, type TextAlign } from '../types'
+import { SizeChoices, SizeLabel } from './SizePicker'
 import { SHAPES } from './Toolbar'
 
 export interface ContextActions {
@@ -42,6 +43,10 @@ export interface ContextActions {
   spread: () => void
   /** Switches a look for all the words of the selected notes, shapes and texts. */
   look: (look: SpanLook) => void
+  /** One size for all the words of the selected notes, shapes and texts (null: their kind's own); parts lose theirs. */
+  size: (size: number | null) => void
+  /** The colour of the selected texts, for all their words: parts lose a colour of their own. */
+  textColor: (color: string) => void
 }
 
 const ALIGN: { align: TextAlign; Icon: typeof AlignLeft }[] = [
@@ -108,7 +113,7 @@ export function ContextBar({ items, lines, at, actions, docked = false }: {
   docked?: boolean
 }) {
   const { t } = useTranslation()
-  const [panel, setPanel] = useState<'fill' | 'stroke' | 'shape' | 'arrange' | 'text' | null>(null)
+  const [panel, setPanel] = useState<'fill' | 'stroke' | 'shape' | 'arrange' | 'text' | 'size' | null>(null)
   const kinds = new Set<string>([...items.map((i) => i.kind), ...lines.map(() => 'line')])
   const only = kinds.size === 1 ? [...kinds][0] : null
   const first = items[0]
@@ -118,14 +123,17 @@ export function ContextBar({ items, lines, at, actions, docked = false }: {
   // Notes, shapes and texts, and nothing else: then the bar offers the look of their words.
   const worded = items.length > 0 && lines.length === 0 && items.every(hasWords) ? items.filter(hasWords) : []
   const head = worded[0]
+  // The size the words have: the one chosen, a text's step, or none (a note or a shape fits its words in).
+  const size = head ? (head.kind === 'text' ? textSizeOf(head) : chosenSize(head)) : null
   const colorLabel = (c: string) => (c === 'auto' ? t('colors.auto') : c === 'none' ? t('colors.none') : c)
 
   const setFill = (c: string) =>
     actions.change((x) => {
       if (x.kind === 'shape') return { ...x, fill: c }
-      if (x.kind === 'text' || x.kind === 'ink' || x.kind === 'line' || x.kind === 'frame') return { ...x, color: c }
+      if (x.kind === 'ink' || x.kind === 'line' || x.kind === 'frame') return { ...x, color: c }
       return x
     })
+  const pickColor = (c: string) => (only === 'text' ? actions.textColor(c) : setFill(c))
 
   return (
     <div
@@ -167,18 +175,6 @@ export function ContextBar({ items, lines, at, actions, docked = false }: {
         )}
         {only === 'text' && (
           <div className="flex px-1">
-            {(['s', 'm', 'l', 'xl'] as TextSize[]).map((s) => (
-              <button
-                key={s}
-                type="button"
-                aria-pressed={first?.kind === 'text' && first.size === s}
-                onClick={() => actions.change((x) => (x.kind === 'text' ? { ...x, size: s } : x))}
-                className={'h-8 min-w-8 rounded-lg px-1.5 text-xs font-semibold ' + (first?.kind === 'text' && first.size === s ? 'bg-accent-500/15 text-accent-400' : 'text-mist-400 hover:bg-ink-800')}
-                title={t(`context.size.${s}`)}
-              >
-                {s.toUpperCase()}
-              </button>
-            ))}
             <button
               type="button"
               aria-pressed={first?.kind === 'text' && !!first.hand}
@@ -202,9 +198,14 @@ export function ContextBar({ items, lines, at, actions, docked = false }: {
           </Btn>
         )}
         {head && (
-          <Btn label={t('context.text')} onClick={() => setPanel(panel === 'text' ? null : 'text')} pressed={panel === 'text'}>
-            <Type className="h-4 w-4" />
-          </Btn>
+          <>
+            <Btn label={t('fontSize.title')} onClick={() => setPanel(panel === 'size' ? null : 'size')} pressed={panel === 'size'}>
+              <SizeLabel value={size} />
+            </Btn>
+            <Btn label={t('context.text')} onClick={() => setPanel(panel === 'text' ? null : 'text')} pressed={panel === 'text'}>
+              <Type className="h-4 w-4" />
+            </Btn>
+          </>
         )}
         {only === 'line' && lines[0] && (
           <>
@@ -276,12 +277,24 @@ export function ContextBar({ items, lines, at, actions, docked = false }: {
             <Swatches
               colors={only === 'shape' ? FILLS : PALETTE}
               value={first?.kind === 'shape' ? first.fill : first && 'color' in first ? first.color : lines[0]?.color}
-              onPick={(c) => setFill(c)}
+              onPick={pickColor}
               label={colorLabel}
             />
           )}
           {panel === 'stroke' && (
-            <Swatches colors={['none', ...PALETTE]} value={first?.kind === 'shape' ? first.stroke : undefined} onPick={(c) => actions.change((x) => (x.kind === 'shape' ? { ...x, stroke: c } : x))} label={colorLabel} />
+            <div className="flex flex-col gap-2.5">
+              <Swatches colors={['none', ...PALETTE]} value={first?.kind === 'shape' ? first.stroke : undefined} onPick={(c) => actions.change((x) => (x.kind === 'shape' ? { ...x, stroke: c } : x))} label={colorLabel} />
+              <div className="flex items-center gap-0.5" role="group" aria-label={t('context.weight')}>
+                {OUTLINE_WEIGHTS.map((w) => (
+                  <Btn key={w} label={t(`context.weights.${OUTLINE_WEIGHTS.indexOf(w)}`)} pressed={first?.kind === 'shape' && outlineOf(first) === w} onClick={() => actions.change((x) => (x.kind === 'shape' ? { ...x, weight: w } : x))}>
+                    <span className="w-5 rounded-full bg-current" style={{ height: Math.max(1, w * 0.75) }} />
+                  </Btn>
+                ))}
+              </div>
+            </div>
+          )}
+          {panel === 'size' && head && (
+            <SizeChoices key={String(size)} value={size} defaultHint={worded.every((i) => i.kind === 'text') ? undefined : t('fontSize.defaultItem')} onPick={actions.size} />
           )}
           {panel === 'text' && head && (
             <div className="flex items-center gap-0.5">

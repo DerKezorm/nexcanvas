@@ -4,7 +4,7 @@ import { attach, bounds, lineGeometry, outer, turn } from './geometry'
 import { branchItem, placeBeside, sideToward } from './branch'
 import { backgroundStyle, effectiveBackground, gridStep, inkVariables } from './background'
 import { arrange } from './arrange'
-import { drawOrder, waitingInk } from './order'
+import { drawOrder, FRAME_PAD, frameAround, waitingInk } from './order'
 import { pdfOfPictures } from './pdf'
 import type { Item } from './types'
 
@@ -37,9 +37,35 @@ describe('draw order', () => {
   const pdf: Item = { id: 'pdf', kind: 'file', x: 0, y: 0, w: 300, h: 400, media: 'm', name: 'a.pdf', ext: 'pdf', sizeLabel: '1 KB', pages: 3, page: 2 }
   const ink = (id: string, page: number): Item => ({ id, kind: 'ink', x: 0, y: 0, w: 10, h: 10, ow: 10, oh: 10, points: [], color: 'auto', size: 3, on: { item: 'pdf', page } })
 
-  it('puts frames under everything, whenever they were made', () => {
-    const frame: Item = { id: 'f', kind: 'frame', x: 0, y: 0, w: 10, h: 10, title: '', color: 'auto' }
+  it('puts frames under what lies in them, whenever they were made', () => {
+    const frame: Item = { id: 'f', kind: 'frame', x: -10, y: -10, w: 200, h: 100, title: '', color: 'auto' }
     expect(drawOrder([note('a'), frame, note('b')]).map((i) => i.id)).toEqual(['f', 'a', 'b'])
+  })
+
+  it('puts a frame drawn onto a part of a PDF over the PDF, and what is put in it later over the frame', () => {
+    const answers: Item = { id: 'f', kind: 'frame', x: 20, y: 300, w: 200, h: 80, title: '', color: 'auto' }
+    const later = note('n', { x: 40, y: 320, w: 60, h: 40 })
+    expect(drawOrder([note('a'), answers, pdf, later]).map((i) => i.id)).toEqual(['a', 'pdf', 'f', 'n'])
+  })
+
+  it('keeps a frame under an item that only reaches into it, and a frame around a whole PDF under the PDF', () => {
+    const corner: Item = { id: 'f', kind: 'frame', x: 250, y: 350, w: 300, h: 300, title: '', color: 'auto' }
+    expect(drawOrder([pdf, corner]).map((i) => i.id)).toEqual(['f', 'pdf'])
+    const around: Item = { id: 'g', kind: 'frame', x: -20, y: -20, w: 340, h: 440, title: '', color: 'auto' }
+    expect(drawOrder([pdf, around]).map((i) => i.id)).toEqual(['g', 'pdf'])
+  })
+
+  it('puts the smaller of two frames over the larger', () => {
+    const big: Item = { id: 'big', kind: 'frame', x: 0, y: 0, w: 500, h: 500, title: '', color: 'auto' }
+    const small: Item = { id: 'small', kind: 'frame', x: 10, y: 10, w: 50, h: 50, title: '', color: 'auto' }
+    expect(drawOrder([small, big]).map((i) => i.id)).toEqual(['big', 'small'])
+  })
+
+  it('makes a frame around items with room on every side, a turned item by the box it covers', () => {
+    expect(frameAround([])).toBeNull()
+    expect(frameAround([note('a'), note('b', { x: 200, y: 100 })])).toEqual({ x: -FRAME_PAD, y: -FRAME_PAD, w: 300 + 2 * FRAME_PAD, h: 150 + 2 * FRAME_PAD })
+    const turned = frameAround([note('a', { rot: 90 })])!
+    expect(turned.h).toBeCloseTo(100 + 2 * FRAME_PAD)
   })
 
   it('leaves out the drawings of the PDF pages not showing', () => {

@@ -1,6 +1,6 @@
 import { bounds, lineGeometry, shapePath } from './geometry'
 import { NOTE_COLORS, paint } from './palette'
-import type { Board, Item } from './types'
+import { OUTLINE_WEIGHT, outlineOf, type Board, type Item } from './types'
 import { backgroundStyle, effectiveBackground, inkVariables } from './background'
 import { LibShape } from './library/LibShape'
 import { makeLookup, outlineFor, type Lookup } from './library/registry'
@@ -48,14 +48,14 @@ function ThumbItem({ item, lookup }: { item: Item; lookup: Lookup }) {
       return <rect x={item.x} y={item.y} width={item.w} height={item.h} rx={6} fill={NOTE_COLORS[item.color]} />
     case 'shape': {
       const def = item.lib ? lookup(item.lib) : undefined
-      if (def) return <LibShape def={def} x={item.x} y={item.y} w={item.w} h={item.h} colors={{ fill: item.fill, line: item.stroke }} className="" interactive={false} />
+      if (def) return <LibShape def={def} x={item.x} y={item.y} w={item.w} h={item.h} colors={{ fill: item.fill, line: item.stroke }} weight={outlineOf(item) / OUTLINE_WEIGHT} className="" interactive={false} />
       return (
         <path
           transform={`translate(${item.x} ${item.y})`}
           d={shapePath(item.shape, item.w, item.h)}
           fill={paint(item.fill)}
           stroke={item.stroke === 'none' ? 'none' : paint(item.stroke)}
-          strokeWidth={3}
+          strokeWidth={(outlineOf(item) * 3) / OUTLINE_WEIGHT}
         />
       )
     }
