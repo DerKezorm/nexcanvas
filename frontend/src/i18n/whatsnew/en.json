@@ -1,4 +1,35 @@
 {
+  "0.7.0": {
+    "lead": "Frames can now cover a part of a PDF or a photo, text sizes are numbers you choose, and shapes get a line thickness.",
+    "sections": [
+      {
+        "title": "Frames on a PDF or a photo",
+        "where": "Draw a frame onto a part of a PDF or a photo",
+        "body": "A frame drawn onto a part of a PDF or a photo now lies on top of it, so it can be picked, named and hidden right there. On a worksheet, hide just the answers. What you put into the frame afterwards lies on top of the frame, and a frame around whole items stays under them as before. Covering a part of a PDF covers it on every screen, but the PDF itself still reaches everybody who opens the board."
+      },
+      {
+        "title": "Text sizes in pixels",
+        "where": "Select a note, shape or text, the size in the bar above it; while writing, the size in the bar above the words",
+        "body": "Both bars now offer the same sizes: from 10 to 96 pixels to pick, or any whole number from 6 to 200 to type. With an item selected, the size goes for all of its words, also the parts that had a size of their own. While writing, it goes for what is marked. Default lets a note or a shape fit its words in again, and gives a part the size of the other words. Texts get the size instead of S, M, L and XL. Sizes from before stay as they were."
+      },
+      {
+        "title": "Line thickness for shapes",
+        "where": "Select a shape, Outline in the bar above it",
+        "body": "Under the outline colours there are four thicknesses, from thin to very thick. Shapes from a package draw all their lines thicker or thinner alike."
+      },
+      {
+        "title": "A frame around the selection",
+        "where": "Right click on what is selected, Frame around",
+        "body": "Puts a frame around the selected items with a little room on every side, named like a frame drawn with the tool."
+      }
+    ],
+    "smallTitle": "Also",
+    "small": [
+      "Show content and Look inside on a hidden frame no longer grow larger than the frame when you zoom out. When the frame gets very small on screen, only the closed eye is left.",
+      "The colour of a text from the bar above it now goes for all of its words, also those that had a colour of their own.",
+      "Changing the size of a text no longer makes it bold."
+    ]
+  },
   "0.6.0": {
     "lead": "Parts of a text can now be formatted on their own, and a PDF of several pages can lie on the board all at once.",
     "sections": [

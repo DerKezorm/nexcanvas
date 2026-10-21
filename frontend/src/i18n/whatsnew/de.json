@@ -1,4 +1,35 @@
 {
+  "0.7.0": {
+    "lead": "Rahmen decken jetzt auch einen Teil einer PDF oder eines Fotos ab, Schriftgrößen sind Zahlen nach Wahl, und Formen bekommen eine Linienstärke.",
+    "sections": [
+      {
+        "title": "Rahmen auf einer PDF oder einem Foto",
+        "where": "Rahmen auf einen Teil einer PDF oder eines Fotos ziehen",
+        "body": "Ein Rahmen, der auf einen Teil einer PDF oder eines Fotos gezogen wird, liegt jetzt darüber. Er lässt sich dort auswählen, benennen und verstecken, auf einem Arbeitsblatt etwa nur die Lösungen. Was danach in den Rahmen kommt, liegt über ihm, und ein Rahmen um ganze Elemente bleibt wie bisher darunter. Ein abgedeckter Teil einer PDF ist auf jedem Bildschirm verdeckt, die PDF selbst bekommt aber jeder, der das Board öffnet."
+      },
+      {
+        "title": "Schriftgrößen in Pixeln",
+        "where": "Notiz, Form oder Text auswählen, Größe in der Leiste darüber; beim Schreiben die Größe in der Leiste über dem Text",
+        "body": "Beide Leisten bieten jetzt dieselben Größen: von 10 bis 96 Pixel zum Anklicken, oder jede ganze Zahl von 6 bis 200 zum Eintippen. Ist ein Element ausgewählt, gilt die Größe für alle seine Wörter, auch für Teile mit eigener Größe. Beim Schreiben gilt sie für das Markierte. „Standard“ lässt eine Notiz oder Form ihre Wörter wieder selbst einpassen und gibt einem Teil die Größe der übrigen Wörter. Texte haben die Größe statt S, M, L und XL. Größen von vorher bleiben, wie sie waren."
+      },
+      {
+        "title": "Linienstärke für Formen",
+        "where": "Form auswählen, „Rand“ in der Leiste darüber",
+        "body": "Unter den Randfarben gibt es vier Stärken, von dünn bis sehr dick. Formen aus einem Paket zeichnen alle ihre Linien gleichmäßig dicker oder dünner."
+      },
+      {
+        "title": "Ein Rahmen um die Auswahl",
+        "where": "Rechtsklick auf das Ausgewählte, „Rahmen drumherum“",
+        "body": "Legt einen Rahmen mit etwas Abstand um die ausgewählten Elemente, benannt wie ein Rahmen aus dem Werkzeug."
+      }
+    ],
+    "smallTitle": "Außerdem",
+    "small": [
+      "„Inhalt zeigen“ und „Hineinschauen“ auf einem versteckten Rahmen werden beim Herauszoomen nicht mehr größer als der Rahmen. Wird der Rahmen auf dem Bildschirm sehr klein, bleibt nur das geschlossene Auge.",
+      "Die Farbe eines Texts aus der Leiste darüber gilt jetzt für alle seine Wörter, auch für die mit eigener Farbe.",
+      "Eine andere Größe macht einen Text nicht mehr fett."
+    ]
+  },
   "0.6.0": {
     "lead": "Text lässt sich jetzt in Teilen formatieren, und eine PDF mit mehreren Seiten liegt auf Wunsch ganz auf dem Board.",
     "sections": [
