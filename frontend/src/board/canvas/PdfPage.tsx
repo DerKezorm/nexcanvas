@@ -69,12 +69,46 @@ export function sharpness(zoom: number): number {
   return Math.min(16, 2 ** (Math.ceil(Math.log2(zoom) * 2) / 2))
 }
 
+/** The zoom something is drawn for: the board's in `sharpness` steps, a moment after it rests, and only when it is a
+ * step further. Pages of PDFs and photos follow it. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useDrawnZoom(): number {
+  const zoom = useContext(BoardZoom)
+  const [drawnFor, setDrawnFor] = useState(() => sharpness(zoom))
+  useEffect(() => {
+    const step = sharpness(zoom)
+    if (step === drawnFor) return
+    const timer = window.setTimeout(() => setDrawnFor(step), SETTLE_MS)
+    return () => window.clearTimeout(timer)
+  }, [zoom, drawnFor])
+  return drawnFor
+}
+
 /** The scale pdf.js draws a page with, for its width on the board, the zoom and the screen's pixels. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function drawScale(base: { width: number; height: number }, width: number, zoom: number, pixelRatio: number): number {
   const wanted = (width * sharpness(zoom) * Math.max(1, pixelRatio)) / base.width
   const most = Math.sqrt(MAX_PIXELS / Math.max(1, base.width * base.height))
   return Math.max(0.1, Math.min(wanted, most))
+}
+
+/** How pdf.js reads a PDF. No scripts, no forms, no fonts from elsewhere: a PDF is shown, nothing more. What pdf.js
+ * reads besides it (character maps of Chinese, Japanese and Korean fonts, without which their words stay blank;
+ * standard fonts; picture decoders; the CMYK profile) comes from this server, put there by the build
+ * (vite.config.ts, pdfjsData). */
+// eslint-disable-next-line react-refresh/only-export-components
+export function readOptions(data: Uint8Array, base: string): Record<string, unknown> {
+  const extras = base + 'pdfjs/'
+  return {
+    data,
+    isEvalSupported: false,
+    enableXfa: false,
+    cMapUrl: extras + 'cmaps/',
+    cMapPacked: true,
+    standardFontDataUrl: extras + 'standard_fonts/',
+    wasmUrl: extras + 'wasm/',
+    iccUrl: extras + 'iccs/',
+  }
 }
 
 async function open(media: string, address: string): Promise<PdfDocument> {
@@ -86,9 +120,7 @@ async function open(media: string, address: string): Promise<PdfDocument> {
       const response = await fetch(address, { credentials: 'same-origin' })
       if (!response.ok) throw new Error('pdf ' + response.status)
       const data = new Uint8Array(await response.arrayBuffer())
-      // No scripts, no forms, no fonts from elsewhere: a PDF is shown, nothing more.
-      const options: Record<string, unknown> = { data, isEvalSupported: false, enableXfa: false }
-      return (await pdfjs.getDocument(options as never).promise) as unknown as PdfDocument
+      return (await pdfjs.getDocument(readOptions(data, import.meta.env.BASE_URL) as never).promise) as unknown as PdfDocument
     })()
     loaded.set(media, found)
     found.catch(() => loaded.delete(media))
@@ -102,15 +134,7 @@ export function PdfPage({ item }: { item: FileItem }) {
   const mediaUrl = useMediaUrl()
   const address = mediaUrl(item.media)
   const canvas = useRef<HTMLCanvasElement>(null)
-  // The zoom the page is drawn for follows the board's a moment after it rests, and only when it is a step further.
-  const zoom = useContext(BoardZoom)
-  const [drawnFor, setDrawnFor] = useState(() => sharpness(zoom))
-  useEffect(() => {
-    const step = sharpness(zoom)
-    if (step === drawnFor) return
-    const timer = window.setTimeout(() => setDrawnFor(step), SETTLE_MS)
-    return () => window.clearTimeout(timer)
-  }, [zoom, drawnFor])
+  const drawnFor = useDrawnZoom()
   const [pages, setPages] = useState(item.pages ?? 0)
   const [failed, setFailed] = useState(false)
   const page = Math.max(1, Math.min(item.page ?? 1, pages || 1))

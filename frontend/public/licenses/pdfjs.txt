@@ -175,3 +175,21 @@
       of your accepting any such warranty or additional liability.
 
    END OF TERMS AND CONDITIONS
+
+
+--------------------------------------------------------------------------------
+Data PDF.js reads besides a PDF, shipped from the pdfjs-dist package under /pdfjs/,
+each folder with its licence files next to the data:
+
+/pdfjs/cmaps/           Character maps of Chinese, Japanese and Korean fonts.
+                        Copyright Adobe Systems Incorporated; BSD-3-Clause,
+                        /pdfjs/cmaps/LICENSE
+/pdfjs/standard_fonts/  Foxit fonts (Copyright PDFium Authors; BSD-3-Clause,
+                        /pdfjs/standard_fonts/LICENSE_FOXIT) and Liberation Sans
+                        (Copyright Google, Red Hat; OFL-1.1,
+                        /pdfjs/standard_fonts/LICENSE_LIBERATION)
+/pdfjs/wasm/            Decoders of JPEG 2000 (OpenJPEG; BSD-2-Clause) and JBIG2
+                        pictures (PDFium; BSD-3-Clause, Apache-2.0) and of colour profiles
+                        (qcms; MIT), built by Mozilla (Apache-2.0, BSD-2-Clause),
+                        /pdfjs/wasm/LICENSE_*
+/pdfjs/iccs/            A CMYK colour profile; CC0-1.0, /pdfjs/iccs/LICENSE

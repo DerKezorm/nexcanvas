@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 
 import { useMediaUrl } from './media'
 import { ItemActions, PdfPage } from './PdfPage'
+import { Photo } from './Photo'
 import { bindWords, plainerPaste, Quill, toggleLook } from './quill'
 import { TimerCard } from './TimerCard'
 import { Words } from './Words'
@@ -306,7 +307,7 @@ function Body({ item, editing, onDone, onMeasure }: Props) {
     case 'image':
       return (
         <figure className="relative h-full w-full overflow-hidden rounded-md bg-ink-800 shadow-[0_8px_24px_-10px_rgba(0,0,0,0.55)]">
-          <img src={mediaUrl(item.media, { preview: item.preview })} alt={item.caption ?? ''} draggable={false} loading="lazy" className="h-full w-full object-cover" />
+          <Photo item={item} />
           {item.caption && <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pt-6 pb-2 text-xs font-medium text-white">{item.caption}</figcaption>}
         </figure>
       )

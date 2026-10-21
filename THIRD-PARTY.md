@@ -12,6 +12,7 @@ These files travel inside the container image, so their notices travel with them
 | Font Inter (via Fontsource) | The Inter Project Authors | OFL-1.1 | `/licenses/fonts.txt` |
 | Lucide icons (partly from Feather): the buttons, and the icon packages of the shape library | Lucide Contributors; Cole Bemis | ISC, MIT | `/licenses/lucide.txt` |
 | PDF.js, to show PDFs page by page | Mozilla and contributors | Apache-2.0 | `/licenses/pdfjs.txt` |
+| What PDF.js reads besides a PDF: character maps of Chinese, Japanese and Korean fonts, standard fonts, decoders of JPEG 2000 and JBIG2 pictures and of colour profiles, a CMYK profile | Adobe; PDFium Authors; Google, Red Hat; OpenJPEG; Mozilla | BSD-3-Clause, OFL-1.1, BSD-2-Clause, MIT, Apache-2.0, CC0-1.0 | `/licenses/pdfjs.txt`, licence files under `/pdfjs/` |
 | Quill and Parchment, the editor for the words of notes, shapes and texts; fast-diff, which Quill uses | Slab; Jason Chen; salesforce.com; Google | BSD-3-Clause; fast-diff Apache-2.0 | `/licenses/quill.txt` |
 
 nexcanvas loads no font, icon or script from another host.

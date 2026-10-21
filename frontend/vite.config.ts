@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
+import { extname } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -19,8 +20,43 @@ function iconWithChecksum(): Plugin {
   }
 }
 
+/** What pdf.js reads besides the PDF: the character maps of Chinese, Japanese and Korean fonts (without them their
+ * words stay blank), the 14 standard fonts a PDF may name without carrying them, the decoders of JPEG 2000 and
+ * JBIG2 pictures and of colour profiles, and the CMYK profile. Served under /pdfjs/, in the build and in development.
+ * Not quickjs: a PDF's scripts never run here. */
+const PDFJS_DATA: Record<string, (name: string) => boolean> = {
+  cmaps: () => true,
+  standard_fonts: () => true,
+  wasm: (name) => !name.startsWith('quickjs'),
+  iccs: () => true,
+}
+const PDFJS_TYPES: Record<string, string> = { '.wasm': 'application/wasm', '.js': 'text/javascript', '.ttf': 'font/ttf', '.icc': 'application/vnd.iccprofile' }
+
+function pdfjsData(): Plugin {
+  const folder = (part: string) => new URL(`./node_modules/pdfjs-dist/${part}/`, import.meta.url)
+  const files = (part: string) => readdirSync(folder(part)).filter(PDFJS_DATA[part])
+  return {
+    name: 'pdfjs-data',
+    configureServer(server) {
+      server.middlewares.use('/pdfjs', (request, response, next) => {
+        const [part, name, ...rest] = (request.url ?? '').split('?')[0].split('/').filter(Boolean)
+        if (rest.length || !part || !name || !(part in PDFJS_DATA) || !files(part).includes(name)) return next()
+        response.setHeader('Content-Type', PDFJS_TYPES[extname(name)] ?? 'application/octet-stream')
+        response.end(readFileSync(new URL(name, folder(part))))
+      })
+    },
+    generateBundle() {
+      for (const part of Object.keys(PDFJS_DATA)) {
+        for (const name of files(part)) {
+          this.emitFile({ type: 'asset', fileName: `pdfjs/${part}/${name}`, source: readFileSync(new URL(name, folder(part))) })
+        }
+      }
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), iconWithChecksum()],
+  plugins: [react(), tailwindcss(), iconWithChecksum(), pdfjsData()],
   build: {
     rollupOptions: {
       output: {
