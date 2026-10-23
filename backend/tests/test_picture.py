@@ -43,3 +43,13 @@ def test_a_shape_keeps_its_outline_width_in_the_picture() -> None:
     for odd in (None, "thick", -1, 1e9):
         plain = picture.svg({"items": [{**shape, "weight": odd}], "lines": []}, "Board")
         assert 'stroke-width="3"' in plain
+
+
+def test_a_frame_without_fill_shows_only_its_edge_in_the_picture() -> None:
+    frame = {**_item("f", "frame", 0, 0, 200, 100), "title": "Answers", "color": "#ff0000"}
+    filled = picture.svg({"items": [frame], "lines": []}, "Board")
+    clear = picture.svg({"items": [{**frame, "clear": True}], "lines": []}, "Board")
+    assert 'rx="14" fill="none"' not in filled
+    assert 'rx="14" fill="none"' in clear
+    # Only a real yes clears it.
+    assert 'rx="14" fill="none"' not in picture.svg({"items": [{**frame, "clear": "yes"}], "lines": []}, "Board")

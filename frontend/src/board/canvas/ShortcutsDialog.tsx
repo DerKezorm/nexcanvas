@@ -44,6 +44,7 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
     title: 'keys.view',
     rows: [
       ['Space', 'keys.pan'],
+      ['Shift', 'keys.marquee'],
       ['Ctrl + Mausrad', 'keys.zoom'],
       ['+ / −', 'keys.zoomStep'],
       ['Shift 1', 'canvas.fit'],

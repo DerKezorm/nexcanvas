@@ -126,6 +126,8 @@ export interface FrameItem extends Box {
   kind: 'frame'
   title: string
   color: string
+  /** Only its edge, no fill: what lies under it keeps its colours. */
+  clear?: boolean
   /** Its content is hidden: readers never get it, writers see it covered (`board/hiding.ts`). */
   hidden?: boolean
   /** The account that hid it; it sees inside, as do those who manage the space. */

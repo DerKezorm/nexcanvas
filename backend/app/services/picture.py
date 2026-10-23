@@ -344,8 +344,10 @@ def svg(picture: dict[str, Any], title: str, look: str = "dark", width: int = 48
             )
         elif kind == "frame":
             edge = _colour(item.get("color"), ink) or colours["edge"]
+            # A frame without fill shows only its edge, as on the board.
+            fill = "none" if item.get("clear") is True else colours["box"]
             out.append(
-                f'<rect x="{_f(x)}" y="{_f(y)}" width="{_f(w)}" height="{_f(h)}" rx="14" fill="{colours["box"]}" '
+                f'<rect x="{_f(x)}" y="{_f(y)}" width="{_f(w)}" height="{_f(h)}" rx="14" fill="{fill}" '
                 f'fill-opacity="0.6" stroke="{edge}" stroke-width="{_f(3 * max(scale, 1))}"/>'
             )
         elif kind == "ink":

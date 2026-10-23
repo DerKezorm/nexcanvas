@@ -1,7 +1,7 @@
 import { FileStack, LayoutGrid, LayoutTemplate, Plus, Search } from 'lucide-react'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useMatch, useNavigate } from 'react-router-dom'
 
 import { useBoards } from '../board/store'
 import { AccountMenu } from './AccountMenu'
@@ -45,6 +45,8 @@ export function AppShell() {
   const newSpace = useCallback(() => setSpaceDialog(true), [])
   const search = useCallback(() => setSearching(true), [])
   const shell = useMemo(() => ({ newBoard, newSpace, search }), [newBoard, newSpace, search])
+  // A board takes the whole height (a projector in class has little of it): its own small bars float over it.
+  const onBoard = useMatch('/b/:id') !== null
 
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -70,7 +72,7 @@ export function AppShell() {
   return (
     <ShellContext.Provider value={shell}>
       <div className="flex h-dvh flex-col overflow-hidden">
-        <header className="z-20 shrink-0 border-b border-ink-700/80 bg-ink-950/80 backdrop-blur-xl">
+        <header className={'z-20 shrink-0 border-b border-ink-700/80 bg-ink-950/80 backdrop-blur-xl ' + (onBoard ? 'hidden' : '')}>
           <div className="flex items-center gap-2 px-3 py-2.5 sm:gap-4 sm:px-4">
             <NavLink to="/" className="hidden shrink-0 sm:block" aria-label={t('app.home')}>
               <Logo withWordmark />

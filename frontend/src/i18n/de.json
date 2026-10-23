@@ -335,6 +335,8 @@
     "zoomOut": "Verkleinern",
     "zoom100": "Originalgröße",
     "fit": "Alles zeigen",
+    "fullScreen": "Vollbild",
+    "leaveFullScreen": "Vollbild beenden",
     "connect": "Ziehen zum Verbinden, klicken für eine verbundene Notiz",
     "notePlaceholder": "Notiz",
     "textPlaceholder": "Text",
@@ -409,6 +411,7 @@
     "color": "Farbe",
     "stroke": "Rand",
     "weight": "Linienstärke",
+    "clear": "Ohne Füllung",
     "weights": {
       "0": "Dünn",
       "1": "Mittel",
@@ -460,6 +463,7 @@
     "nudge": "Verschieben (Umschalt: 10)",
     "noSnap": "Beim Ziehen halten: Einrasten umkehren",
     "pan": "Halten und ziehen: Board verschieben",
+    "marquee": "Halten und auf leerer Fläche ziehen: mehrere auswählen",
     "zoom": "Zoomen",
     "zoomStep": "Zoomen in Schritten",
     "del": "Entf",
@@ -1133,7 +1137,6 @@
   },
   "library": {
     "title": "Formen",
-    "open": "Formen öffnen",
     "fold": "Formen einklappen",
     "search": "Formen suchen",
     "found_one": "Ein Treffer",

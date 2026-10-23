@@ -33,11 +33,10 @@ const SHOWN = 64
 /**
  * The shape library on the left of the board, as Visio's stencils: a search over every shape, the starred ones, the
  * ones taken last, and each package as a group that folds. A shape is dragged onto the board, or clicked and then
- * drawn there. Folded, the library is a column of the last shapes; on a phone it comes up from below.
+ * drawn there. It opens beside the tools on the left; on a phone it comes up from below.
  */
 export function LibraryPanel({
   open,
-  onOpen,
   onClose,
   active,
   onPick,
@@ -48,7 +47,6 @@ export function LibraryPanel({
   sheet = false,
 }: {
   open: boolean
-  onOpen: () => void
   onClose: () => void
   active: string | undefined
   onPick: (key: string) => void
@@ -135,21 +133,8 @@ export function LibraryPanel({
   )
   const heading = 'px-1 pt-3 pb-1.5 text-[11px] font-semibold tracking-wider text-mist-500 uppercase'
 
-  if (!open && !sheet) {
-    // Folded: a narrow column with the last shapes, one click from drawing again.
-    return (
-      <aside data-ui data-testid="library" data-open="false" className="nc-float absolute top-3 left-3 z-20 flex w-14 flex-col items-center gap-1 p-1.5">
-        <button type="button" onClick={onOpen} className="nc-tool" title={t('library.open')} aria-label={t('library.open')}>
-          <Shapes className="h-5 w-5" strokeWidth={1.8} />
-        </button>
-        {pick(recent).slice(0, 6).map((entry) => (
-          <button key={entry.key} type="button" onClick={() => onPick(entry.key)} title={named(entry.def.name, lang)} aria-label={named(entry.def.name, lang)} aria-pressed={active === entry.key} className={'grid h-10 w-10 place-items-center rounded-lg ' + (active === entry.key ? 'bg-accent-500/15' : 'hover:bg-ink-800')}>
-            <ShapeTile def={entry.def} size={26} />
-          </button>
-        ))}
-      </aside>
-    )
-  }
+  // Folded, the library is only the shapes taken last in the tools' shape panel, which also opens it again.
+  if (!open && !sheet) return null
 
   return (
     <aside
@@ -157,7 +142,7 @@ export function LibraryPanel({
       data-testid="library"
       data-open="true"
       aria-label={t('library.title')}
-      className={sheet ? 'nc-float fixed inset-x-2 bottom-2 z-40 flex max-h-[70dvh] flex-col p-2' : 'nc-float absolute top-3 bottom-20 left-3 z-20 flex w-72 flex-col p-2'}
+      className={sheet ? 'nc-float fixed inset-x-2 bottom-2 z-40 flex max-h-[70dvh] flex-col p-2' : 'nc-float absolute top-16 bottom-20 left-[66px] z-20 flex w-72 flex-col p-2'}
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="flex items-center gap-2 px-1 pb-2">

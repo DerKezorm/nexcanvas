@@ -335,6 +335,8 @@
     "zoomOut": "Zoom out",
     "zoom100": "Actual size",
     "fit": "Show everything",
+    "fullScreen": "Full screen",
+    "leaveFullScreen": "Leave full screen",
     "connect": "Drag to connect, click to add a connected note",
     "notePlaceholder": "Note",
     "textPlaceholder": "Text",
@@ -409,6 +411,7 @@
     "color": "Colour",
     "stroke": "Outline",
     "weight": "Line thickness",
+    "clear": "No fill",
     "weights": {
       "0": "Thin",
       "1": "Medium",
@@ -460,6 +463,7 @@
     "nudge": "Nudge (Shift: 10)",
     "noSnap": "Hold while dragging: snapping the other way",
     "pan": "Hold and drag: move the board",
+    "marquee": "Hold and drag over the empty board: select several",
     "zoom": "Zoom",
     "zoomStep": "Zoom in steps",
     "del": "Del",
@@ -1133,7 +1137,6 @@
   },
   "library": {
     "title": "Shapes",
-    "open": "Open shapes",
     "fold": "Fold shapes",
     "search": "Search shapes",
     "found_one": "One match",

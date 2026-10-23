@@ -453,8 +453,8 @@ PREFERENCES: dict[str, tuple[Any, ...]] = {
     "dots": (True, False),
     "tool_back": (True, False),
     "start": ("boards", "last"),
-    #: The shape library on the left of a board: open or folded to a column of symbols.
-    "library_open": (True, False),
+    #: The shape library beside the tools of a board: folded (its shapes then only in the tools) or open.
+    "library_open": (False, True),
 }
 #: Lists an account keeps: shapes it starred and the ones it took last, as ``package/shape``; the most of each.
 PREFERENCE_LISTS: dict[str, int] = {"library_favorites": 200, "library_recent": 12}

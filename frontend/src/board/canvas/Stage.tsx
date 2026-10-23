@@ -3,7 +3,7 @@
  * view, everything around it dark, a small bar with the way forward and back, the keys of a presenter.
  */
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
-import { useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import type { FrameItem, View } from '../types'
@@ -35,14 +35,37 @@ export function useStageKeys(at: number | null, count: number, go: (next: number
     }
   }, [at, count, go])
   useEffect(() => {
-    if (at === null && document.fullscreenElement) void document.exitFullscreen?.().catch(() => undefined)
+    // Only the full screen presenting asked for ends with it; one somebody chose before stays.
+    if (at === null && ownScreen && document.fullscreenElement) void document.exitFullscreen?.().catch(() => undefined)
+    if (at === null) ownScreen = false
   }, [at])
 }
+
+/** Whether presenting asked for the full screen (and so gives it back at the end). */
+let ownScreen = false
 
 /** Asks the browser for the whole screen; where it says no, presenting still works inside the window. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function wholeScreen() {
+  if (document.fullscreenElement) return
+  ownScreen = true
   void document.documentElement.requestFullscreen?.().catch(() => undefined)
+}
+
+/** The board on the whole screen, chosen by hand (a projector in class): whether it is, and the switch. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useWholeScreen(): [boolean, () => void] {
+  const [on, setOn] = useState(() => !!document.fullscreenElement)
+  useEffect(() => {
+    const change = () => setOn(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', change)
+    return () => document.removeEventListener('fullscreenchange', change)
+  }, [])
+  const toggle = useCallback(() => {
+    if (document.fullscreenElement) void document.exitFullscreen?.().catch(() => undefined)
+    else void document.documentElement.requestFullscreen?.().catch(() => undefined)
+  }, [])
+  return [on, toggle]
 }
 
 export function Stage({ frames, at, view, go }: { frames: FrameItem[]; at: number; view: View; go: (next: number | null) => void }) {

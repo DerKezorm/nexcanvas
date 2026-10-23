@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronRight, Copy, FileDown, FileUp, Grid3x3, History, LayoutTemplate, ImageDown, Keyboard, Maximize, Minus, MoreHorizontal, Plus, Presentation, Redo2, RotateCw, Share2, Star, Trash2, Undo2 } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Copy, FileDown, FileUp, Expand, Grid3x3, History, LayoutTemplate, ImageDown, Keyboard, Maximize, Minus, Shrink, MoreHorizontal, Plus, Presentation, Redo2, RotateCw, Share2, Star, Trash2, Undo2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -11,6 +11,7 @@ import { LibShape } from '../board/library/LibShape'
 import { LibraryPanel, SHAPE_DRAG } from '../board/library/LibraryPanel'
 import { SaveShapeDialog } from '../board/library/SaveShapeDialog'
 import { LibraryContext, makeLookup, outlineFor, shipped, useIconPackages, useInstalled, type Library } from '../board/library/registry'
+import type { ShapeDef } from '../board/library/types'
 import { ContextBar, type ContextActions } from '../board/canvas/ContextBar'
 import { TextBar } from '../board/canvas/TextBar'
 import { ExportDialog } from '../board/canvas/ExportDialog'
@@ -33,7 +34,8 @@ import { learnServerClock } from '../board/clock'
 import { covered, hidingFrames, mayShow } from '../board/hiding'
 import { HiddenCover } from '../board/canvas/HiddenCover'
 import { TIMER_SIZE } from '../board/timer'
-import { Stage, useStageKeys, wholeScreen } from '../board/canvas/Stage'
+import { Stage, useStageKeys, useWholeScreen, wholeScreen } from '../board/canvas/Stage'
+import { emptyDrag, pastedByMiddle } from '../board/gestures'
 import { arrange } from '../board/arrange'
 import { spreadPdf } from '../board/spread'
 import type { SpanLook } from '../board/rich'
@@ -47,6 +49,7 @@ import { NotFound } from '../components/NotFound'
 import { TITLE_MAX } from '../board/types'
 import { useAuth } from '../state/auth'
 import { Dialog } from '../components/Dialog'
+import { AccountMenu } from '../components/AccountMenu'
 import { Popover } from '../components/Popover'
 import { SaveTemplateDialog } from '../components/Templates'
 import { copyText } from '../lib/copy'
@@ -260,7 +263,8 @@ function Editor({ board }: { board: Board }) {
   )
   const outlineOf = useMemo(() => outlineFor(library.lookup), [library])
   const { setMe } = useAuth()
-  const [libraryOpen, setLibraryOpen] = useState(me?.preferences?.library_open ?? true)
+  // Folded unless somebody opened it: the basic and the last shapes are in the tools, the board keeps its width.
+  const [libraryOpen, setLibraryOpen] = useState(me?.preferences?.library_open ?? false)
   const [librarySheet, setLibrarySheet] = useState(false)
   /** What is selected, on its way into a package as one shape. */
   const [savingShape, setSavingShape] = useState<Item[] | null>(null)
@@ -288,6 +292,8 @@ function Editor({ board }: { board: Board }) {
   /** A long press opened the menu: the finger's lifting ends nothing else. */
   const pressed = useRef(false)
   const lastTap = useRef({ time: 0, x: 0, y: 0, handled: 0 })
+  /** When the middle button last went down or up on the board: Linux pastes on that button, which is no paste here. */
+  const middlePress = useRef(-Infinity)
   const fileInput = useRef<HTMLInputElement>(null)
   const cameraInput = useRef<HTMLInputElement>(null)
   const canvasInput = useRef<HTMLInputElement>(null)
@@ -509,6 +515,11 @@ function Editor({ board }: { board: Board }) {
     [library],
   )
   const activeShape = tools.tool === 'shape' ? (tools.lib ?? `basic/${tools.shape}`) : undefined
+  /** The shapes of the library taken last, one click away in the tools (the basic nine are there anyway). */
+  const recentShapes = useMemo(
+    () => recent.map((key) => ({ key, def: library.lookup(key) })).filter((e): e is { key: string; def: ShapeDef } => !!e.def && !e.def.native).slice(0, 6),
+    [recent, library],
+  )
 
   /** Adds what was chosen at the "+": beside `from` on `side` (or at `place`), joined to it by a line, ready to write in.
    * `like` is the item whose kind "the same" repeats, when that is not `from` (a sibling repeats the selected item). */
@@ -700,6 +711,7 @@ function Editor({ board }: { board: Board }) {
     const p = toBoard(s, viewRef.current)
     const tool = tools.tool
 
+    if (e.button === 1) middlePress.current = e.timeStamp
     if (e.button === 1 || tool === 'hand' || spaceHeld) {
       gesture.current = { kind: 'pan', start: s, view: viewRef.current }
       return
@@ -766,7 +778,7 @@ function Editor({ board }: { board: Board }) {
         gesture.current = { kind: 'move', start: p, ids: movable.map((i) => i.id), lines: freeLines, origin: doc.ref.current, moved: false, box }
       } else {
         if (!e.shiftKey) setSelected([])
-        gesture.current = e.pointerType === 'touch' ? { kind: 'pan', start: s, view: viewRef.current } : { kind: 'marquee', start: p, add: e.shiftKey ? selected : [] }
+        gesture.current = emptyDrag(e.shiftKey, e.pointerType) === 'marquee' ? { kind: 'marquee', start: p, add: selected } : { kind: 'pan', start: s, view: viewRef.current }
       }
       return
     }
@@ -1042,6 +1054,7 @@ function Editor({ board }: { board: Board }) {
   }
 
   const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.button === 1) middlePress.current = e.timeStamp
     pointers.current.delete(e.pointerId)
     clearTimeout(press.current.timer)
     press.current.timer = 0
@@ -1376,6 +1389,11 @@ function Editor({ board }: { board: Board }) {
     }
     const paste = (e: ClipboardEvent) => {
       if (typing(e.target) || readOnly || share || asking || exporting || presenting !== null) return
+      // A paste right after the middle button is the button's own (Linux), not one somebody asked for.
+      if (pastedByMiddle(e.timeStamp, middlePress.current)) {
+        e.preventDefault()
+        return
+      }
       const data = e.clipboardData
       if (!data) return
       const files = [...data.files]
@@ -1506,6 +1524,7 @@ function Editor({ board }: { board: Board }) {
   }, [presenting, frames, showFrame, size])
 
   const go = useCallback((next: number | null) => setPresenting(next), [])
+  const [fullScreen, toggleFullScreen] = useWholeScreen()
   useStageKeys(presenting, frames.length, go)
 
   // Presenting fills the screen where the browser allows it; leaving full screen ends presenting.
@@ -1546,13 +1565,16 @@ function Editor({ board }: { board: Board }) {
   const cursor = spaceHeld || tools.tool === 'hand' ? 'grab' : tools.tool === 'select' ? 'default' : tools.tool === 'eraser' ? 'cell' : 'crosshair'
   const zoomPct = Math.round(view.zoom * 100)
   const phone = size.w < 640
-  leftInset.current = !phone && !readOnly ? (libraryOpen ? 300 : 70) : 0
+  // The tools stand on the left, the open library beside them.
+  leftInset.current = !phone && !readOnly ? (libraryOpen ? 362 : 66) : 0
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
+    <div className="relative flex min-w-0 flex-1 flex-col">
       {doc.status === 'gone' && <BoardClosed code={doc.closed} spaceId={space?.id ?? null} />}
-      {/* The head row of the board, built like nexlore's note head: way back, place, star, who is here, share, more. */}
-      <div className={'flex shrink-0 items-center gap-2 border-b border-ink-700/80 bg-ink-950 px-3 py-2 sm:px-5 ' + (presenting !== null ? 'hidden' : '')}>
+      {/* The head of the board, floating over it as two small bars so the board keeps the whole height: way back, place,
+          star on the left; who is here, share, more and the account on the right. */}
+      <div className={'pointer-events-none absolute inset-x-3 top-3 z-30 flex items-start justify-between gap-2 ' + (presenting !== null ? 'hidden' : '')}>
+        <div className="nc-float pointer-events-auto flex min-w-0 items-center gap-1.5 py-1 pr-2.5 pl-1" data-testid="board-head">
         <Link to={space ? `/?space=${space.id}` : '/'} className="rounded-full p-1.5 text-mist-500 hover:bg-ink-850 hover:text-mist-100" aria-label={t('board.back')} title={t('board.back')}>
           <ArrowLeft className="h-4 w-4" />
         </Link>
@@ -1599,7 +1621,8 @@ function Editor({ board }: { board: Board }) {
           {doc.status === 'gone' ? t('board.gone') : doc.status === 'offline' ? t('board.offline') : !doc.synced ? t('board.connecting') : readOnly ? t('board.readOnly') : t('board.live')}
         </span>
         {uploads > 0 && <span className="hidden text-xs text-mist-500 sm:inline">{t('media.uploading', { count: uploads })}</span>}
-        <div className="ml-auto flex items-center gap-2">
+        </div>
+        <div className="nc-float pointer-events-auto flex shrink-0 items-center gap-2 py-1 pr-1 pl-2">
           <Peers peers={doc.peers} />
           <button type="button" onClick={() => setShare(true)} className="inline-flex items-center gap-2 rounded-full border border-accent-500/60 px-3 py-1.5 text-sm font-semibold text-accent-400 hover:bg-accent-500/10">
             <Share2 className="h-4 w-4" />
@@ -1655,6 +1678,7 @@ function Editor({ board }: { board: Board }) {
               </>
             )}
           </Popover>
+          <AccountMenu withTheme />
         </div>
       </div>
 
@@ -1749,10 +1773,6 @@ function Editor({ board }: { board: Board }) {
         {!readOnly && presenting === null && !phone && (
           <LibraryPanel
             open={libraryOpen}
-            onOpen={() => {
-              setLibraryOpen(true)
-              keepLibrary({ library_open: true })
-            }}
             onClose={() => {
               setLibraryOpen(false)
               keepLibrary({ library_open: false })
@@ -1769,7 +1789,6 @@ function Editor({ board }: { board: Board }) {
           <LibraryPanel
             sheet
             open
-            onOpen={() => undefined}
             onClose={() => setLibrarySheet(false)}
             active={activeShape}
             onPick={(key) => {
@@ -1891,7 +1910,7 @@ function Editor({ board }: { board: Board }) {
         )}
 
         {/* Floating controls. data-ui keeps the board from treating clicks on them as board clicks. */}
-        <div data-ui className="pointer-events-none absolute bottom-[max(12px,env(safe-area-inset-bottom))] left-1/2 z-20 -translate-x-1/2 sm:top-3 sm:bottom-auto">
+        <div data-ui className="pointer-events-none absolute bottom-[max(12px,env(safe-area-inset-bottom))] left-1/2 z-20 -translate-x-1/2 sm:top-16 sm:bottom-auto sm:left-3 sm:translate-x-0">
           {!readOnly && presenting === null && (
             <Toolbar
               state={tools}
@@ -1903,6 +1922,9 @@ function Editor({ board }: { board: Board }) {
               onLink={() => setAsking('link')}
               onTimer={addTimer}
               onCamera={() => cameraInput.current?.click()}
+              recent={recentShapes}
+              activeShape={activeShape}
+              onPickShape={pickShape}
               onLibrary={() => {
                 if (phone) setLibrarySheet(true)
                 else {
@@ -1913,7 +1935,7 @@ function Editor({ board }: { board: Board }) {
             />
           )}
         </div>
-        <div data-ui className={'nc-float absolute top-3 left-3 z-20 flex items-center gap-0.5 p-1 sm:top-auto sm:bottom-4 sm:left-4 ' + (presenting !== null ? 'hidden' : '')}>
+        <div data-ui className={'nc-float absolute top-16 left-3 z-20 flex items-center gap-0.5 p-1 sm:top-auto sm:bottom-4 sm:left-4 ' + (presenting !== null ? 'hidden' : '')}>
           {!readOnly && (
             <>
               <button type="button" className="nc-tool h-8 w-8" onClick={doc.undo} disabled={!doc.canUndo} aria-label={t('canvas.undo')} title={`${t('canvas.undo')} (${t('keys.ctrl')} Z)`}>
@@ -1939,7 +1961,7 @@ function Editor({ board }: { board: Board }) {
           </button>
         </div>
         {presenting === null && (
-          <div data-ui className="absolute top-3 right-3 z-20 flex items-start gap-2 sm:top-auto sm:right-4 sm:bottom-4 sm:items-end">
+          <div data-ui className="absolute top-16 right-3 z-20 flex items-start gap-2 sm:top-auto sm:right-4 sm:bottom-4 sm:items-end">
             {scenes && (
               <ScenesPanel
                 frames={frames}
@@ -1951,6 +1973,12 @@ function Editor({ board }: { board: Board }) {
             <button type="button" onClick={() => setScenes((v) => !v)} aria-expanded={scenes} className="nc-float grid h-10 w-10 place-items-center text-mist-400 hover:text-mist-100" aria-label={t('frames.scenes')} title={t('frames.scenes')}>
               <Presentation className="h-4 w-4" />
             </button>
+            {/* The whole screen for a projector, without presenting (where the browser has it: not on an iPhone). */}
+            {document.fullscreenEnabled && (
+              <button type="button" onClick={toggleFullScreen} aria-pressed={fullScreen} className="nc-float grid h-10 w-10 place-items-center text-mist-400 hover:text-mist-100" aria-label={fullScreen ? t('canvas.leaveFullScreen') : t('canvas.fullScreen')} title={fullScreen ? t('canvas.leaveFullScreen') : t('canvas.fullScreen')}>
+                {fullScreen ? <Shrink className="h-4 w-4" /> : <Expand className="h-4 w-4" />}
+              </button>
+            )}
             <button type="button" onClick={() => setKeys(true)} className="nc-float hidden h-10 w-10 place-items-center text-mist-400 hover:text-mist-100 sm:grid" aria-label={t('keys.title')} title={`${t('keys.title')} (?)`}>
               <Keyboard className="h-4 w-4" />
             </button>

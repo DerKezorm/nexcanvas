@@ -26,6 +26,8 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ShapeTile } from '../library/LibShape'
+import { named, type ShapeDef } from '../library/types'
 import { NOTE_COLORS, PALETTE, paint } from '../palette'
 import type { NoteColor, ShapeKind } from '../types'
 
@@ -54,7 +56,7 @@ export interface ToolState {
   lib?: string
 }
 
-/** Opens a small panel next to a tool; closes on a click elsewhere. */
+/** Opens a small panel next to a tool (above it on a phone, beside it otherwise); closes on a click elsewhere. */
 function Flyout({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -67,7 +69,7 @@ function Flyout({ open, onClose, children }: { open: boolean; onClose: () => voi
   }, [open, onClose])
   if (!open) return null
   return (
-    <div ref={ref} className="nc-float absolute bottom-full left-1/2 z-10 mb-2 max-w-[calc(100vw-24px)] -translate-x-1/2 p-2 sm:top-full sm:bottom-auto sm:mt-2 sm:mb-0">
+    <div ref={ref} className="nc-float absolute bottom-full left-1/2 z-10 mb-2 max-w-[calc(100vw-24px)] -translate-x-1/2 p-2 sm:top-0 sm:bottom-auto sm:left-full sm:mb-0 sm:ml-2 sm:translate-x-0">
       {children}
     </div>
   )
@@ -78,7 +80,7 @@ function Key({ k }: { k: string }) {
   return <span data-contrast="key" className="pointer-events-none absolute right-0.5 bottom-0 text-[9px] font-semibold text-mist-500">{k}</span>
 }
 
-/** The tools, floating over the top of the board as in Freeform: pick, then click or drag on the board. */
+/** The tools, floating on the left of the board (at the bottom on a phone): pick, then click or drag on the board. */
 export function Toolbar({
   state,
   set,
@@ -87,6 +89,9 @@ export function Toolbar({
   onCamera,
   onTimer,
   onLibrary,
+  recent = [],
+  activeShape,
+  onPickShape,
 }: {
   state: ToolState
   set: (change: Partial<ToolState>) => void
@@ -97,17 +102,21 @@ export function Toolbar({
   onTimer: () => void
   /** Opens the whole shape library. */
   onLibrary?: () => void
+  /** Shapes of the library taken last, offered with the basic ones. */
+  recent?: { key: string; def: ShapeDef }[]
+  activeShape?: string
+  onPickShape?: (key: string) => void
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [open, setOpen] = useState<'shape' | 'pen' | 'media' | 'note' | null>(null)
   const close = () => setOpen(null)
   const ShapeIcon = SHAPES.find((s) => s.kind === state.shape)?.Icon ?? Square
 
-  const tool = (id: Tool, label: string, Icon: typeof Square, key: string, extra?: () => void) => (
+  const tool = (id: Tool, label: string, Icon: typeof Square, key: string, extra?: () => void, pressed = state.tool === id) => (
     <button
       type="button"
       className="nc-tool"
-      aria-pressed={state.tool === id}
+      aria-pressed={pressed}
       aria-label={`${label} (${key})`}
       title={`${label} (${key})`}
       onClick={() => {
@@ -121,11 +130,10 @@ export function Toolbar({
   )
 
   return (
-    <div className="nc-float pointer-events-auto relative flex items-center gap-0.5 p-1" role="toolbar" aria-label={t('canvas.tools')}>
-      {tool('select', t('tools.select'), MousePointer2, 'V')}
-      {/* On a phone one finger moves the board; the hand would only take room. */}
-      <span className="hidden sm:contents">{tool('hand', t('tools.hand'), Hand, 'H')}</span>
-      <span className="mx-1 hidden h-6 w-px bg-ink-700 sm:block" />
+    <div className="nc-float pointer-events-auto relative flex items-center gap-0.5 p-1 sm:flex-col" role="toolbar" aria-orientation="vertical" aria-label={t('canvas.tools')}>
+      {/* Selecting also moves the board, dragged where nothing is; H keeps the hand for a board full to the edges. */}
+      {state.tool === 'hand' ? tool('select', t('tools.hand'), Hand, 'H', undefined, true) : tool('select', t('tools.select'), MousePointer2, 'V')}
+      <span className="mx-1 hidden h-6 w-px bg-ink-700 sm:mx-auto sm:my-1 sm:block sm:h-px sm:w-6" />
       <div className="sm:relative">
         <button
           type="button"
@@ -173,6 +181,15 @@ export function Toolbar({
               </button>
             ))}
           </div>
+          {recent.length > 0 && (
+            <div className="mt-1 grid w-max grid-cols-3 gap-1 border-t border-ink-700 pt-1">
+              {recent.map(({ key, def }) => (
+                <button key={key} type="button" className="nc-tool" aria-pressed={activeShape === key} aria-label={named(def.name, i18n.language)} title={named(def.name, i18n.language)} data-recent={key} onClick={() => { onPickShape?.(key); close() }}>
+                  <ShapeTile def={def} size={22} />
+                </button>
+              ))}
+            </div>
+          )}
           {onLibrary && (
             <button type="button" className="mt-1 w-full rounded-lg px-2 py-1.5 text-left text-xs font-medium text-accent-400 hover:bg-ink-800" onClick={() => { close(); onLibrary() }}>
               {t('library.all')}
@@ -183,7 +200,7 @@ export function Toolbar({
       {tool('text', t('tools.text'), Type, 'T')}
       {tool('line', t('tools.line'), Spline, 'L')}
       {tool('frame', t('tools.frame'), FrameIcon, 'F')}
-      <span className="mx-1 hidden h-6 w-px bg-ink-700 sm:block" />
+      <span className="mx-1 hidden h-6 w-px bg-ink-700 sm:mx-auto sm:my-1 sm:block sm:h-px sm:w-6" />
       <div className="sm:relative">
         <button
           type="button"
@@ -224,7 +241,7 @@ export function Toolbar({
         </Flyout>
       </div>
       {tool('eraser', t('tools.eraser'), Eraser, 'E')}
-      <span className="mx-1 hidden h-6 w-px bg-ink-700 sm:block" />
+      <span className="mx-1 hidden h-6 w-px bg-ink-700 sm:mx-auto sm:my-1 sm:block sm:h-px sm:w-6" />
       <div className="sm:relative">
         <button type="button" className="nc-tool" aria-label={t('tools.media')} title={t('tools.media')} aria-expanded={open === 'media'} onClick={() => setOpen(open === 'media' ? null : 'media')}>
           <ImagePlus className="h-[18px] w-[18px]" strokeWidth={1.8} />

@@ -159,8 +159,10 @@ def test_two_shapes_of_one_name_and_too_many_packages_are_refused(client: TestCl
 
 
 def test_the_library_remembers_favourites_and_recent_shapes_per_account(client: TestClient, operator: Account) -> None:
-    saved = client.put("/api/me/preferences", json={"library_favorites": ["network/router", "p3/rack"], "library_open": False}).json()
-    assert saved["library_favorites"] == ["network/router", "p3/rack"] and saved["library_open"] is False
+    # Folded until opened: the board keeps its width (a projector in class).
+    assert client.get("/api/auth/me").json()["preferences"]["library_open"] is False
+    saved = client.put("/api/me/preferences", json={"library_favorites": ["network/router", "p3/rack"], "library_open": True}).json()
+    assert saved["library_favorites"] == ["network/router", "p3/rack"] and saved["library_open"] is True
     assert client.put("/api/me/preferences", json={"library_recent": ["<script>/x"]}).status_code == 422
     assert client.put("/api/me/preferences", json={"library_recent": ["a/b"] * 13}).status_code == 422
 

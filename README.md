@@ -7,10 +7,11 @@ yourself, a family or a small team.
 nexcanvas is one of the nex apps and looks like them: coral, dark and light. Whoever knows nexlore finds the same
 frame here, with the same accounts, second factor, sign-in through a provider, log, languages and backups.
 
-![A network plan with VLANs, the shape library open on the left](docs/screenshots/board.png)
+![A network plan with VLANs, the shape library open beside the tools](docs/screenshots/board.png)
 
-*A network plan from a template. On the left the shape library: packages as groups, search, favorites and recent
-shapes; drag a shape onto the board or click it and draw it to size. Lines dock at the edge a shape really has.*
+*A network plan from a template. The board takes the whole window; the tools stand on the left, and beside them the
+shape library opens: packages as groups, search, favorites and recent shapes. Drag a shape onto the board or click it
+and draw it to size. Lines dock at the edge a shape really has.*
 
 ## Screenshots
 
@@ -40,7 +41,8 @@ your own: save a board as a template, with its content or only the skeleton.*
 
 - **An endless board.** Notes in seven colours, nine shapes with text inside, text in four sizes or handwriting,
   lines that stick to what they connect (straight or curved, arrows, dashed), pen and highlighter with pressure,
-  an eraser for drawings. Things snap to each other while you drag (Alt does the opposite).
+  an eraser for drawings. Things snap to each other while you drag (Alt does the opposite). Dragging the empty
+  board moves it; Shift and drag selects several things.
 - **Together, live.** Everybody sees each change at once, the pointers of the others with their names, and what
   they have selected. Two people can type in the same note; both their words stay. Undo only ever takes back your
   own steps, never somebody else's.
@@ -49,8 +51,9 @@ your own: save a board as a template, with its content or only the skeleton.*
   A photo dropped on an empty slot of a mood board fills it. PDFs show page by page, or lay out all their pages
   side by side; what you draw on a page stays with that page.
 - **Frames and scenes.** A frame is a named area that takes along what lies in it. Drawn onto a part of a PDF or a
-  photo, it lies on top of that part; right click on a selection puts a frame around it. The scene list jumps from
-  frame to frame, and presenting shows one frame after the other on the whole screen, also on a public page.
+  photo, it lies on top of that part, and without fill it leaves the colours below as they are; right click on a
+  selection puts a frame around it. The scene list jumps from frame to frame, and presenting shows one frame after
+  the other on the whole screen, also on a public page. The board itself goes full screen too, for a projector.
 - **Hidden frames.** A frame can hide what lies in it, such as the answers to a task, until it is time. It is covered
   for everybody, the one who hid it too, so nothing shows on a projector; whoever hid it and those who manage the
   space show it from the cover, or look inside on their own screen only. Whoever may only read never gets it from

@@ -274,12 +274,29 @@ export function ContextBar({ items, lines, at, actions, docked = false }: {
       {panel && (
         <div className={'nc-float absolute left-1/2 w-max max-w-72 -translate-x-1/2 p-2.5 ' + (docked ? 'bottom-full mb-2' : 'top-full mt-2')}>
           {panel === 'fill' && (
-            <Swatches
-              colors={only === 'shape' ? FILLS : PALETTE}
-              value={first?.kind === 'shape' ? first.fill : first && 'color' in first ? first.color : lines[0]?.color}
-              onPick={pickColor}
-              label={colorLabel}
-            />
+            <div className="flex flex-col gap-2.5">
+              <Swatches
+                colors={only === 'shape' ? FILLS : PALETTE}
+                value={first?.kind === 'shape' ? first.fill : first && 'color' in first ? first.color : lines[0]?.color}
+                onPick={pickColor}
+                label={colorLabel}
+              />
+              {only === 'frame' && (
+                // A frame over a PDF or a photo tints it; without the fill only its edge is left.
+                <button
+                  type="button"
+                  aria-pressed={items.every((i) => i.kind === 'frame' && i.clear)}
+                  onClick={() => {
+                    const clear = !items.every((i) => i.kind === 'frame' && i.clear)
+                    actions.change((x) => (x.kind === 'frame' ? { ...x, clear: clear || undefined } : x))
+                  }}
+                  className={'flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm ' + (items.every((i) => i.kind === 'frame' && i.clear) ? 'bg-accent-500/15 text-accent-400' : 'text-mist-300 hover:bg-ink-800')}
+                >
+                  <span className="h-4 w-4 rounded border border-current" />
+                  {t('context.clear')}
+                </button>
+              )}
+            </div>
           )}
           {panel === 'stroke' && (
             <div className="flex flex-col gap-2.5">

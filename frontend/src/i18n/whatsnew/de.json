@@ -1,4 +1,34 @@
 {
+  "0.8.0": {
+    "lead": "Ein Board hat jetzt die ganze Höhe des Bildschirms, die Werkzeuge stehen links, und Ziehen auf leerer Fläche verschiebt das Board.",
+    "sections": [
+      {
+        "title": "Mehr Platz auf dem Board",
+        "where": "Jedes Board",
+        "body": "Über einem Board stehen keine zwei Leisten mehr. Name, Bereich und Stern schweben klein oben links, Teilen, das Menü und das eigene Konto oben rechts. Die Werkzeuge stehen senkrecht am linken Rand, auf dem Handy wie bisher unten. Die Formenbibliothek klappt neben den Werkzeugen auf und ist anfangs eingeklappt; die zuletzt genommenen Formen aus ihr stehen gleich im Werkzeug „Form“. Hell und dunkel lassen sich auf dem Board im Kontomenü umstellen."
+      },
+      {
+        "title": "Auswählen verschiebt auch das Board",
+        "where": "Werkzeug „Auswählen“ (V), auf leerer Fläche ziehen",
+        "body": "Ziehen auf leerer Fläche verschiebt das Board, wie mit der Hand. Einen Rahmen um mehrere Dinge zieht man jetzt mit gedrückter Umschalttaste. Die Hand hat keinen eigenen Knopf mehr. H schaltet sie weiter ein, dann verschiebt Ziehen das Board auch über Dingen, etwa über einer PDF, die den ganzen Bildschirm füllt. Leertaste und mittlere Maustaste verschieben wie bisher."
+      },
+      {
+        "title": "Vollbild",
+        "where": "Knopf unten rechts neben „Szenen“",
+        "body": "Zeigt das Board auf dem ganzen Bildschirm, ohne zu präsentieren, etwa am Beamer. Derselbe Knopf oder Esc beendet es. Auf dem iPhone fehlt der Knopf, weil Safari dort für Seiten kein Vollbild kennt."
+      },
+      {
+        "title": "Rahmen ohne Füllung",
+        "where": "Rahmen auswählen, „Farbe“ in der Leiste darüber, „Ohne Füllung“",
+        "body": "Der Rahmen zeigt dann nur seinen Rand und färbt nicht mehr, was unter ihm liegt, etwa eine PDF oder ein Foto."
+      }
+    ],
+    "smallTitle": "Außerdem",
+    "small": [
+      "Unter Linux legt die mittlere Maustaste beim Verschieben keine Notiz mit dem zuletzt markierten Text mehr an.",
+      "Der Name neben einem schmalen Symbol der Formenbibliothek, etwa „Handy“ im Netzwerk-Paket, bricht nicht mehr mitten im Wort um."
+    ]
+  },
   "0.7.0": {
     "lead": "Rahmen decken jetzt auch einen Teil einer PDF oder eines Fotos ab, Schriftgrößen sind Zahlen nach Wahl, und Formen bekommen eine Linienstärke.",
     "sections": [

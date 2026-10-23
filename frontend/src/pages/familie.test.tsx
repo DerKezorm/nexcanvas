@@ -637,5 +637,6 @@ describe('the tab names the board', () => {
       '/b/b1',
     )
     expect(document.title).toBe('Ideen · nexcanvas')
-  })
+    // Loading the board page the first time takes seconds on a slow machine (once over 5 here, with a cold cache).
+  }, 30_000)
 })

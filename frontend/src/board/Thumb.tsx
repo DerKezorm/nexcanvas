@@ -67,7 +67,7 @@ function ThumbItem({ item, lookup }: { item: Item; lookup: Lookup }) {
     case 'image':
       return <image href={mediaUrl(item.media, true)} x={item.x} y={item.y} width={item.w} height={item.h} preserveAspectRatio="xMidYMid slice" />
     case 'frame':
-      return <rect x={item.x} y={item.y} width={item.w} height={item.h} rx={14} fill="var(--color-ink-800)" opacity={0.6} stroke={item.color} strokeWidth={3} />
+      return <rect x={item.x} y={item.y} width={item.w} height={item.h} rx={14} fill={item.clear ? 'none' : 'var(--color-ink-800)'} opacity={0.6} stroke={item.color} strokeWidth={3} />
     case 'file':
     case 'link':
     case 'timer':

@@ -1,4 +1,34 @@
 {
+  "0.8.0": {
+    "lead": "A board now has the whole height of the screen, the tools stand on the left, and dragging the empty board moves it.",
+    "sections": [
+      {
+        "title": "More room on the board",
+        "where": "Every board",
+        "body": "There are no longer two bars above a board. Name, space and star float small at the top left, Share, the menu and your account at the top right. The tools stand on the left edge, on a phone at the bottom as before. The shape library opens beside the tools and starts folded; the shapes you took from it last are right in the Shape tool. Light and dark can be switched on the board in the account menu."
+      },
+      {
+        "title": "Selecting moves the board too",
+        "where": "The Select tool (V), drag on the empty board",
+        "body": "Dragging the empty board moves it, as with the hand. To draw a box around several things, hold Shift. The hand has no button of its own any more. H still turns it on, and then dragging moves the board also over things, such as a PDF that fills the whole screen. Space and the middle mouse button move the board as before."
+      },
+      {
+        "title": "Full screen",
+        "where": "Button at the bottom right next to Scenes",
+        "body": "Shows the board on the whole screen without presenting, for a projector for example. The same button or Esc ends it. On an iPhone the button is missing, as Safari there has no full screen for pages."
+      },
+      {
+        "title": "Frames without fill",
+        "where": "Select a frame, Colour in the bar above it, No fill",
+        "body": "The frame then shows only its edge and no longer tints what lies under it, such as a PDF or a photo."
+      }
+    ],
+    "smallTitle": "Also",
+    "small": [
+      "On Linux, the middle mouse button no longer adds a note with the text marked last while moving the board.",
+      "The name beside a narrow symbol of the shape library, such as \"Phone\" in the network package, no longer breaks inside the word."
+    ]
+  },
   "0.7.0": {
     "lead": "Frames can now cover a part of a PDF or a photo, text sizes are numbers you choose, and shapes get a line thickness.",
     "sections": [

@@ -145,7 +145,7 @@ function Frame({ item, editing, onDone }: { item: FrameItem; editing: boolean; o
   return (
     <>
       <svg className="absolute inset-0 overflow-visible" width={item.w} height={item.h} aria-hidden="true">
-        <rect x={0} y={0} width={item.w} height={item.h} rx={14} fill={color} fillOpacity={0.06} stroke={color} strokeOpacity={0.7} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+        <rect x={0} y={0} width={item.w} height={item.h} rx={14} fill={item.clear ? 'none' : color} fillOpacity={0.06} stroke={color} strokeOpacity={0.7} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
         <rect x={0} y={0} width={item.w} height={item.h} rx={14} fill="none" stroke="transparent" strokeWidth={14} vectorEffect="non-scaling-stroke" style={{ pointerEvents: 'stroke' }} />
       </svg>
       <div
@@ -231,7 +231,8 @@ function Body({ item, editing, onDone, onMeasure }: Props) {
             {!quiet && (
               <div
                 className="absolute flex items-center"
-                style={{ left: box.x * item.w, top: box.y * item.h, width: box.w * item.w, height: box.h * item.h, color, fontSize: size, lineHeight: 1.2, justifyContent: justifyOf(item), ...look }}
+                // Beside a narrow symbol (a phone) the words run on to the right instead of breaking inside a word.
+                style={{ left: box.x * item.w, top: box.y * item.h, height: box.h * item.h, color, fontSize: size, lineHeight: 1.2, justifyContent: justifyOf(item), ...look, ...(inside || editing ? { width: box.w * item.w } : { width: 'max-content', minWidth: box.w * item.w, whiteSpace: 'nowrap' }) }}
               >
                 {editing ? (
                   <Editor item={item} onDone={onDone} className="h-full w-full" style={{ color, fontSize: size, lineHeight: 1.2, ...look }} />

@@ -15,7 +15,7 @@ import { ThemeSwitcher } from './ThemeSwitcher'
  * The round button top right, built as nexlore's: who one is, what waits (invitations), the language, the own
  * account, the settings, about nexcanvas, signing out. On a phone the light/dark switch lives here.
  */
-export function AccountMenu() {
+export function AccountMenu({ withTheme = false }: { withTheme?: boolean } = {}) {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { me, signOut, setMe } = useAuth()
@@ -73,8 +73,8 @@ export function AccountMenu() {
       </button>
       {open && (
         <div className="absolute right-0 z-40 mt-2 w-72 rounded-2xl border border-ink-700 bg-ink-900 p-2 text-sm shadow-2xl">
-          {/* On a phone the switch has no room in the header: it lives here. */}
-          <div className="flex justify-end px-3 py-2 sm:hidden">
+          {/* On a phone the switch has no room in the header, and a board has no header: it lives here. */}
+          <div className={'flex justify-end px-3 py-2 ' + (withTheme ? '' : 'sm:hidden')}>
             <ThemeSwitcher />
           </div>
           <div className="px-3 py-2">
