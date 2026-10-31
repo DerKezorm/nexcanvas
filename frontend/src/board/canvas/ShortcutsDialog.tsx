@@ -44,6 +44,7 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
     title: 'keys.view',
     rows: [
       ['Space', 'keys.pan'],
+      ['Rechte Maustaste', 'keys.pan'],
       ['Shift', 'keys.marquee'],
       ['Ctrl + Mausrad', 'keys.zoom'],
       ['+ / −', 'keys.zoomStep'],
@@ -69,7 +70,7 @@ export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
                 <div key={key} className="flex items-center justify-between gap-3 text-sm">
                   <dt className="text-mist-300">{t(label)}</dt>
                   <dd>
-                    <kbd>{key === 'Entf' ? t('keys.del') : key === 'Ctrl + Mausrad' ? t('keys.ctrlWheel') : key === 'Space' ? t('keys.space') : key.replace(/Ctrl/g, t('keys.ctrl')).replace(/Shift/g, t('keys.shift'))}</kbd>
+                    <kbd>{key === 'Entf' ? t('keys.del') : key === 'Ctrl + Mausrad' ? t('keys.ctrlWheel') : key === 'Rechte Maustaste' ? t('keys.rightButton') : key === 'Space' ? t('keys.space') : key.replace(/Ctrl/g, t('keys.ctrl')).replace(/Shift/g, t('keys.shift'))}</kbd>
                   </dd>
                 </div>
               ))}

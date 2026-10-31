@@ -1,4 +1,26 @@
 {
+  "0.9.0": {
+    "lead": "Die rechte Maustaste verschiebt jetzt das Board, die linke wählt aus, und Gesperrtes bleibt beim Löschen liegen.",
+    "sections": [
+      {
+        "title": "Links auswählen, rechts verschieben",
+        "where": "Jedes Board, mit der Maus",
+        "body": "Ziehen mit der rechten Maustaste verschiebt das Board, auch über Dingen und mit jedem Werkzeug. Ein Klick mit der rechten Taste öffnet wie bisher das Menü. Ziehen mit der linken Taste auf leerer Fläche zieht wieder einen Rahmen um mehrere Dinge, mit gedrückter Umschalttaste kommen sie zur Auswahl dazu. Mittlere Maustaste, Leertaste, H und das Mausrad verschieben weiter, auf dem Touchscreen der Finger."
+      },
+      {
+        "title": "Gesperrtes bleibt liegen",
+        "where": "Gesperrte PDF, Foto oder Form",
+        "body": "Der Auswahlrahmen nimmt Gesperrtes nicht mehr mit, und Löschen lässt es stehen. Wer auf einer gesperrten PDF geschrieben hat, rahmt die Schrift ein und löscht sie, die Seite bleibt. Ziehen auf etwas Gesperrtem wirkt wie auf leerer Fläche; ein Klick wählt es weiter aus, damit es sich entsperren lässt."
+      }
+    ],
+    "smallTitle": "Außerdem",
+    "small": [
+      "Strg und Mausrad zoomen sanfter, um etwa zehn Prozent je Rastung.",
+      "Ein Textfeld ohne Text verschwindet wieder, auch nach einem Klick aufs Board oder einem Werkzeugwechsel.",
+      "In Dialogen bleibt der Cursor im gewählten Feld und springt beim Tippen nicht mehr ins erste.",
+      "Eine vom Browser übersetzte Seite stürzt nicht mehr ab."
+    ]
+  },
   "0.8.0": {
     "lead": "Ein Board hat jetzt die ganze Höhe des Bildschirms, die Werkzeuge stehen links, und Ziehen auf leerer Fläche verschiebt das Board.",
     "sections": [

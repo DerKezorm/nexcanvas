@@ -35,7 +35,7 @@ import { covered, hidingFrames, mayShow } from '../board/hiding'
 import { HiddenCover } from '../board/canvas/HiddenCover'
 import { TIMER_SIZE } from '../board/timer'
 import { Stage, useStageKeys, useWholeScreen, wholeScreen } from '../board/canvas/Stage'
-import { emptyDrag, pastedByMiddle } from '../board/gestures'
+import { emptyDrag, onlyLocked, pastedByMiddle, stayed, unlocked, wheelZoom } from '../board/gestures'
 import { arrange } from '../board/arrange'
 import { spreadPdf } from '../board/spread'
 import type { SpanLook } from '../board/rich'
@@ -145,13 +145,16 @@ const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z))
 
 type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
 
+/** A press on something locked, kept until it lets go: if it stays put, these `ids` become the selection. */
+type LockedPress = { ids: string[]; at: Point }
+
 type Gesture =
-  | { kind: 'pan'; start: Point; view: View }
+  | { kind: 'pan'; start: Point; view: View; menu?: boolean; locked?: LockedPress }
   | { kind: 'move'; start: Point; ids: string[]; lines: string[]; origin: Doc; moved: boolean; box: Rect }
   | { kind: 'resize'; handle: Handle; start: Point; origin: Doc; box: Rect; ids: string[]; keep: boolean; moved: boolean }
   // `origin` is the picture when the gesture began: where things were. The live picture is changed from it only for
   // what the gesture moves, so a note somebody else adds or edits meanwhile stays as it is.
-  | { kind: 'marquee'; start: Point; add: string[] }
+  | { kind: 'marquee'; start: Point; add: string[]; locked?: LockedPress }
   | { kind: 'create'; tool: 'note' | 'shape' | 'text' | 'frame'; start: Point }
   | { kind: 'rotate'; ids: string[]; middle: Point; from: number; origin: Doc; moved: boolean }
   | { kind: 'draw'; points: number[][] }
@@ -294,6 +297,9 @@ function Editor({ board }: { board: Board }) {
   const lastTap = useRef({ time: 0, x: 0, y: 0, handled: 0 })
   /** When the middle button last went down or up on the board: Linux pastes on that button, which is no paste here. */
   const middlePress = useRef(-Infinity)
+  // The right button opens the menu itself, on letting go. The browser's `contextmenu` for that press, which Windows
+  // sends after letting go and Linux and macOS before, changes nothing then; the key for the menu still opens it.
+  const rightPress = useRef(false)
   const fileInput = useRef<HTMLInputElement>(null)
   const cameraInput = useRef<HTMLInputElement>(null)
   const canvasInput = useRef<HTMLInputElement>(null)
@@ -424,8 +430,7 @@ function Editor({ board }: { board: Board }) {
       if (over === 'scroll') return
       e.preventDefault()
       if (over === 'end') return
-      // A mouse wheel notch is about 100, a trackpad pinch sends small steps; both should feel alike.
-      if (e.ctrlKey || e.metaKey) zoomAt(local(e), Math.exp(-Math.max(-60, Math.min(60, e.deltaY)) * (Math.abs(e.deltaY) < 40 ? 0.01 : 0.0035)))
+      if (e.ctrlKey || e.metaKey) zoomAt(local(e), wheelZoom(e.deltaY))
       else setView((v) => ({ ...v, x: v.x - (e.shiftKey ? e.deltaY : e.deltaX), y: v.y - (e.shiftKey ? 0 : e.deltaY) }))
     }
     el.addEventListener('wheel', wheel, { passive: false })
@@ -547,7 +552,9 @@ function Editor({ board }: { board: Board }) {
 
   const removeIds = useCallback(
     (ids: string[]) => {
-      const gone = new Set(ids)
+      // What is locked stays, whatever else went with it into the selection.
+      const gone = new Set(unlocked(ids, doc.ref.current.items))
+      if (!gone.size) return
       for (const id of notesOn(gone, doc.ref.current.items)) gone.add(id)
       doc.commit((d) => ({
         items: d.items.filter((i) => !gone.has(i.id)),
@@ -707,7 +714,12 @@ function Editor({ board }: { board: Board }) {
       setMarquee(null)
       return
     }
-    if (e.button === 2) return
+    // Dragged, the right button moves the board with any tool. Let go where it began, it opens the menu.
+    if (e.button === 2) {
+      rightPress.current = true
+      gesture.current = { kind: 'pan', start: s, view: viewRef.current, menu: true }
+      return
+    }
     const p = toBoard(s, viewRef.current)
     const tool = tools.tool
 
@@ -758,12 +770,21 @@ function Editor({ board }: { board: Board }) {
 
     if (tool === 'select') {
       const hit = itemId ?? lineId
+      const dragOnBoard = (locked?: LockedPress) => {
+        gesture.current = emptyDrag(e.pointerType) === 'marquee' ? { kind: 'marquee', start: p, add: e.shiftKey ? selected : [], locked } : { kind: 'pan', start: s, view: viewRef.current, locked }
+      }
       if (hit) {
         const all = doc.ref.current.items
         const picked = withGroups([hit], all)
         let next = selected
         if (e.shiftKey) next = selectedSet.has(hit) ? selected.filter((x) => !picked.includes(x)) : [...new Set([...selected, ...picked])]
         else if (!selectedSet.has(hit)) next = picked
+        // Nothing here to take hold of: a drag goes on as on the empty board, say over a locked PDF that fills the
+        // screen, and a click still selects it, for unlocking.
+        if (onlyLocked(next.includes(hit) ? next : picked, all)) {
+          dragOnBoard({ ids: next, at: s })
+          return
+        }
         setSelected(next)
         const chosen = new Set(next)
         // A frame takes along what lies in it, and the free ends of lines in it.
@@ -778,7 +799,7 @@ function Editor({ board }: { board: Board }) {
         gesture.current = { kind: 'move', start: p, ids: movable.map((i) => i.id), lines: freeLines, origin: doc.ref.current, moved: false, box }
       } else {
         if (!e.shiftKey) setSelected([])
-        gesture.current = emptyDrag(e.shiftKey, e.pointerType) === 'marquee' ? { kind: 'marquee', start: p, add: selected } : { kind: 'pan', start: s, view: viewRef.current }
+        dragOnBoard()
       }
       return
     }
@@ -1009,8 +1030,12 @@ function Editor({ board }: { board: Board }) {
         const r = normalize(g.start, p)
         setMarquee(r)
         // A frame only when the rectangle holds all of it: a rectangle drawn inside a frame picks what is in there.
-        const inside = withGroups(
-          doc.ref.current.items.filter((i) => !waiting.has(i.id) && !coverRef.current.items.has(i.id)).filter((i) => (i.kind === 'frame' ? contains(r, i) && contains(r, { x: i.x + i.w, y: i.y + i.h }) : intersects(outer(i), r))).map((i) => i.id),
+        // Never what is locked: writing on a locked page is picked without the page.
+        const inside = unlocked(
+          withGroups(
+            doc.ref.current.items.filter((i) => !waiting.has(i.id) && !coverRef.current.items.has(i.id)).filter((i) => (i.kind === 'frame' ? contains(r, i) && contains(r, { x: i.x + i.w, y: i.y + i.h }) : intersects(outer(i), r))).map((i) => i.id),
+            doc.ref.current.items,
+          ),
           doc.ref.current.items,
         )
         const linesIn = doc.ref.current.lines
@@ -1090,6 +1115,9 @@ function Editor({ board }: { board: Board }) {
     if (!g) return
     const s = local(e)
     const p = toBoard(s, viewRef.current)
+
+    if (g.kind === 'pan' && g.menu && e.type === 'pointerup' && stayed(g.start, s)) menuAt(e)
+    if ((g.kind === 'pan' || g.kind === 'marquee') && g.locked && stayed(g.locked.at, s)) setSelected(g.locked.ids)
 
     switch (g.kind) {
       case 'marquee':
@@ -1251,7 +1279,7 @@ function Editor({ board }: { board: Board }) {
   )
   const onMeasure = useCallback((id: string, h: number) => doc.quiet((d) => ({ ...d, items: d.items.map((i) => (i.id === id ? { ...i, h } : i)) })), [doc])
 
-  // Writing starts a step in the history; leaving an empty new text removes it again.
+  // Writing starts a step in the history.
   const startText = useRef<string | null>(null)
   useEffect(() => {
     if (editing && startText.current !== editing) {
@@ -1261,18 +1289,20 @@ function Editor({ board }: { board: Board }) {
     if (!editing) startText.current = null
   }, [editing, doc])
 
-  const onDone = useCallback(() => {
-    setEditing((id) => {
-      if (id) {
-        const item = doc.ref.current.items.find((i) => i.id === id)
-        if (item?.kind === 'text' && !item.text.trim()) {
-          doc.live((d) => ({ ...d, items: d.items.filter((i) => i.id !== id) }))
-          setSelected([])
-        }
-      }
-      return null
-    })
-  }, [doc])
+  // A text left without words goes again, however it was left: Esc, a click on the board or another tool. Here and not
+  // in the editor, which is gone before it could tell when a click on the board ends the writing.
+  const lastEditing = useRef<string | null>(null)
+  useEffect(() => {
+    const left = lastEditing.current
+    lastEditing.current = editing
+    if (!left || left === editing) return
+    const item = doc.ref.current.items.find((i) => i.id === left)
+    if (item?.kind !== 'text' || item.text.trim()) return
+    doc.live((d) => ({ ...d, items: d.items.filter((i) => i.id !== left), lines: d.lines.filter((l) => l.a.item !== left && l.b.item !== left) }))
+    setSelected((ids) => ids.filter((id) => id !== left))
+  }, [editing, doc])
+
+  const onDone = useCallback(() => setEditing(null), [])
 
   // ---------- keys, paste, drop ----------
 
@@ -1696,7 +1726,8 @@ function Editor({ board }: { board: Board }) {
         onDoubleClick={onDoubleClick}
         onContextMenu={(e) => {
           e.preventDefault()
-          menuAt(e)
+          if (rightPress.current) rightPress.current = false
+          else menuAt(e)
         }}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
@@ -2013,7 +2044,7 @@ function Editor({ board }: { board: Board }) {
                 <button type="button" className="nc-menu-item" onClick={() => { setMenu(null); actions.back() }} disabled={readOnly}>{t('context.back')}</button>
                 <button type="button" className="nc-menu-item" onClick={() => { setMenu(null); actions.lock(!allLocked) }} disabled={readOnly}>{allLocked ? t('context.unlock') : t('context.lock')}</button>
                 <div className="my-1 h-px bg-ink-700" />
-                <button type="button" className="nc-menu-item text-bad-500" onClick={() => { setMenu(null); removeIds(selected) }} disabled={readOnly}>{t('context.delete')}</button>
+                <button type="button" className="nc-menu-item text-bad-500" onClick={() => { setMenu(null); removeIds(selected) }} disabled={readOnly || allLocked}>{t('context.delete')}</button>
               </>
             ) : (
               <>

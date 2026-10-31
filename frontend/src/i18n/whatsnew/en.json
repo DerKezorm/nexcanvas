@@ -1,4 +1,26 @@
 {
+  "0.9.0": {
+    "lead": "The right mouse button now moves the board, the left one selects, and what is locked stays when you delete.",
+    "sections": [
+      {
+        "title": "Select with the left, move with the right",
+        "where": "Every board, with a mouse",
+        "body": "Dragging with the right mouse button moves the board, also over things and with any tool. A click of the right button opens the menu as before. Dragging with the left button on the empty board draws a box around several things again; with Shift held they add to what is selected. The middle mouse button, Space, H and the wheel still move the board, and so does a finger on a touch screen."
+      },
+      {
+        "title": "What is locked stays",
+        "where": "A locked PDF, photo or shape",
+        "body": "The selection box no longer takes along what is locked, and deleting leaves it in place. If you wrote on a locked PDF, draw a box around your writing and delete it, and the page stays. Dragging on something locked works as on the empty board; a click still selects it, so it can be unlocked."
+      }
+    ],
+    "smallTitle": "Also",
+    "small": [
+      "Ctrl and the mouse wheel zoom more gently, by about ten percent per notch.",
+      "A text box left empty goes away again, also after a click on the board or a change of tool.",
+      "In dialogs the cursor stays in the chosen field and no longer jumps to the first one while typing.",
+      "A page translated by the browser no longer crashes."
+    ]
+  },
   "0.8.0": {
     "lead": "A board now has the whole height of the screen, the tools stand on the left, and dragging the empty board moves it.",
     "sections": [

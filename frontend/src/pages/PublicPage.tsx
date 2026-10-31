@@ -19,6 +19,7 @@ import { MediaBase } from '../board/canvas/media'
 import { backgroundStyle, effectiveBackground, inkVariables } from '../board/background'
 import { LibraryContext, makeLookup } from '../board/library/registry'
 import { bounds, type Rect } from '../board/geometry'
+import { wheelZoom } from '../board/gestures'
 import type { Background, Doc, Item, LineItem, View } from '../board/types'
 import { Logo } from '../components/Logo'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
@@ -80,7 +81,7 @@ export function PublicPage() {
       const p = { x: e.clientX - r.left, y: e.clientY - r.top }
       if (e.ctrlKey || e.metaKey) {
         setView((v) => {
-          const zoom = Math.min(4, Math.max(0.1, v.zoom * Math.exp(-Math.max(-60, Math.min(60, e.deltaY)) * 0.0035)))
+          const zoom = Math.min(4, Math.max(0.1, v.zoom * wheelZoom(e.deltaY)))
           const k = zoom / v.zoom
           return { zoom, x: p.x - (p.x - v.x) * k, y: p.y - (p.y - v.y) * k }
         })

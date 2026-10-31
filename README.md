@@ -42,7 +42,7 @@ your own: save a board as a template, with its content or only the skeleton.*
 - **An endless board.** Notes in seven colours, nine shapes with text inside, text in four sizes or handwriting,
   lines that stick to what they connect (straight or curved, arrows, dashed), pen and highlighter with pressure,
   an eraser for drawings. Things snap to each other while you drag (Alt does the opposite). Dragging the empty
-  board moves it; Shift and drag selects several things.
+  board selects several things; the right mouse button moves the board, and what is locked stays put.
 - **Together, live.** Everybody sees each change at once, the pointers of the others with their names, and what
   they have selected. Two people can type in the same note; both their words stay. Undo only ever takes back your
   own steps, never somebody else's.

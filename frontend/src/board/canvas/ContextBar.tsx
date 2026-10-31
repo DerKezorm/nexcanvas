@@ -267,9 +267,11 @@ export function ContextBar({ items, lines, at, actions, docked = false }: {
             </Btn>
           </>
         )}
-        <Btn label={t('context.delete')} onClick={actions.remove}>
-          <Trash2 className="h-4 w-4 text-bad-500" />
-        </Btn>
+        {!locked && (
+          <Btn label={t('context.delete')} onClick={actions.remove}>
+            <Trash2 className="h-4 w-4 text-bad-500" />
+          </Btn>
+        )}
       </div>
       {panel && (
         <div className={'nc-float absolute left-1/2 w-max max-w-72 -translate-x-1/2 p-2.5 ' + (docked ? 'bottom-full mb-2' : 'top-full mt-2')}>
