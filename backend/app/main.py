@@ -197,6 +197,13 @@ for module in ROUTERS:
 oidc_store.configure()
 
 
+#: Files at the top of ``frontend/public`` that a browser asks the server about again before each use: the mark and the
+#: theme script. ``no-cache`` does not mean "do not keep", it means "ask first"; an unchanged file comes back as 304.
+#: ⚠️ The mark belongs here: without a header the browser guesses how long it may keep it, and after a sister app's new
+#: mark the tab kept the old one. test_basics.py checks that every file at the top of public/ is listed.
+FRESH = frozenset({"logo.svg", "theme.js"})
+
+
 def _mount_frontend(target: FastAPI, dist: Path) -> None:
     index = dist / "index.html"
     if not index.exists():
@@ -212,7 +219,7 @@ def _mount_frontend(target: FastAPI, dist: Path) -> None:
             return JSONResponse(status_code=404, content={"detail": detail("not_found", "Not found.")})
         candidate = (dist / path).resolve()
         if path and candidate.is_file() and root in candidate.parents and candidate != start_page:
-            return FileResponse(candidate)
+            return FileResponse(candidate, headers={"Cache-Control": "no-cache"} if path in FRESH else None)
         return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
 

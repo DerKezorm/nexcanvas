@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app import __version__
-from app.main import _mount_frontend
+from app.main import FRESH, _mount_frontend
 
 
 def test_health_and_about(client: TestClient) -> None:
@@ -88,3 +88,25 @@ def test_a_cookie_suffix_keeps_two_instances_on_one_host_apart(monkeypatch) -> N
     assert Settings(cookie_suffix="_suite").cookie_name_suffix() == "_suite"
     assert Settings(cookie_suffix="a;b=c d").cookie_name_suffix() == "abcd"
     assert Settings().cookie_name_suffix() == ""
+
+
+def test_the_mark_and_the_theme_script_are_asked_for_again(tmp_path: Path) -> None:
+    """A kept old favicon stayed in the tab after a sister app's new mark; the address carries ?v=2 as well."""
+    client = _built(tmp_path)
+    dist = tmp_path / "dist"
+    (dist / "logo.svg").write_bytes(b"<svg>made up</svg>")
+    (dist / "theme.js").write_bytes(b"// made up")
+    for address, body in (("/logo.svg?v=2", "<svg>made up</svg>"), ("/theme.js", "// made up")):
+        answer = client.get(address)
+        assert answer.status_code == 200 and answer.text == body, address
+        assert answer.headers["cache-control"] == "no-cache", address
+    # Only the listed files: the header is no blanket over everything the build writes.
+    assert "cache-control" not in client.get("/favicon.svg").headers
+
+
+def test_every_file_at_the_top_of_public_is_asked_for_again() -> None:
+    frontend = Path(__file__).resolve().parents[2] / "frontend"
+    files = {path.name for path in (frontend / "public").iterdir() if path.is_file()}
+    assert files and files <= FRESH, sorted(files - FRESH)
+    index = (frontend / "index.html").read_text(encoding="utf-8")
+    assert '<link rel="icon" type="image/svg+xml" href="/logo.svg?v=2" />' in index

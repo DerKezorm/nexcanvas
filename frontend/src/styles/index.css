@@ -81,6 +81,25 @@
   --color-scrim: rgb(20 20 30 / 0.35);
 }
 
+/* The colours of the mark (components/Logo.tsx): a dark tile like the app by default, a white one in light mode.
+   The same values are in public/logo.svg; the source is nexapps/icons-vergleich/neu.py. */
+:root {
+  --nc-logo-ground: #170d0a;
+  --nc-logo-rim: rgb(255 138 112 / 0.45);
+  --nc-logo-gradient-1: #ffe4dc;
+  --nc-logo-gradient-2: #ff8a70;
+  --nc-logo-gradient-3: #d9562f;
+  --nc-logo-accent: #ffa58c;
+}
+:root[data-theme='light'] {
+  --nc-logo-ground: #ffffff;
+  --nc-logo-rim: rgb(242 100 63 / 0.35);
+  --nc-logo-gradient-1: #ffb39c;
+  --nc-logo-gradient-2: #f2643f;
+  --nc-logo-gradient-3: #a8361a;
+  --nc-logo-accent: #d9481f;
+}
+
 @layer base {
   html {
     color-scheme: dark;
