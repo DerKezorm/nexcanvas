@@ -92,6 +92,10 @@ def test_what_is_not_one_of_ours_is_refused_and_leaves_nothing(client: TestClien
 
 
 def test_pruning_old_automatic_copies_leaves_an_uploaded_one(client: TestClient, operator: Account) -> None:
+    # The folder outlives a test: a copy an earlier one left (the one a restore makes first, made within the same
+    # second) would count among the automatic ones and could be the one kept.
+    for entry in backups.entries():
+        backups.remove(entry.name)
     archive = io.BytesIO(_downloaded(client))
     # A copy made by the nightly schedule elsewhere: its manifest says "scheduled".
     scheduled = io.BytesIO()
