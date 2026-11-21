@@ -1,4 +1,19 @@
 {
+  "0.10.0": {
+    "lead": "nexcanvas has a new mark: an easel with a canvas, a sun and hills on it, on a white tile in light mode and a dark one in dark mode.",
+    "sections": [
+      {
+        "title": "A new mark that follows light and dark",
+        "where": "Everywhere",
+        "body": "The logo in the header, on the sign-in page, on shared boards and on the About page switches with the mode you chose. The browser tab shows the light or dark mark the way the system is set."
+      }
+    ],
+    "smallTitle": "Also",
+    "small": [
+      "The mark and the light and dark script are asked for again before use, and the favicon has a new address, so the browser does not keep the old one.",
+      "No new variables, ports or paths."
+    ]
+  },
   "0.9.0": {
     "lead": "The right mouse button now moves the board, the left one selects, and what is locked stays when you delete.",
     "sections": [

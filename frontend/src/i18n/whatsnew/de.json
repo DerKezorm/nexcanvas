@@ -1,4 +1,19 @@
 {
+  "0.10.0": {
+    "lead": "nexcanvas hat ein neues Zeichen: eine Staffelei mit Leinwand, darauf Sonne und Hügel, im hellen Modus auf weißer Kachel, im dunklen auf dunkler.",
+    "sections": [
+      {
+        "title": "Ein neues Zeichen, das hell und dunkel folgt",
+        "where": "Überall",
+        "body": "Das Logo in der Kopfzeile, auf der Anmeldeseite, auf geteilten Boards und auf der Über-Seite wechselt mit dem Modus, den du eingestellt hast. Der Browser-Tab zeigt das helle oder dunkle Zeichen, je nachdem, wie das System eingestellt ist."
+      }
+    ],
+    "smallTitle": "Außerdem",
+    "small": [
+      "Das Zeichen und das Skript für hell und dunkel werden vor jeder Nutzung neu nachgefragt, und das Favicon hat eine neue Adresse, damit der Browser nicht das alte behält.",
+      "Keine neuen Variablen, Ports oder Pfade."
+    ]
+  },
   "0.9.0": {
     "lead": "Die rechte Maustaste verschiebt jetzt das Board, die linke wählt aus, und Gesperrtes bleibt beim Löschen liegen.",
     "sections": [
